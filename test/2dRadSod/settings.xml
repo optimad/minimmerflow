@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<minimmerflow version="1">
+    <problem>
+        <type>radsod</type>
+        <time>
+            <end>1</end>
+        </time>
+    </problem>
+    <discretization>
+        <space>
+            <order>1</order>
+            <nCells>64</nCells>
+        </space>
+        <time>
+            <CFL>0.45</CFL>
+        </time>
+    </discretization>
+</minimmerflow>
