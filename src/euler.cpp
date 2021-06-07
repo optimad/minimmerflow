@@ -160,13 +160,13 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
 
         // Info about the interface neighbour
         long neighId = interface.getNeigh();
-        VolumeKernel::CellConstIterator neighItr = mesh.cellConstEnd();
         std::size_t neighRawId = std::numeric_limits<std::size_t>::max();
         const double *neighMean = nullptr;
         double *neighRHS = nullptr;
         bool neighSolved = false;
         if (neighId >= 0) {
-            neighItr    = mesh.getCellConstIterator(neighId);
+            VolumeKernel::CellConstIterator neighItr = mesh.getCellConstIterator(neighId);
+
             neighRawId  = neighItr.getRawIndex();
             neighMean   = cellConservatives.rawData(neighRawId);
             neighRHS    = cellRHS->rawData(neighRawId);
