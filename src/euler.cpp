@@ -132,7 +132,9 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
     const VolumeKernel &mesh = meshInfo.getPatch();
 
     // Reset the residuals
-    for (VolOctree::CellConstIterator cellItr = mesh.internalCellConstBegin(); cellItr != mesh.internalCellConstEnd(); ++cellItr) {
+    VolOctree::CellConstIterator internalCellConstBegin = mesh.internalCellConstBegin();
+    VolOctree::CellConstIterator internalCellConstEnd   = mesh.internalCellConstEnd();
+    for (VolOctree::CellConstIterator cellItr = internalCellConstBegin; cellItr != internalCellConstEnd; ++cellItr) {
         double *RHS = cellRHS->rawData(cellItr.getRawIndex());
         for (int k = 0; k < N_FIELDS; ++k) {
             RHS[k] = 0.;

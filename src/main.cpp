@@ -182,6 +182,9 @@ void computation(int argc, char *argv[])
         log::cout() << "+++ mesh.partition() DONE.\n";
     }
 
+    VolOctree::CellConstIterator internalCellConstBegin = mesh.internalCellConstBegin();
+    VolOctree::CellConstIterator internalCellConstEnd   = mesh.internalCellConstEnd();
+
     log_memory_status();
 
     // Initialize body info
@@ -332,7 +335,7 @@ void computation(int argc, char *argv[])
 
     // Find smallest cell
     double minCellSize = std::numeric_limits<double>::max();
-    for (VolOctree::CellConstIterator cellItr = mesh.internalCellConstBegin(); cellItr != mesh.internalCellConstEnd(); ++cellItr) {
+    for (VolOctree::CellConstIterator cellItr = internalCellConstBegin; cellItr != internalCellConstEnd; ++cellItr) {
         std::size_t cellRawId = cellItr.getRawIndex();
         minCellSize = std::min(meshInfo.rawGetCellSize(cellRawId), minCellSize);
     }
@@ -388,7 +391,7 @@ void computation(int argc, char *argv[])
         //
         // SECOND RK STAGE
         //
-        for (VolOctree::CellConstIterator cellItr = mesh.internalCellConstBegin(); cellItr != mesh.internalCellConstEnd(); ++cellItr) {
+        for (VolOctree::CellConstIterator cellItr = internalCellConstBegin; cellItr != internalCellConstEnd; ++cellItr) {
             std::size_t cellRawId = cellItr.getRawIndex();
             bool ownerSolved = cellSolvedFlag.rawAt(cellRawId);
             if (!ownerSolved) {
@@ -424,7 +427,7 @@ void computation(int argc, char *argv[])
         //
         // THIRD RK STAGE
         //
-        for (VolOctree::CellConstIterator cellItr = mesh.internalCellConstBegin(); cellItr != mesh.internalCellConstEnd(); ++cellItr) {
+        for (VolOctree::CellConstIterator cellItr = internalCellConstBegin; cellItr != internalCellConstEnd; ++cellItr) {
             std::size_t cellRawId = cellItr.getRawIndex();
             bool ownerSolved = cellSolvedFlag.rawAt(cellRawId);
             if (!ownerSolved) {
@@ -460,7 +463,7 @@ void computation(int argc, char *argv[])
         //
         // CLOSE RK STEP
         //
-        for (VolOctree::CellConstIterator cellItr = mesh.internalCellConstBegin(); cellItr != mesh.internalCellConstEnd(); ++cellItr) {
+        for (VolOctree::CellConstIterator cellItr = internalCellConstBegin; cellItr != internalCellConstEnd; ++cellItr) {
             std::size_t cellRawId = cellItr.getRawIndex();
             bool ownerSolved = cellSolvedFlag.rawAt(cellRawId);
             if (!ownerSolved) {
@@ -528,7 +531,7 @@ void computation(int argc, char *argv[])
     std::array<double, N_FIELDS> evalConservatives;
 
     double error = 0.;
-    for (VolOctree::CellConstIterator cellItr = mesh.internalCellConstBegin(); cellItr != mesh.internalCellConstEnd(); ++cellItr) {
+    for (VolOctree::CellConstIterator cellItr = internalCellConstBegin; cellItr != internalCellConstEnd; ++cellItr) {
         const Cell &cell = *cellItr;
         long cellId = cell.getId();
 
