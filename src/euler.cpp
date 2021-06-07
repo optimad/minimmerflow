@@ -144,7 +144,9 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
     // Initialize space integration
     *maxEig = 0.0;
 
-    for (VolOctree::InterfaceConstIterator interfaceItr = mesh.interfaceConstBegin(); interfaceItr != mesh.interfaceConstEnd(); ++interfaceItr) {
+    VolOctree::InterfaceConstIterator interfaceConstBegin = mesh.interfaceConstBegin();
+    VolOctree::InterfaceConstIterator interfaceConstEnd   = mesh.interfaceConstEnd();
+    for (VolOctree::InterfaceConstIterator interfaceItr = interfaceConstBegin; interfaceItr != interfaceConstEnd; ++interfaceItr) {
         const Interface &interface = *interfaceItr;
         std::size_t interfaceRawId = interfaceItr.getRawIndex();
 
