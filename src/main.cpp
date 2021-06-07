@@ -143,7 +143,6 @@ void computation(int argc, char *argv[])
                 << " cells per direction, which will be uniformly refined " <<  initialRefs
                 << " times." << std::endl;
 
-    // Create initial mesh
 #if ENABLE_MPI
     VolOctree mesh(dimensions, origin, length, length / nCellsPerDirection, MPI_COMM_WORLD);
 #else
