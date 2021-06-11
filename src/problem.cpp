@@ -192,7 +192,6 @@ double getEndTime(ProblemType problemType, int dimensions)
             } else {
                 return 1.;
             }
-            break;
 
         case PROBLEM_SOD_X:
         case PROBLEM_SOD_Y:
