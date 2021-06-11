@@ -154,9 +154,11 @@ void computation(int argc, char *argv[])
 
     mesh.update();
 
+#if ENABLE_MPI
     if (nProcessors > 1) {
         mesh.partition(false, true);
     }
+#endif
 
     for (unsigned int k=0; k<initialRefs; ++k){
         for (VolOctree::CellConstIterator cellItr = mesh.cellConstBegin(); cellItr != mesh.cellConstEnd(); ++cellItr) {
@@ -175,11 +177,13 @@ void computation(int argc, char *argv[])
         mesh.getVTK().setName(basename.str().c_str());
     }
 
+#if ENABLE_MPI
     if (nProcessors > 1) {
         log::cout() << "*** Call partition\n";
         mesh.partition(false, true);
         log::cout() << "+++ mesh.partition() DONE.\n";
     }
+#endif
 
     VolOctree::CellConstIterator internalCellConstBegin = mesh.internalCellConstBegin();
     VolOctree::CellConstIterator internalCellConstEnd   = mesh.internalCellConstEnd();
