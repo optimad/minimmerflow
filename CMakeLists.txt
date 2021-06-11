@@ -23,7 +23,7 @@
 #---------------------------------------------------------------------------*/
 
 # Specify the version being used as well as the language
-cmake_minimum_required(VERSION 3.4)
+cmake_minimum_required(VERSION 3.13)
 
 # Name your project here
 project(minimmerflow)
@@ -32,7 +32,19 @@ project(minimmerflow)
 # Variables visible to the user
 #------------------------------------------------------------------------------------#
 set(MINIMMERFLOW_ENABLE_MPI 0 CACHE BOOL "If set, the program is compiled with MPI support")
+set(MINIMMERFLOW_ENABLE_OPENACC 0 CACHE BOOL "If set, the program is compiled with OpenACC support")
+set(MINIMMERFLOW_ENABLE_CUDA 0 CACHE BOOL "If set, the program is compiled with CUDA support")
 set(MINIMMERFLOW_VERBOSE_MAKE 0 CACHE BOOL "Set appropriate compiler and cmake flags to enable verbose output from compilation")
+
+if (MINIMMERFLOW_ENABLE_OPENACC)
+    set(OpenACC_ACCEL_TARGET "" CACHE STRING "OpenACC target accelerator")
+endif()
+
+if (MINIMMERFLOW_ENABLE_CUDA)
+    if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+        set(CMAKE_CUDA_ARCHITECTURES "OFF" CACHE STRING "List of CUDA architectures (e.g., \"50 60 72\"). If set to OFF, it will not pass architectures.")
+    endif()
+endif()
 
 #------------------------------------------------------------------------------------#
 # Customized build types
@@ -55,10 +67,31 @@ endif()
 include_directories("src")
 
 #------------------------------------------------------------------------------------#
+# Enable needed languages
+#------------------------------------------------------------------------------------#
+if (MINIMMERFLOW_ENABLE_CUDA)
+    enable_language(CUDA)
+endif()
+
+#------------------------------------------------------------------------------------#
 # External dependencies
 #------------------------------------------------------------------------------------#
 if (MINIMMERFLOW_ENABLE_MPI)
     find_package(MPI)
+endif()
+
+if (MINIMMERFLOW_ENABLE_OPENACC)
+    find_package(OpenACC REQUIRED)
+
+    foreach(lang IN LISTS LANGUAGES)
+        if (CMAKE_VERSION VERSION_LESS "3.16")
+            string(REPLACE " " "\;" default_options ${OpenACC_${lang}_FLAGS})
+            set(OpenACC_${lang}_OPTIONS ${default_options})
+        endif()
+
+        message(STATUS "OpenACC ${lang} version " ${OpenACC_${lang}_VERSION})
+        message(STATUS "OpenACC ${lang} flags " ${OpenACC_${lang}_FLAGS})
+    endforeach()
 endif()
 
 find_package(BITPIT REQUIRED)
@@ -74,6 +107,13 @@ string(TOLOWER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_LOWER)
 set (ENABLE_WARNINGS ${MINIMMERFLOW_VERBOSE_MAKE})
 if (MINIMMERFLOW_VERBOSE_MAKE)
     set(CMAKE_VERBOSE_MAKEFILE ON)
+endif()
+
+if (MINIMMERFLOW_ENABLE_CUDA)
+    if(NOT DEFINED CMAKE_CUDA_STANDARD)
+        set(CMAKE_CUDA_STANDARD 11)
+        set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+    endif()
 endif()
 
 if (MINIMMERFLOW_ENABLE_MPI)
@@ -94,19 +134,30 @@ else ()
     list (APPEND MINIMMERFLOW_DEFINITIONS "ENABLE_MPI=0")
 endif()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fmessage-length=0")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
 set(CMAKE_C_FLAGS_DEBUG "-O0 -g")
 set(CMAKE_C_FLAGS_RELEASE "-O2")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmessage-length=0")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 
+if (MINIMMERFLOW_ENABLE_OPENACC)
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenACC_C_FLAGS} -acc=noautopar")
+
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenACC_CXX_FLAGS} -acc=noautopar")
+endif()
+
 if (ENABLE_WARNINGS)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+
+    if (MINIMMERFLOW_ENABLE_OPENACC)
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Minfo")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Minfo")
+    endif()
 endif()
 
 if (NOT ("${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_PATCH_VERSION}" VERSION_LESS "2.8.12"))

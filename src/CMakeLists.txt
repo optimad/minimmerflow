@@ -23,13 +23,21 @@
 #---------------------------------------------------------------------------*/
 
 # Specify the version being used as well as the language
-cmake_minimum_required(VERSION 3.4)
+cmake_minimum_required(VERSION 3.13)
 
 # Name your project here
 set(MINIMMERFLOW_EXECUTABLE_NAME minimmerflow CACHE INTERNAL "Executable name of the solver" FORCE)
 
-file(GLOB sources "*.cpp")
+set(SOURCE_PATTERN "*.cpp")
+if (MINIMMERFLOW_ENABLE_CUDA)
+    LIST(APPEND SOURCE_PATTERN "*.cu")
+endif()
+
+file(GLOB sources ${SOURCE_PATTERN})
 add_executable(${MINIMMERFLOW_EXECUTABLE_NAME} ${sources})
+if (MINIMMERFLOW_ENABLE_CUDA)
+    set_target_properties(${MINIMMERFLOW_EXECUTABLE_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+endif()
 
 target_link_libraries(${MINIMMERFLOW_EXECUTABLE_NAME} ${BITPIT_LIBRARIES})
 
