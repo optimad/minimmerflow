@@ -41,10 +41,37 @@
 #include <vector>
 #include <time.h>
 
+#include "test.cuh"
+
 using namespace bitpit;
 
 void computation(int argc, char *argv[])
 {
+
+    // Test Cuda kernel using wrappers
+    int N = 1<<20;
+    double *x = new double[N];
+    double *y = new double[N];
+    double *z = new double[N];
+    int blockSize = 256;
+
+    // initialize x and y arrays on the host
+    for (int i = 0; i < N; i++) {
+      x[i] = 1.0;
+      y[i] = 2.0;
+      z[i] = 0.0;
+    }
+
+    CudaWrappers::add_wrapper(N, x, y, z, blockSize); 
+
+    std::cout << "z[0] = " << z[0] << " and z[N-1] = " << z[N-1] << std::endl;
+
+    delete [] x;
+    delete [] y;
+    delete [] z;
+
+    exit(0);
+
     // Initialize process information
     int nProcessors;
     int rank;
