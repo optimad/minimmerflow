@@ -139,7 +139,6 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
     const std::size_t nInterfaces = interfaceRawIds.size();
 
     // Reset the residuals
-
     for (std::size_t i = 0; i < nInternalCells; ++i) {
         const std::size_t cellRawId = internalCellRawIds[i];
         double *RHS = cellRHS->rawData(cellRawId);
