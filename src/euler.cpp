@@ -135,115 +135,129 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
     const std::vector<std::size_t> &internalCellRawIds = meshInfo.getCellRawIds();
     const std::size_t nInternalCells = internalCellRawIds.size();
 
-    const std::vector<std::size_t> &interfaceRawIds = meshInfo.getInterfaceRawIds();
-    const std::size_t nInterfaces = interfaceRawIds.size();
-
-    // Reset the residuals
-    for (std::size_t i = 0; i < nInternalCells; ++i) {
-        const std::size_t cellRawId = internalCellRawIds[i];
-        double *cellRHS = cellsRHS->rawData(cellRawId);
-        for (int k = 0; k < N_FIELDS; ++k) {
-            cellRHS[k] = 0.;
-        }
-    }
-
     // Update the residuals
     *maxEig = 0.0;
 
-    for (std::size_t i = 0; i < nInterfaces; ++i) {
-        const std::size_t interfaceRawId = interfaceRawIds[i];
-        const Interface &interface = mesh.getInterfaces().rawAt(interfaceRawId);
+    FluxData interfaceFluxes;
+    for (std::size_t i = 0; i < nInternalCells; ++i) {
+        const std::size_t cellRawId = internalCellRawIds[i];
+        const Cell &cell = mesh.getCells().rawAt(cellRawId);
+        const long cellId = cell.getId();
 
-        // Info about the interface owner
-        long ownerId = interface.getOwner();
-        VolumeKernel::CellConstIterator ownerItr = mesh.getCellConstIterator(ownerId);
-        std::size_t ownerRawId = ownerItr.getRawIndex();
-        const double *ownerMean = cellConservatives.rawData(ownerRawId);
-        double *ownerRHS = cellsRHS->rawData(ownerRawId);
-        bool ownerSolved = cellSolvedFlag.rawAt(ownerRawId);
+        // Cell cell residuals
+        double *cellRHS = cellsRHS->rawData(cellRawId);
 
-        // Info about the interface neighbour
-        long neighId = interface.getNeigh();
-        std::size_t neighRawId = std::numeric_limits<std::size_t>::max();
-        const double *neighMean = nullptr;
-        double *neighRHS = nullptr;
-        bool neighSolved = false;
-        if (neighId >= 0) {
-            VolumeKernel::CellConstIterator neighItr = mesh.getCellConstIterator(neighId);
-
-            neighRawId  = neighItr.getRawIndex();
-            neighMean   = cellConservatives.rawData(neighRawId);
-            neighRHS    = cellsRHS->rawData(neighRawId);
-            neighSolved = cellSolvedFlag.rawAt(neighRawId);
+        // Reset the residuals
+        for (int k = 0; k < N_FIELDS; ++k) {
+            cellRHS[k] = 0.;
         }
 
-        // Check if the interface needs to be solved
-        if (!ownerSolved && !neighSolved) {
+        // Check if the cell needs to be solved
+        bool cellSolved = cellSolvedFlag.rawAt(cellRawId);
+        if (!cellSolved) {
             continue;
         }
 
-        // Info about the interface
-        int interfaceBCType = interfaceBCs.rawAt(interfaceRawId);
-        const double interfaceArea = meshInfo.rawGetInterfaceArea(interfaceRawId);
-        const std::array<double, 3> &interfaceNormal = meshInfo.rawGetInterfaceNormal(interfaceRawId);
-        const std::array<double, 3> &interfaceCentroid = meshInfo.rawGetInterfaceCentroid(interfaceRawId);
+        // Evaluate the residuals
+        const int nCellInterfaces = cell.getInterfaceCount();
+        const long *cellInterfaces = cell.getInterfaces();
+        for (int k = 0; k < nCellInterfaces; ++k) {
+            // Interface information
+            const long interfaceId = cellInterfaces[k];
+            const PatchKernel::InterfaceConstIterator interfaceItr = mesh.getInterfaces().find(interfaceId);
+            const std::size_t interfaceRawId = interfaceItr.getRawIndex();
+            const Interface &interface = *interfaceItr;
 
-        // Evaluate the conservative fluxes
-        std::array<double, N_FIELDS> ownerReconstruction;
-        std::array<double, N_FIELDS> neighReconstruction;
-        if (interfaceBCType == BC_NONE)  {
-            reconstruction::eval(ownerRawId, meshInfo, order, interfaceCentroid, ownerMean, ownerReconstruction.data());
-            reconstruction::eval(neighRawId, meshInfo, order, interfaceCentroid, neighMean, neighReconstruction.data());
-        } else {
-            long fluidRawId;
-            bool flipNormal;
-            const double *fluidMean;
-            double *fluidReconstruction;
-            double *virtualReconstruction;
-            if (ownerSolved) {
-                flipNormal            = false;
-                fluidRawId            = ownerRawId;
-                fluidMean             = ownerMean;
-                fluidReconstruction   = ownerReconstruction.data();
-                virtualReconstruction = neighReconstruction.data();
+            // Info about the interface owner
+            long ownerId = interface.getOwner();
+            std::size_t ownerRawId;
+            if (cellId == ownerId) {
+                ownerRawId = cellRawId;
             } else {
-                flipNormal            = true;
-                fluidRawId            = neighRawId;
-                fluidMean             = neighMean;
-                fluidReconstruction   = neighReconstruction.data();
-                virtualReconstruction = ownerReconstruction.data();
+                VolumeKernel::CellConstIterator ownerItr = mesh.getCellConstIterator(ownerId);
+                ownerRawId = ownerItr.getRawIndex();
             }
 
-            int interfaceBC = interfaceBCs.rawAt(interfaceRawId);
+            const double *ownerMean = cellConservatives.rawData(ownerRawId);
 
-            std::array<double, 3> interfaceNormal = meshInfo.rawGetInterfaceNormal(interfaceRawId);
-            if (flipNormal) {
-                interfaceNormal = -1. * interfaceNormal;
+            // Info about the interface neighbour
+            long neighId = interface.getNeigh();
+            std::size_t neighRawId = std::numeric_limits<std::size_t>::max();
+            const double *neighMean = nullptr;
+            if (neighId >= 0) {
+                if (cellId == neighId) {
+                    neighRawId = cellRawId;
+                } else {
+                    VolumeKernel::CellConstIterator neighItr = mesh.getCellConstIterator(neighId);
+                    neighRawId = neighItr.getRawIndex();
+                }
+
+                neighMean = cellConservatives.rawData(neighRawId);
             }
 
-            reconstruction::eval(fluidRawId, meshInfo, order, interfaceCentroid, fluidMean, fluidReconstruction);
-            evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, interfaceNormal, fluidReconstruction, virtualReconstruction);
-        }
+            // Info about the interface
+            int interfaceBCType = interfaceBCs.rawAt(interfaceRawId);
+            const double interfaceArea = meshInfo.rawGetInterfaceArea(interfaceRawId);
+            const std::array<double, 3> &interfaceNormal = meshInfo.rawGetInterfaceNormal(interfaceRawId);
+            const std::array<double, 3> &interfaceCentroid = meshInfo.rawGetInterfaceCentroid(interfaceRawId);
 
-        FluxData fluxes;
-        fluxes.fill(0.);
+            // Evaluate the conservative fluxes
+            std::array<double, N_FIELDS> ownerReconstruction;
+            std::array<double, N_FIELDS> neighReconstruction;
+            if (interfaceBCType == BC_NONE)  {
+                reconstruction::eval(ownerRawId, meshInfo, order, interfaceCentroid, ownerMean, ownerReconstruction.data());
+                reconstruction::eval(neighRawId, meshInfo, order, interfaceCentroid, neighMean, neighReconstruction.data());
+            } else {
+                long fluidRawId;
+                bool flipNormal;
+                const double *fluidMean;
+                double *fluidReconstruction;
+                double *virtualReconstruction;
+                if (cellSolvedFlag.rawAt(ownerRawId)) {
+                    flipNormal            = false;
+                    fluidRawId            = ownerRawId;
+                    fluidMean             = ownerMean;
+                    fluidReconstruction   = ownerReconstruction.data();
+                    virtualReconstruction = neighReconstruction.data();
+                } else {
+                    flipNormal            = true;
+                    fluidRawId            = neighRawId;
+                    fluidMean             = neighMean;
+                    fluidReconstruction   = neighReconstruction.data();
+                    virtualReconstruction = ownerReconstruction.data();
+                }
 
-        double faceMaxEig;
-        euler::evalSplitting(ownerReconstruction.data(), neighReconstruction.data(), interfaceNormal, &fluxes, &faceMaxEig);
+                int interfaceBC = interfaceBCs.rawAt(interfaceRawId);
 
-        *maxEig = std::max(faceMaxEig, *maxEig);
+                std::array<double, 3> interfaceNormal = meshInfo.rawGetInterfaceNormal(interfaceRawId);
+                if (flipNormal) {
+                    interfaceNormal = -1. * interfaceNormal;
+                }
 
-        // Sum the fluxes
-        if (ownerSolved)  {
+                reconstruction::eval(fluidRawId, meshInfo, order, interfaceCentroid, fluidMean, fluidReconstruction);
+                evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, interfaceNormal, fluidReconstruction, virtualReconstruction);
+            }
+
+
+            interfaceFluxes.fill(0.);
+
+            double faceMaxEig;
+            euler::evalSplitting(ownerReconstruction.data(), neighReconstruction.data(), interfaceNormal, &interfaceFluxes, &faceMaxEig);
+
+            // Sum the interface fluxes the cell residuals
+            int interfaceSign;
+            if (cellId == ownerId) {
+                interfaceSign = 1;
+            } else {
+                interfaceSign = -1;
+            }
+
             for (int k = 0; k < N_FIELDS; ++k) {
-                ownerRHS[k] -= interfaceArea * fluxes[k];
+                cellRHS[k] -= interfaceSign * interfaceArea * interfaceFluxes[k];
             }
-        }
 
-        if (neighSolved)  {
-            for (int k = 0; k < N_FIELDS; ++k) {
-                neighRHS[k] += interfaceArea * fluxes[k];
-            }
+            // Update maximum eigenvalue
+            *maxEig = std::max(faceMaxEig, *maxEig);
         }
     }
 }
