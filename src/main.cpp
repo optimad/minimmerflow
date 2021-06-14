@@ -193,9 +193,9 @@ void computation(int argc, char *argv[])
     // Initialize body info
     body::initialize();
 
-    // Initialize geometric data
+    // Initialize mesh data
     log::cout() << std::endl;
-    log::cout() << "Geometric data initialization..."  << std::endl;
+    log::cout() << "Mesh data initialization..."  << std::endl;
 
     MeshGeometricalInfo meshInfo(&mesh);
     log_memory_status();
