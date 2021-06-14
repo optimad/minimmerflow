@@ -147,7 +147,7 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
         }
     }
 
-    // Initialize space integration
+    // Update the residuals
     *maxEig = 0.0;
 
     for (std::size_t i = 0; i < nInterfaces; ++i) {
