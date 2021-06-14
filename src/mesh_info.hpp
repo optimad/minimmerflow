@@ -56,6 +56,8 @@ public:
     const bitpit::PiercedStorage<std::array<double, 3>, long> & getCellCentroids() const;
     bitpit::PiercedStorage<std::array<double, 3>, long> & getCellCentroids();
 
+    const std::vector<std::size_t> & getInterfaceRawIds() const;
+
     double getInterfaceArea(long id) const;
     double rawGetInterfaceArea(size_t pos) const;
     const bitpit::PiercedStorage<double, long> & getInterfaceAreas() const;
@@ -81,6 +83,8 @@ protected:
 
     std::vector<std::size_t> m_cellRawIds;
     std::vector<std::size_t> m_internalCellRawIds;
+
+    std::vector<std::size_t> m_interfaceRawIds;
 
     using bitpit::PatchInfo::setPatch;
 

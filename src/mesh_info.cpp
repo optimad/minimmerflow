@@ -103,9 +103,12 @@ void MeshGeometricalInfo::_extract()
     }
 
     // Evaluate interface data
+    m_interfaceRawIds.reserve(m_patch->getInterfaceCount());
     for (VolumeKernel::InterfaceConstIterator interfaceItr = m_patch->interfaceConstBegin(); interfaceItr != m_patch->interfaceConstEnd(); ++interfaceItr) {
         long cellId = interfaceItr.getId();
         std::size_t interfaceRawId = interfaceItr.getRawIndex();
+
+        m_interfaceRawIds.push_back(interfaceRawId);
 
         m_interfaceAreas.rawSet(interfaceRawId, m_volumePatch->evalInterfaceArea(cellId));
         m_interfaceCentroids.rawSet(interfaceRawId, m_volumePatch->evalInterfaceCentroid(cellId));
@@ -270,6 +273,15 @@ PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getCellCentro
     return m_cellCentroids;
 }
 
+/*!
+ * Gets the list of interfaces raw ids.
+ *
+ * \result The list of interfaces raw ids.
+ */
+const std::vector<std::size_t> & MeshGeometricalInfo::getInterfaceRawIds() const
+{
+    return m_interfaceRawIds;
+}
 
 /*!
  * Gets the area of the specified interface.
