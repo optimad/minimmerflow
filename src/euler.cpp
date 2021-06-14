@@ -132,14 +132,17 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
     // Get mesh information
     const VolumeKernel &mesh = meshInfo.getPatch();
 
+    const std::vector<std::size_t> &internalCellRawIds = meshInfo.getCellRawIds();
+    const std::size_t nInternalCells = internalCellRawIds.size();
+
     const std::vector<std::size_t> &interfaceRawIds = meshInfo.getInterfaceRawIds();
     const std::size_t nInterfaces = interfaceRawIds.size();
 
     // Reset the residuals
-    VolOctree::CellConstIterator internalCellConstBegin = mesh.internalCellConstBegin();
-    VolOctree::CellConstIterator internalCellConstEnd   = mesh.internalCellConstEnd();
-    for (VolOctree::CellConstIterator cellItr = internalCellConstBegin; cellItr != internalCellConstEnd; ++cellItr) {
-        double *RHS = cellRHS->rawData(cellItr.getRawIndex());
+
+    for (std::size_t i = 0; i < nInternalCells; ++i) {
+        const std::size_t cellRawId = internalCellRawIds[i];
+        double *RHS = cellRHS->rawData(cellRawId);
         for (int k = 0; k < N_FIELDS; ++k) {
             RHS[k] = 0.;
         }

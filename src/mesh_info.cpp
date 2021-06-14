@@ -144,7 +144,7 @@ const std::vector<std::size_t> & MeshGeometricalInfo::getCellRawIds() const
  */
 const std::vector<std::size_t> & MeshGeometricalInfo::getInternalCellRawIds() const
 {
-    return m_cellRawIds;
+    return m_internalCellRawIds;
 }
 
 /*!

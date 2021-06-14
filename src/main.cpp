@@ -185,9 +185,6 @@ void computation(int argc, char *argv[])
     }
 #endif
 
-    VolOctree::CellConstIterator internalCellConstBegin = mesh.internalCellConstBegin();
-    VolOctree::CellConstIterator internalCellConstEnd   = mesh.internalCellConstEnd();
-
     log_memory_status();
 
     // Initialize body info
@@ -198,6 +195,12 @@ void computation(int argc, char *argv[])
     log::cout() << "Mesh data initialization..."  << std::endl;
 
     MeshGeometricalInfo meshInfo(&mesh);
+
+    const std::vector<std::size_t> &cellRawIds = meshInfo.getCellRawIds();
+    const std::size_t nCells = cellRawIds.size();
+
+    const std::vector<std::size_t> &internalCellRawIds = meshInfo.getInternalCellRawIds();
+    const std::size_t nInternalCells = internalCellRawIds.size();
 
     const std::vector<std::size_t> &interfaceRawIds = meshInfo.getInterfaceRawIds();
     const std::size_t nInterfaces = interfaceRawIds.size();
@@ -216,8 +219,9 @@ void computation(int argc, char *argv[])
     CellStorageDouble cellRHS(N_FIELDS, &mesh.getCells());
 
     // Initialize fluid and solved flag
-    for (VolOctree::CellConstIterator cellItr = mesh.cellConstBegin(); cellItr != mesh.cellConstEnd(); ++cellItr) {
-        std::size_t cellRawId = cellItr.getRawIndex();
+    for (std::size_t i = 0; i < nCells; ++i) {
+        const std::size_t cellRawId = cellRawIds[i];
+        const Cell &cell = mesh.getCells().rawAt(cellRawId);
         const std::array<double, 3> &cellCentroid = meshInfo.rawGetCellCentroid(cellRawId);
 
         bool isFluid = body::isPointFluid(cellCentroid);
@@ -226,7 +230,7 @@ void computation(int argc, char *argv[])
         bool isSolved = isFluid;
 #if ENABLE_MPI
         if (isSolved) {
-            isSolved = cellItr->isInterior();
+            isSolved = cell.isInterior();
         }
 #endif
         cellSolvedFlag.rawSet(cellRawId, isSolved);
@@ -328,9 +332,9 @@ void computation(int argc, char *argv[])
     log::cout() << std::endl;
     log::cout() << "Initial conditions evaluation..."  << std::endl;
 
-    for (VolOctree::CellConstIterator cellItr = mesh.cellConstBegin(); cellItr != mesh.cellConstEnd(); ++cellItr) {
-        const Cell &cell = *cellItr;
-        std::size_t cellRawId = cellItr.getRawIndex();
+    for (std::size_t i = 0; i < nCells; ++i) {
+        const std::size_t cellRawId = cellRawIds[i];
+        const Cell &cell = mesh.getCells().rawAt(cellRawId);
 
         double *conservatives = cellConservatives.rawData(cellRawId);
         problem::evalCellInitalConservatives(problemType, cell, meshInfo, conservatives);
@@ -345,8 +349,9 @@ void computation(int argc, char *argv[])
 
     // Find smallest cell
     double minCellSize = std::numeric_limits<double>::max();
-    for (VolOctree::CellConstIterator cellItr = internalCellConstBegin; cellItr != internalCellConstEnd; ++cellItr) {
-        std::size_t cellRawId = cellItr.getRawIndex();
+    for (std::size_t i = 0; i < nInternalCells; ++i) {
+        const std::size_t cellRawId = internalCellRawIds[i];
+
         minCellSize = std::min(meshInfo.rawGetCellSize(cellRawId), minCellSize);
     }
 
@@ -401,8 +406,8 @@ void computation(int argc, char *argv[])
         //
         // SECOND RK STAGE
         //
-        for (VolOctree::CellConstIterator cellItr = internalCellConstBegin; cellItr != internalCellConstEnd; ++cellItr) {
-            std::size_t cellRawId = cellItr.getRawIndex();
+        for (std::size_t i = 0; i < nInternalCells; ++i) {
+            const std::size_t cellRawId = internalCellRawIds[i];
             bool ownerSolved = cellSolvedFlag.rawAt(cellRawId);
             if (!ownerSolved) {
                 continue;
@@ -437,8 +442,8 @@ void computation(int argc, char *argv[])
         //
         // THIRD RK STAGE
         //
-        for (VolOctree::CellConstIterator cellItr = internalCellConstBegin; cellItr != internalCellConstEnd; ++cellItr) {
-            std::size_t cellRawId = cellItr.getRawIndex();
+        for (std::size_t i = 0; i < nInternalCells; ++i) {
+            const std::size_t cellRawId = internalCellRawIds[i];
             bool ownerSolved = cellSolvedFlag.rawAt(cellRawId);
             if (!ownerSolved) {
                 continue;
@@ -473,8 +478,8 @@ void computation(int argc, char *argv[])
         //
         // CLOSE RK STEP
         //
-        for (VolOctree::CellConstIterator cellItr = internalCellConstBegin; cellItr != internalCellConstEnd; ++cellItr) {
-            std::size_t cellRawId = cellItr.getRawIndex();
+        for (std::size_t i = 0; i < nInternalCells; ++i) {
+            const std::size_t cellRawId = internalCellRawIds[i];
             bool ownerSolved = cellSolvedFlag.rawAt(cellRawId);
             if (!ownerSolved) {
                 continue;
@@ -503,8 +508,10 @@ void computation(int argc, char *argv[])
         // Write the solution
         if (t > nextSave){
           clock_t diskStart = clock();
-          for (const Cell &cell : mesh.getCells()) {
-              long cellId = cell.getId();
+          for (std::size_t i = 0; i < nCells; ++i) {
+              const std::size_t cellRawId = cellRawIds[i];
+              const long cellId = mesh.getCells().rawFind(cellRawId).getId();
+
               double *conservative = cellConservatives.data(cellId);
               double *primitives = cellPrimitives.data(cellId);
               ::utils::conservative2primitive(conservative, primitives);
@@ -521,8 +528,10 @@ void computation(int argc, char *argv[])
     {
         std::stringstream filename;
         filename << "final_background_" << nCellsPerDirection;
-        for (const Cell &cell : mesh.getCells()) {
-            long cellId = cell.getId();
+        for (std::size_t i = 0; i < nCells; ++i) {
+            const std::size_t cellRawId = cellRawIds[i];
+            const long cellId = mesh.getCells().rawFind(cellRawId).getId();
+
             double *conservative = cellConservatives.data(cellId);
             double *primitives = cellPrimitives.data(cellId);
             ::utils::conservative2primitive(conservative, primitives);
@@ -541,9 +550,10 @@ void computation(int argc, char *argv[])
     std::array<double, N_FIELDS> evalConservatives;
 
     double error = 0.;
-    for (VolOctree::CellConstIterator cellItr = internalCellConstBegin; cellItr != internalCellConstEnd; ++cellItr) {
-        const Cell &cell = *cellItr;
-        long cellId = cell.getId();
+    for (std::size_t i = 0; i < nInternalCells; ++i) {
+        const std::size_t cellRawId = internalCellRawIds[i];
+        const Cell &cell = mesh.getCells().rawAt(cellRawId);
+        const long cellId = cell.getId();
 
         double *conservatives = cellConservatives.data(cellId);
         problem::evalCellExactConservatives(problemType, cell, meshInfo, tMax, evalConservatives.data());
