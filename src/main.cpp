@@ -408,8 +408,8 @@ void computation(int argc, char *argv[])
         //
         for (std::size_t i = 0; i < nInternalCells; ++i) {
             const std::size_t cellRawId = internalCellRawIds[i];
-            bool ownerSolved = cellSolvedFlag.rawAt(cellRawId);
-            if (!ownerSolved) {
+            bool isCellSolved = cellSolvedFlag.rawAt(cellRawId);
+            if (!isCellSolved) {
                 continue;
             }
 
@@ -444,8 +444,8 @@ void computation(int argc, char *argv[])
         //
         for (std::size_t i = 0; i < nInternalCells; ++i) {
             const std::size_t cellRawId = internalCellRawIds[i];
-            bool ownerSolved = cellSolvedFlag.rawAt(cellRawId);
-            if (!ownerSolved) {
+            bool isCellSolved = cellSolvedFlag.rawAt(cellRawId);
+            if (!isCellSolved) {
                 continue;
             }
 
@@ -480,8 +480,8 @@ void computation(int argc, char *argv[])
         //
         for (std::size_t i = 0; i < nInternalCells; ++i) {
             const std::size_t cellRawId = internalCellRawIds[i];
-            bool ownerSolved = cellSolvedFlag.rawAt(cellRawId);
-            if (!ownerSolved) {
+            bool isCellSolved = cellSolvedFlag.rawAt(cellRawId);
+            if (!isCellSolved) {
                 continue;
             }
 

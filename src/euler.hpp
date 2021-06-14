@@ -40,7 +40,7 @@ void evalFluxes(const double *conservative, const double *primitive, const std::
 
 void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo, const CellStorageBool &cellSolvedFlag,
                 const int order, const CellStorageDouble &cellConservatives, const InterfaceStorageInt &interfaceBCs,
-                CellStorageDouble *cellRHS, double *maxEig);
+                CellStorageDouble *cellsRHS, double *maxEig);
 
 void evalInterfaceBCValues(problem::ProblemType problemType, int BCType,
                            const std::array<double, 3> &point,

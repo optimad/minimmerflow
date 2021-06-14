@@ -121,13 +121,13 @@ void evalFluxes(const double *conservative, const double *primitive, const std::
  * \param order is the order
  * \param cellConservatives are the cell conservative values
  * \param interfaceBCs is the boundary conditions storage
- * \param[out] cellRHS on output will containt the RHS
+ * \param[out] cellsRHS on output will containt the RHS
  * \param[out] maxEig on putput will containt the maximum eigenvalue
  */
 void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo,
                 const CellStorageBool &cellSolvedFlag, const int order,
                 const CellStorageDouble &cellConservatives, const InterfaceStorageInt &interfaceBCs,
-                CellStorageDouble *cellRHS, double *maxEig)
+                CellStorageDouble *cellsRHS, double *maxEig)
 {
     // Get mesh information
     const VolumeKernel &mesh = meshInfo.getPatch();
@@ -141,9 +141,9 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
     // Reset the residuals
     for (std::size_t i = 0; i < nInternalCells; ++i) {
         const std::size_t cellRawId = internalCellRawIds[i];
-        double *RHS = cellRHS->rawData(cellRawId);
+        double *cellRHS = cellsRHS->rawData(cellRawId);
         for (int k = 0; k < N_FIELDS; ++k) {
-            RHS[k] = 0.;
+            cellRHS[k] = 0.;
         }
     }
 
@@ -159,7 +159,7 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
         VolumeKernel::CellConstIterator ownerItr = mesh.getCellConstIterator(ownerId);
         std::size_t ownerRawId = ownerItr.getRawIndex();
         const double *ownerMean = cellConservatives.rawData(ownerRawId);
-        double *ownerRHS = cellRHS->rawData(ownerRawId);
+        double *ownerRHS = cellsRHS->rawData(ownerRawId);
         bool ownerSolved = cellSolvedFlag.rawAt(ownerRawId);
 
         // Info about the interface neighbour
@@ -173,7 +173,7 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
 
             neighRawId  = neighItr.getRawIndex();
             neighMean   = cellConservatives.rawData(neighRawId);
-            neighRHS    = cellRHS->rawData(neighRawId);
+            neighRHS    = cellsRHS->rawData(neighRawId);
             neighSolved = cellSolvedFlag.rawAt(neighRawId);
         }
 
