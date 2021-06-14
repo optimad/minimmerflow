@@ -38,6 +38,9 @@ public:
 
     int getDimension() const;
 
+    const std::vector<std::size_t> & getCellRawIds() const;
+    const std::vector<std::size_t> & getInternalCellRawIds() const;
+
     double getCellVolume(long id) const;
     double rawGetCellVolume(size_t pos) const;
     const bitpit::PiercedStorage<double, long> & getCellVolumes() const;
@@ -75,6 +78,9 @@ public:
 
 protected:
     const bitpit::VolumeKernel *m_volumePatch;
+
+    std::vector<std::size_t> m_cellRawIds;
+    std::vector<std::size_t> m_internalCellRawIds;
 
     using bitpit::PatchInfo::setPatch;
 

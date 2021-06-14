@@ -86,9 +86,16 @@ void MeshGeometricalInfo::_reset()
 void MeshGeometricalInfo::_extract()
 {
     // Evaluate cell data
+    m_cellRawIds.reserve(m_patch->getCellCount());
+    m_internalCellRawIds.reserve(m_patch->getInternalCellCount());
     for (VolumeKernel::CellConstIterator cellItr = m_patch->cellConstBegin(); cellItr != m_patch->cellConstEnd(); ++cellItr) {
         long cellId = cellItr.getId();
         std::size_t cellRawId = cellItr.getRawIndex();
+
+        m_cellRawIds.push_back(cellRawId);
+        if (cellItr->isInterior()) {
+            m_internalCellRawIds.push_back(cellRawId);
+        }
 
         m_cellVolumes.rawSet(cellRawId, m_volumePatch->evalCellVolume(cellId));
         m_cellSizes.rawSet(cellRawId, m_volumePatch->evalCellSize(cellId));
@@ -115,6 +122,26 @@ void MeshGeometricalInfo::_extract()
 int MeshGeometricalInfo::getDimension() const
 {
     return m_patch->getDimension();
+}
+
+/*!
+ * Gets the list of cells raw ids.
+ *
+ * \result The list of cells raw ids.
+ */
+const std::vector<std::size_t> & MeshGeometricalInfo::getCellRawIds() const
+{
+    return m_cellRawIds;
+}
+
+/*!
+ * Gets the list of internal cells raw ids.
+ *
+ * \result The list of internal cells raw ids.
+ */
+const std::vector<std::size_t> & MeshGeometricalInfo::getInternalCellRawIds() const
+{
+    return m_cellRawIds;
 }
 
 /*!
