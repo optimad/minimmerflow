@@ -129,7 +129,11 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
                 const CellStorageDouble &cellConservatives, const InterfaceStorageInt &interfaceBCs,
                 CellStorageDouble *cellRHS, double *maxEig)
 {
+    // Get mesh information
     const VolumeKernel &mesh = meshInfo.getPatch();
+
+    const std::vector<std::size_t> &interfaceRawIds = meshInfo.getInterfaceRawIds();
+    const std::size_t nInterfaces = interfaceRawIds.size();
 
     // Reset the residuals
     VolOctree::CellConstIterator internalCellConstBegin = mesh.internalCellConstBegin();
@@ -144,11 +148,9 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
     // Initialize space integration
     *maxEig = 0.0;
 
-    VolOctree::InterfaceConstIterator interfaceConstBegin = mesh.interfaceConstBegin();
-    VolOctree::InterfaceConstIterator interfaceConstEnd   = mesh.interfaceConstEnd();
-    for (VolOctree::InterfaceConstIterator interfaceItr = interfaceConstBegin; interfaceItr != interfaceConstEnd; ++interfaceItr) {
-        const Interface &interface = *interfaceItr;
-        std::size_t interfaceRawId = interfaceItr.getRawIndex();
+    for (std::size_t i = 0; i < nInterfaces; ++i) {
+        const std::size_t interfaceRawId = interfaceRawIds[i];
+        const Interface &interface = mesh.getInterfaces().rawAt(interfaceRawId);
 
         // Info about the interface owner
         long ownerId = interface.getOwner();

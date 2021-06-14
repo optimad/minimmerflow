@@ -198,6 +198,10 @@ void computation(int argc, char *argv[])
     log::cout() << "Mesh data initialization..."  << std::endl;
 
     MeshGeometricalInfo meshInfo(&mesh);
+
+    const std::vector<std::size_t> &interfaceRawIds = meshInfo.getInterfaceRawIds();
+    const std::size_t nInterfaces = interfaceRawIds.size();
+
     log_memory_status();
 
     // Initialize cell storage
@@ -241,11 +245,14 @@ void computation(int argc, char *argv[])
     log::cout() << "Boundary conditions initialization..."  << std::endl;
 
     InterfaceStorageInt interfaceBCs(1, &mesh.getInterfaces());
-    for (const Interface &interface : mesh.getInterfaces()) {
-        long id = interface.getId();
+    for (std::size_t i = 0; i < nInterfaces; ++i) {
+        const std::size_t interfaceRawId = interfaceRawIds[i];
+        const Interface &interface = mesh.getInterfaces().rawAt(interfaceRawId);
+        long interfaceId = interface.getId();
+
         bool isIntrBorder = interface.isBorder();
         if (isIntrBorder) {
-            interfaceBCs[id] = problem::getBorderBCType(problemType, id, meshInfo);
+            interfaceBCs[interfaceId] = problem::getBorderBCType(problemType, interfaceId, meshInfo);
         } else {
             const long ownerId = interface.getOwner();
             VolumeKernel::CellConstIterator ownerItr = mesh.getCellConstIterator(ownerId);
@@ -258,9 +265,9 @@ void computation(int argc, char *argv[])
             const bool neighIsFluid = cellFluidFlag.rawAt(neighRawId);
 
             if (ownerIsFluid ^ neighIsFluid) {
-                interfaceBCs[id] = BC_WALL;
+                interfaceBCs[interfaceId] = BC_WALL;
             } else {
-                interfaceBCs[id] = BC_NONE;
+                interfaceBCs[interfaceId] = BC_NONE;
             }
         }
     }
