@@ -413,9 +413,9 @@ void computation(int argc, char *argv[])
                 continue;
             }
 
-            double cellVolume = meshInfo.rawGetCellVolume(cellRawId);
-            double *RHS = cellRHS.rawData(cellRawId);
-            double *conservative = cellConservatives.rawData(cellRawId);
+            const double cellVolume = meshInfo.rawGetCellVolume(cellRawId);
+            const double *RHS = cellRHS.rawData(cellRawId);
+            const double *conservative = cellConservatives.rawData(cellRawId);
             double *conservativeTmp = cellConservativesWork.rawData(cellRawId);
             for (int k = 0; k < N_FIELDS; ++k) {
                 conservativeTmp[k] = conservative[k] + dt * RHS[k] / cellVolume;
@@ -450,8 +450,8 @@ void computation(int argc, char *argv[])
             }
 
             double cellVolume = meshInfo.rawGetCellVolume(cellRawId);
-            double *RHS = cellRHS.rawData(cellRawId);
-            double *conservative = cellConservatives.rawData(cellRawId);
+            const double *RHS = cellRHS.rawData(cellRawId);
+            const double *conservative = cellConservatives.rawData(cellRawId);
             double *conservativeTmp = cellConservativesWork.rawData(cellRawId);
             for (int k = 0; k < N_FIELDS; ++k) {
                 conservativeTmp[k] = 0.75*conservative[k] + 0.25*(conservativeTmp[k] + dt * RHS[k] / cellVolume);
@@ -485,10 +485,10 @@ void computation(int argc, char *argv[])
                 continue;
             }
 
-            double cellVolume = meshInfo.rawGetCellVolume(cellRawId);
-            double *RHS = cellRHS.rawData(cellRawId);
+            const double cellVolume = meshInfo.rawGetCellVolume(cellRawId);
+            const double *RHS = cellRHS.rawData(cellRawId);
             double *conservative = cellConservatives.rawData(cellRawId);
-            double *conservativeTmp = cellConservativesWork.rawData(cellRawId);
+            const double *conservativeTmp = cellConservativesWork.rawData(cellRawId);
             for (int k = 0; k < N_FIELDS; ++k) {
                 conservative[k] = (1./3)*conservative[k] + (2./3)*(conservativeTmp[k] + dt * RHS[k] / cellVolume);
             }
@@ -512,7 +512,7 @@ void computation(int argc, char *argv[])
               const std::size_t cellRawId = cellRawIds[i];
               const long cellId = mesh.getCells().rawFind(cellRawId).getId();
 
-              double *conservative = cellConservatives.data(cellId);
+              const double *conservative = cellConservatives.data(cellId);
               double *primitives = cellPrimitives.data(cellId);
               ::utils::conservative2primitive(conservative, primitives);
           }
@@ -532,7 +532,7 @@ void computation(int argc, char *argv[])
             const std::size_t cellRawId = cellRawIds[i];
             const long cellId = mesh.getCells().rawFind(cellRawId).getId();
 
-            double *conservative = cellConservatives.data(cellId);
+            const double *conservative = cellConservatives.data(cellId);
             double *primitives = cellPrimitives.data(cellId);
             ::utils::conservative2primitive(conservative, primitives);
         }
@@ -555,7 +555,7 @@ void computation(int argc, char *argv[])
         const Cell &cell = mesh.getCells().rawAt(cellRawId);
         const long cellId = cell.getId();
 
-        double *conservatives = cellConservatives.data(cellId);
+        const double *conservatives = cellConservatives.data(cellId);
         problem::evalCellExactConservatives(problemType, cell, meshInfo, tMax, evalConservatives.data());
         error += std::abs(conservatives[FID_P] - evalConservatives[FID_P]) * meshInfo.getCellVolume(cellId);
     }
