@@ -369,7 +369,9 @@ void computation(int argc, char *argv[])
     ::utils::conservative2primitive(conservatives, primitives);
     std::cout << "CPU-computed Temperature in cell raw id " << " = " << primitives[FID_T] << std::endl;
 
-    mesh.write();
+    exit(0);
+
+    //mesh.write();
 
     log_memory_status();
 
@@ -542,7 +544,7 @@ void computation(int argc, char *argv[])
               double *primitives = cellPrimitives.data(cellId);
               ::utils::conservative2primitive(conservative, primitives);
           }
-          mesh.write();
+          //mesh.write();
 
           diskTime += clock() - diskStart;
           nextSave += (tMax - tMin) / nSaves;
