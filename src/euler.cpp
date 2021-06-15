@@ -26,6 +26,8 @@
 #include "reconstruction.hpp"
 #include "utils.hpp"
 
+#include "euler.cuh"
+
 using namespace bitpit;
 
 namespace euler {
@@ -139,11 +141,24 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
     const std::size_t nInterfaces = interfaceRawIds.size();
 
     // Reset the residuals
-    for (std::size_t i = 0; i < nInternalCells; ++i) {
-        const std::size_t cellRawId = internalCellRawIds[i];
-        double *cellRHS = cellsRHS->rawData(cellRawId);
+    VolOctree::CellConstIterator internalCellConstBegin = mesh.internalCellConstBegin();
+    VolOctree::CellConstIterator internalCellConstEnd   = mesh.internalCellConstEnd();
+    std::vector<double> RHSVec(0);
+    for (VolOctree::CellConstIterator cellItr = internalCellConstBegin; cellItr != internalCellConstEnd; ++cellItr) {
+        double *RHS = cellRHS->rawData(cellItr.getRawIndex());
         for (int k = 0; k < N_FIELDS; ++k) {
-            cellRHS[k] = 0.;
+            RHSVec.push_back(RHS[k]);
+        }
+    }
+
+    // STUPID now as it is, it is just a test that it works, but in the
+    // next hours to port the following code into GPU, so no copy back
+    // to host ...
+    CudaWrappers::initRHS_wrapper(&RHSVec);
+    for (VolOctree::CellConstIterator cellItr = internalCellConstBegin; cellItr != internalCellConstEnd; ++cellItr) {
+        double *RHS = cellRHS->rawData(cellItr.getRawIndex());
+        for (int k = 0; k < N_FIELDS; ++k) {
+            RHS[k] = RHSVec[k];
         }
     }
 
