@@ -2,6 +2,8 @@
 #include "volume_kernel.hpp"
 #include "patch_kernel.hpp"
 #include "voloctree.hpp"
+#include "utils.hpp"
+
 
 /*!
  * Calculates the conservative fluxes for a perfect gas.
@@ -15,9 +17,11 @@ __device__
 void evalFluxes_cu
 (
     const double *conservative,
-    const double *primitive, 
-          double *fluxes, 
+    const double *primitive,
     const double *n,
+          double *fluxes,
+    const int index,
+    const int N_FIELDS,
     const int FID_U,
     const int FID_V,
     const int FID_W,
@@ -32,22 +36,22 @@ void evalFluxes_cu
 )
 {
     // Compute variables
-    double u = primitive[FID_U];
-    double v = primitive[FID_V];
-    double w = primitive[FID_W];
+    double u = primitive[index * N_FIELDS + FID_U];
+    double v = primitive[index * N_FIELDS + FID_V];
+    double w = primitive[index * N_FIELDS + FID_W];
 
     double vel2 = u * u + v * v + w * w;
-    double un = 
-        primitive[FID_U] * n[0] 
-      + primitive[FID_V] * n[1] 
-      + primitive[FID_W] * n[2];
+    double un =
+        primitive[index * N_FIELDS + FID_U] * n[index * 3 + 0]
+      + primitive[index * N_FIELDS + FID_V] * n[index * 3 + 1]
+      + primitive[index * N_FIELDS + FID_W] * n[index * 3 + 2];
 
-    double p = primitive[FID_P];
+    double p = primitive[index * N_FIELDS + FID_P];
 //  if (p < 0.) {
 //    log::cout() << "***** Negative pressure (" << p << ") in flux computation!\n";
 //  }
 
-    double rho = conservative[FID_RHO];
+    double rho = conservative[index * N_FIELDS + FID_RHO];
 //  if (rho < 0.) {
 //      log::cout() << "***** Negative density in flux computation!\n";
 //  }
@@ -58,10 +62,133 @@ void evalFluxes_cu
     double massFlux = rho * un;
 
     fluxes[FID_EQ_C]   = massFlux;
-    fluxes[FID_EQ_M_X] = massFlux * u + p * n[0];
-    fluxes[FID_EQ_M_Y] = massFlux * v + p * n[1];
-    fluxes[FID_EQ_M_Z] = massFlux * w + p * n[2];
+    fluxes[FID_EQ_M_X] = massFlux * u + p * n[index * 3 + 0];
+    fluxes[FID_EQ_M_Y] = massFlux * v + p * n[index * 3 + 1];
+    fluxes[FID_EQ_M_Z] = massFlux * w + p * n[index * 3 + 2];
     fluxes[FID_EQ_E]   = un * (eto + p);
+}
+
+
+
+/*!
+ * Computes approximate Riemann solver (Local Lax Friedrichs) for compressible perfect gas.
+ *
+ * \param conservativeL is the left conservative state
+ * \param conservativeR is the right conservative state
+ * \param n is the normal
+ * \param[out] fluxes on output will contain the conservative fluxes
+ * \param[out] lambda on output will contain the maximum eigenvalue
+ */
+//void evalSplitting(const double *conservativeL, const double *conservativeR, const std::array<double, 3> &n, FluxData *fluxes, double *lambda)
+__global__
+void evalSplitting_cu
+(
+    const double *primitiveL,
+    const double *primitiveR,
+    const double *conservativeL,
+    const double *conservativeR,
+    const double *n,
+          double *fluxes,
+          double *faceMaxEig,
+    const long Nif,
+    const int N_FIELDS,
+    const int FID_U,
+    const int FID_V,
+    const int FID_W,
+    const int FID_P,
+    const int FID_RHO,
+    const int FID_EQ_C,
+    const int FID_EQ_M_X,
+    const int FID_EQ_M_Y,
+    const int FID_EQ_M_Z,
+    const int FID_EQ_E,
+    const double GAMMA
+)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (index >= Nif) {
+        return;
+    }
+    // Fluxes
+    double *fL = new double [N_FIELDS];
+    double *fR = new double [N_FIELDS];
+
+    evalFluxes_cu
+    (
+        conservativeL,
+        primitiveL,
+        n,
+        fL,
+        index,
+        N_FIELDS,
+        FID_U,
+        FID_V,
+        FID_W,
+        FID_P,
+        FID_RHO,
+        FID_EQ_C,
+        FID_EQ_M_X,
+        FID_EQ_M_Y,
+        FID_EQ_M_Z,
+        FID_EQ_E,
+        GAMMA
+    );
+
+    evalFluxes_cu
+    (
+        conservativeR,
+        primitiveR,
+        n,
+        fR,
+        index,
+        N_FIELDS,
+        FID_U,
+        FID_V,
+        FID_W,
+        FID_P,
+        FID_RHO,
+        FID_EQ_C,
+        FID_EQ_M_X,
+        FID_EQ_M_Y,
+        FID_EQ_M_Z,
+        FID_EQ_E,
+        GAMMA
+    );
+
+    // Eigenvalues
+    double unL =
+        primitiveL[index * N_FIELDS + FID_U] * n[index * 3 + 0]
+      + primitiveL[index * N_FIELDS + FID_V] * n[index * 3 + 1]
+      + primitiveL[index * N_FIELDS + FID_W] * n[index * 3 + 2];
+    double aL = sqrt(GAMMA * primitiveL[index * N_FIELDS + FID_T]);
+    double lambdaL = abs(unL) + aL;
+
+    double unR =
+        primitiveR[index * N_FIELDS + FID_U] * n[index * 3 + 0]
+      + primitiveR[index * N_FIELDS + FID_V] * n[index * 3 + 1]
+      + primitiveR[index * N_FIELDS + FID_W] * n[index * 3 + 2];
+    double aR = sqrt(GAMMA * primitiveR[index * N_FIELDS + FID_T]);
+    double lambdaR = abs(unR) + aR;
+
+    double lambda = max(lambdaR, lambdaL);
+
+    faceMaxEig[index] = lambda;
+
+    // Splitting
+    for (int k = 0; k < N_FIELDS; ++k) {
+        fluxes[index * N_FIELDS + k] =
+            0.5 * (
+                    (fR[k] + fL[k])
+                  - lambda
+                  * (
+                        conservativeR[index * N_FIELDS + k]
+                      - conservativeL[index * N_FIELDS + k]
+                    )
+                 );
+    }
+    delete[] fL;
+    delete[] fR;
 }
 
 
@@ -74,20 +201,24 @@ void evalFluxes_cu
 __global__
 void initializeRHS(double *RHS, int N)
 {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < N) {
-        RHS[i] = 0.;
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    if (index < N) {
+        RHS[index] = 0.;
     }
 }
 
 
 namespace CudaWrappers {
-    void evalFluxes_wrapper
+
+    void evalSplitting_wrapper
     (
-        const double *conservative,
-        const double *primitive, 
-        const std::array<double, 3> &n, 
-        FluxData *fluxes,
+        std::array<double, N_FIELDS> *conservativeOwner,
+        std::array<double, N_FIELDS> *conservativeNeigh,
+        std::array<double, 3> *interfaceNormal,
+        double *fluxes,
+        double *maxEig,
+        const long Nif,
+        const int N_FIELDS,
         const int FID_U,
         const int FID_V,
         const int FID_W,
@@ -101,70 +232,93 @@ namespace CudaWrappers {
         const double GAMMA
     )
     {
-        // Allocate on GPU
-        double *dprimitive, *dconservative, *dfluxes, *dnvec;
-        int size = 5 * sizeof(double);
+        std::array<double, 5> *primitiveOwner
+            = new std::array<double, 5>[Nif];
+        std::array<double, 5> *primitiveNeigh
+            = new std::array<double, 5>[Nif];
+        for(int i = 0; i < Nif; i++){
+            ::utils::conservative2primitive
+            (
+                conservativeOwner[i].data(),
+                primitiveOwner[i].data()
+            );
+            ::utils::conservative2primitive
+            (
+                conservativeNeigh[i].data(),
+                primitiveNeigh[i].data()
+            );
+        }
 
-        cudaMalloc((void **) &dconservative, size);
-        cudaMalloc((void **) &dprimitive, size);
-        cudaMalloc((void **) &dfluxes, size);
-        cudaMemcpy(dconservative, conservative, size, cudaMemcpyHostToDevice);
-        cudaMemcpy(dprimitive, primitive, size, cudaMemcpyHostToDevice);
+        std::vector<double> faceMaxEig(Nif);
+        double *dprimitiveOwner;
+        double *dprimitiveNeigh;
+        double *dconservativeOwner;
+        double *dconservativeNeigh;
+        double *dfluxes;
+        double *dinterfaceNormal;
+        double *dfaceMaxEig;
 
+        cudaMalloc((void **) &dprimitiveOwner,    Nif * N_FIELDS * sizeof(double));
+        cudaMalloc((void **) &dprimitiveNeigh,    Nif * N_FIELDS * sizeof(double));
+        cudaMalloc((void **) &dconservativeOwner, Nif * N_FIELDS * sizeof(double));
+        cudaMalloc((void **) &dconservativeNeigh, Nif * N_FIELDS * sizeof(double));
+        cudaMalloc((void **) &dfluxes,            Nif * N_FIELDS * sizeof(double));
+        cudaMalloc((void **) &dfaceMaxEig,        Nif            * sizeof(double));
+        cudaMalloc((void **) &dinterfaceNormal,   Nif * 3        * sizeof(double));
 
-        double *fluxesVec= new double[5];
+        cudaMemcpy(dprimitiveOwner,     primitiveOwner->data(),    Nif * N_FIELDS * sizeof(double), cudaMemcpyHostToDevice);
+        cudaMemcpy(dprimitiveNeigh,     primitiveNeigh->data(),    Nif * N_FIELDS * sizeof(double), cudaMemcpyHostToDevice);
+        cudaMemcpy(dconservativeOwner,  conservativeOwner->data(), Nif * N_FIELDS * sizeof(double), cudaMemcpyHostToDevice);
+        cudaMemcpy(dconservativeNeigh,  conservativeNeigh->data(), Nif * N_FIELDS * sizeof(double), cudaMemcpyHostToDevice);
+        cudaMemcpy(dinterfaceNormal,    interfaceNormal->data(),   Nif * 3        * sizeof(double), cudaMemcpyHostToDevice);
 
-        int nSize = 3 * sizeof(double);
-        double *nvec = new double[3];
-        cudaMalloc((void **) &dnvec, nSize);
-        nvec[0] = n[0];
-        nvec[1] = n[1];
-        nvec[2] = n[2];
-        cudaMemcpy(dnvec, nvec, nSize, cudaMemcpyHostToDevice);
+        // TODO: Use a cuda function here to get appropriate blockSize
+        int blockSize = 256;
+        int numBlocks = (Nif + blockSize - 1) / blockSize;
+        evalSplitting_cu<<<numBlocks, blockSize>>>
+        (
+            dprimitiveOwner,
+            dprimitiveNeigh,
+            dconservativeOwner,
+            dconservativeNeigh,
+            dinterfaceNormal,
+            dfluxes,
+            dfaceMaxEig,
+            Nif,
+            N_FIELDS,
+            FID_U,
+            FID_V,
+            FID_W,
+            FID_P,
+            FID_RHO,
+            FID_EQ_C,
+            FID_EQ_M_X,
+            FID_EQ_M_Y,
+            FID_EQ_M_Z,
+            FID_EQ_E,
+            GAMMA
+        );
 
-//      evalFluxes_cu
-//      (
-//          dconservative, 
-//          dprimitive, 
-//          dfluxes,
-//          dnvec, 
-//          FID_U,
-//          FID_V,
-//          FID_W,
-//          FID_P,
-//          FID_RHO,
-//          FID_EQ_C,
-//          FID_EQ_M_X,
-//          FID_EQ_M_Y,
-//          FID_EQ_M_Z,
-//          FID_EQ_E,
-//          GAMMA
-//      );
+        cudaMemcpy(fluxes,            dfluxes,     Nif * N_FIELDS * sizeof(double), cudaMemcpyDeviceToHost);
+        cudaMemcpy(faceMaxEig.data(), dfaceMaxEig, Nif *            sizeof(double), cudaMemcpyDeviceToHost);
 
-        cudaMemcpy(fluxesVec, dfluxes, size, cudaMemcpyDeviceToHost);
-        (*fluxes)[0] = fluxesVec[0];
-        (*fluxes)[1] = fluxesVec[1];
-        (*fluxes)[2] = fluxesVec[2];
-        (*fluxes)[3] = fluxesVec[3];
-        (*fluxes)[4] = fluxesVec[4];
+        *maxEig = 0.0;
+        for(int i = 0; i < Nif; i++){
+            *maxEig = std::max(faceMaxEig.data()[i], *maxEig);
+        }
 
-        cudaFree(dprimitive);
-        cudaFree(dconservative);
-        cudaFree(dnvec);
+        cudaFree(dprimitiveOwner);
+        cudaFree(dprimitiveNeigh);
+        cudaFree(dconservativeOwner);
+        cudaFree(dconservativeNeigh);
+        cudaFree(dinterfaceNormal);
+        cudaFree(dfaceMaxEig);
         cudaFree(dfluxes);
-
     }
 
 
-    void initRHS_wrapper(std::vector<double> *RHSVec)
+    void initRHS_wrapper(double *RHS, const int N)
     {
-        int N = RHSVec->size();
-
-        double *RHS = new double[N];
-        for(int i = 0; i < RHSVec->size(); i++) {
-            RHS[i] = RHSVec->data()[i];
-        }
-
         double *dRHS;
         cudaMalloc((void **) &dRHS, N * sizeof(double));
 
@@ -173,11 +327,6 @@ namespace CudaWrappers {
         initializeRHS<<<numBlocks, blockSize>>>(dRHS, N);
         cudaMemcpy(RHS, dRHS, N * sizeof(double), cudaMemcpyDeviceToHost);
 
-        for (int i = 0; i < RHSVec->size(); i++) {
-            RHSVec->data()[i] = RHS[i];
-        }
-
-        delete [] RHS;
         cudaFree(dRHS);
     }
 

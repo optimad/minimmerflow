@@ -6,12 +6,17 @@
 
 namespace CudaWrappers {
 
-    void evalFluxes_wrapper
+    void initRHS_wrapper(double *RHS, const int N);
+
+    void evalSplitting_wrapper
     (
-        const double *conservative,
-        const double *primitive, 
-        const std::array<double, 3> &n,
-        FluxData *fluxes,
+        std::array<double, N_FIELDS> *ownerReconstruction,
+        std::array<double, N_FIELDS> *neighReconstruction,
+        std::array<double, 3> *interfaceNormal,
+        double *fluxesVec,
+        double *maxEig,
+        const long Nif,
+        const int N_FIELDS,
         const int FID_U,
         const int FID_V,
         const int FID_W,
@@ -24,9 +29,5 @@ namespace CudaWrappers {
         const int FID_EQ_E,
         const double GAMMA
     );
-
-
-    void initRHS_wrapper(std::vector<double> *RHSVec);
-
 }
 #endif

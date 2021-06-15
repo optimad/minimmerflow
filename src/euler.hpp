@@ -34,7 +34,16 @@
 
 namespace euler {
 
-void evalSplitting(const double *conservativeL, const double *conservativeR, const std::array<double, 3> &n, FluxData *fluxes, double *lambda);
+//void evalSplitting(const double *conservativeL, const double *conservativeR, const std::array<double, 3> &n, FluxData *fluxes, double *lambda);
+void evalSplitting
+(
+    const double *conservativeL,
+    const double *conservativeR,
+    const std::array<double, 3> &n,
+    std::vector<double> *fluxesVec,
+    double *lambda,
+    const std::size_t interfaceRawId
+);
 
 void evalFluxes(const double *conservative, const double *primitive, const std::array<double, 3> &n, FluxData *fluxes);
 

@@ -41,7 +41,16 @@ namespace euler {
  * \param[out] fluxes on output will contain the conservative fluxes
  * \param[out] lambda on output will contain the maximum eigenvalue
  */
-void evalSplitting(const double *conservativeL, const double *conservativeR, const std::array<double, 3> &n, FluxData *fluxes, double *lambda)
+//void evalSplitting(const double *conservativeL, const double *conservativeR, const std::array<double, 3> &n, FluxData *fluxes, double *lambda)
+void evalSplitting
+(
+    const double *conservativeL,
+    const double *conservativeR,
+    const std::array<double, 3> &n,
+    std::vector<double> *fluxesVec,
+    double *lambda,
+    const std::size_t interfaceRawId
+)
 {
     // Primitive variables
     std::array<double, N_FIELDS> primitiveL;
@@ -70,7 +79,9 @@ void evalSplitting(const double *conservativeL, const double *conservativeR, con
 
     // Splitting
     for (int k = 0; k < N_FIELDS; ++k) {
-        (*fluxes)[k] = 0.5 * ((fR[k] + fL[k]) - (*lambda) * (conservativeR[k] - conservativeL[k]));
+        fluxesVec->data()[interfaceRawId * N_FIELDS + k] =
+            0.5 * ((fR[k] + fL[k])
+          - (*lambda) * (conservativeR[k] - conservativeL[k]));
     }
 }
 
@@ -134,133 +145,203 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
     // Get mesh information
     const VolumeKernel &mesh = meshInfo.getPatch();
 
-    const std::vector<std::size_t> &internalCellRawIds = meshInfo.getCellRawIds();
-    const std::size_t nInternalCells = internalCellRawIds.size();
-
-    const std::vector<std::size_t> &interfaceRawIds = meshInfo.getInterfaceRawIds();
-    const std::size_t nInterfaces = interfaceRawIds.size();
-
     // Reset the residuals
-    VolOctree::CellConstIterator internalCellConstBegin = mesh.internalCellConstBegin();
-    VolOctree::CellConstIterator internalCellConstEnd   = mesh.internalCellConstEnd();
-    std::vector<double> RHSVec(0);
-    for (VolOctree::CellConstIterator cellItr = internalCellConstBegin; cellItr != internalCellConstEnd; ++cellItr) {
-        double *RHS = cellRHS->rawData(cellItr.getRawIndex());
-        for (int k = 0; k < N_FIELDS; ++k) {
-            RHSVec.push_back(RHS[k]);
-        }
-    }
-
-    // STUPID now as it is, it is just a test that it works, but in the
-    // next hours to port the following code into GPU, so no copy back
-    // to host ...
-    CudaWrappers::initRHS_wrapper(&RHSVec);
-    for (VolOctree::CellConstIterator cellItr = internalCellConstBegin; cellItr != internalCellConstEnd; ++cellItr) {
-        double *RHS = cellRHS->rawData(cellItr.getRawIndex());
-        for (int k = 0; k < N_FIELDS; ++k) {
-            RHS[k] = RHSVec[k];
-        }
-    }
+    long N = mesh.getCellCount() * N_FIELDS;
+    CudaWrappers::initRHS_wrapper(cellsRHS->data(), N);
 
     // Update the residuals
     *maxEig = 0.0;
 
-    for (std::size_t i = 0; i < nInterfaces; ++i) {
-        const std::size_t interfaceRawId = interfaceRawIds[i];
-        const Interface &interface = mesh.getInterfaces().rawAt(interfaceRawId);
+    // Arrays holding the conservative fluxes
+    std::array<double, N_FIELDS> *ownerReconstruction =
+        new std::array<double, N_FIELDS> [mesh.getInterfaceCount()];
+    std::array<double, N_FIELDS> *neighReconstruction =
+        new std::array<double, N_FIELDS> [mesh.getInterfaceCount()];
+
+    // Keepers of the interface normals and areas
+    std::array<double, 3> *interfaceNormal =
+        new std::array<double, 3> [mesh.getInterfaceCount()];
+
+    std::vector<double> interfaceArea(mesh.getInterfaceCount());
+
+    std::vector<double*> ownerRHS(mesh.getInterfaceCount());
+    std::vector<double*> neighRHS(mesh.getInterfaceCount());
+
+    bool *ownerSolved = new bool[mesh.getInterfaceCount()];
+    bool *neighSolved = new bool[mesh.getInterfaceCount()];
+
+    VolOctree::InterfaceConstIterator interfaceConstBegin = mesh.interfaceConstBegin();
+    VolOctree::InterfaceConstIterator interfaceConstEnd   = mesh.interfaceConstEnd();
+    for (VolOctree::InterfaceConstIterator interfaceItr = interfaceConstBegin; interfaceItr != interfaceConstEnd; ++interfaceItr) {
+        const Interface &interface = *interfaceItr;
+        std::size_t interfaceRawId = interfaceItr.getRawIndex();
 
         // Info about the interface owner
         long ownerId = interface.getOwner();
-        VolumeKernel::CellConstIterator ownerItr = mesh.getCellConstIterator(ownerId);
+
+        VolumeKernel::CellConstIterator ownerItr =
+            mesh.getCellConstIterator(ownerId);
+
         std::size_t ownerRawId = ownerItr.getRawIndex();
         const double *ownerMean = cellConservatives.rawData(ownerRawId);
-        double *ownerRHS = cellsRHS->rawData(ownerRawId);
-        bool ownerSolved = cellSolvedFlag.rawAt(ownerRawId);
+        ownerRHS.data()[interfaceRawId] = cellsRHS->rawData(ownerRawId);
+        ownerSolved[interfaceRawId] = cellSolvedFlag.rawAt(ownerRawId);
 
         // Info about the interface neighbour
         long neighId = interface.getNeigh();
         std::size_t neighRawId = std::numeric_limits<std::size_t>::max();
         const double *neighMean = nullptr;
-        double *neighRHS = nullptr;
-        bool neighSolved = false;
         if (neighId >= 0) {
-            VolumeKernel::CellConstIterator neighItr = mesh.getCellConstIterator(neighId);
+            VolumeKernel::CellConstIterator neighItr =
+                mesh.getCellConstIterator(neighId);
 
-            neighRawId  = neighItr.getRawIndex();
-            neighMean   = cellConservatives.rawData(neighRawId);
-            neighRHS    = cellsRHS->rawData(neighRawId);
-            neighSolved = cellSolvedFlag.rawAt(neighRawId);
+            neighRawId = neighItr.getRawIndex();
+            neighMean = cellConservatives.rawData(neighRawId);
+            neighRHS.data()[interfaceRawId] = cellsRHS->rawData(neighRawId);
+            neighSolved[interfaceRawId] = cellSolvedFlag.rawAt(neighRawId);
+        } else {
+            neighRHS.data()[interfaceRawId] = nullptr;
+            neighSolved[interfaceRawId] = false;
         }
 
         // Check if the interface needs to be solved
-        if (!ownerSolved && !neighSolved) {
+        if (!ownerSolved[interfaceRawId] && !neighSolved[interfaceRawId]) {
             continue;
         }
 
         // Info about the interface
         int interfaceBCType = interfaceBCs.rawAt(interfaceRawId);
-        const double interfaceArea = meshInfo.rawGetInterfaceArea(interfaceRawId);
-        const std::array<double, 3> &interfaceNormal = meshInfo.rawGetInterfaceNormal(interfaceRawId);
-        const std::array<double, 3> &interfaceCentroid = meshInfo.rawGetInterfaceCentroid(interfaceRawId);
+        interfaceArea.data()[interfaceRawId] =
+            meshInfo.rawGetInterfaceArea(interfaceRawId);
+
+        // Copying here the interface normals ...
+        interfaceNormal[interfaceRawId] =
+            meshInfo.rawGetInterfaceNormal(interfaceRawId);
+
+        const std::array<double, 3> &interfaceCentroid =
+            meshInfo.rawGetInterfaceCentroid(interfaceRawId);
+
 
         // Evaluate the conservative fluxes
-        std::array<double, N_FIELDS> ownerReconstruction;
-        std::array<double, N_FIELDS> neighReconstruction;
         if (interfaceBCType == BC_NONE)  {
-            reconstruction::eval(ownerRawId, meshInfo, order, interfaceCentroid, ownerMean, ownerReconstruction.data());
-            reconstruction::eval(neighRawId, meshInfo, order, interfaceCentroid, neighMean, neighReconstruction.data());
+            reconstruction::eval
+            (
+                ownerRawId,
+                meshInfo,
+                order,
+                interfaceCentroid,
+                ownerMean,
+                ownerReconstruction[interfaceRawId].data()
+            );
+            reconstruction::eval
+            (
+                neighRawId,
+                meshInfo,
+                order,
+                interfaceCentroid,
+                neighMean,
+                neighReconstruction[interfaceRawId].data()
+            );
         } else {
             long fluidRawId;
             bool flipNormal;
             const double *fluidMean;
             double *fluidReconstruction;
             double *virtualReconstruction;
-            if (ownerSolved) {
+            if (ownerSolved[interfaceRawId]) {
                 flipNormal            = false;
                 fluidRawId            = ownerRawId;
                 fluidMean             = ownerMean;
-                fluidReconstruction   = ownerReconstruction.data();
-                virtualReconstruction = neighReconstruction.data();
+                fluidReconstruction   = ownerReconstruction[interfaceRawId].data();
+                virtualReconstruction = neighReconstruction[interfaceRawId].data();
             } else {
                 flipNormal            = true;
                 fluidRawId            = neighRawId;
                 fluidMean             = neighMean;
-                fluidReconstruction   = neighReconstruction.data();
-                virtualReconstruction = ownerReconstruction.data();
+                fluidReconstruction   = neighReconstruction[interfaceRawId].data();
+                virtualReconstruction = ownerReconstruction[interfaceRawId].data();
             }
 
             int interfaceBC = interfaceBCs.rawAt(interfaceRawId);
 
-            std::array<double, 3> interfaceNormal = meshInfo.rawGetInterfaceNormal(interfaceRawId);
+            interfaceNormal[interfaceRawId] =
+                meshInfo.rawGetInterfaceNormal(interfaceRawId);
             if (flipNormal) {
-                interfaceNormal = -1. * interfaceNormal;
+                interfaceNormal[interfaceRawId] = -1. * interfaceNormal[interfaceRawId];
             }
 
-            reconstruction::eval(fluidRawId, meshInfo, order, interfaceCentroid, fluidMean, fluidReconstruction);
-            evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, interfaceNormal, fluidReconstruction, virtualReconstruction);
+            reconstruction::eval
+            (
+                fluidRawId,
+                meshInfo,
+                order,
+                interfaceCentroid,
+                fluidMean,
+                fluidReconstruction
+            );
+            evalInterfaceBCValues
+            (
+                problemType,
+                interfaceBC,
+                interfaceCentroid,
+                interfaceNormal[interfaceRawId],
+                fluidReconstruction,
+                virtualReconstruction
+            );
         }
+    }
 
-        FluxData fluxes;
-        fluxes.fill(0.);
+    // Compute fluxes on GPUs and store them
+    std::vector<double> fluxesVec(mesh.getInterfaceCount() * N_FIELDS);
+    CudaWrappers::evalSplitting_wrapper
+    (
+        ownerReconstruction,
+        neighReconstruction,
+        interfaceNormal,
+        fluxesVec.data(),
+        maxEig,
+        mesh.getInterfaceCount(),
+        N_FIELDS,
+        FID_U,
+        FID_V,
+        FID_W,
+        FID_P,
+        FID_RHO,
+        FID_EQ_C,
+        FID_EQ_M_X,
+        FID_EQ_M_Y,
+        FID_EQ_M_Z,
+        FID_EQ_E,
+        GAMMA
+    );
 
-        double faceMaxEig;
-        euler::evalSplitting(ownerReconstruction.data(), neighReconstruction.data(), interfaceNormal, &fluxes, &faceMaxEig);
-
-        *maxEig = std::max(faceMaxEig, *maxEig);
+    for (VolOctree::InterfaceConstIterator interfaceItr = interfaceConstBegin; interfaceItr != interfaceConstEnd; ++interfaceItr) {
+        const Interface &interface = *interfaceItr;
+        std::size_t interfaceRawId = interfaceItr.getRawIndex();
 
         // Sum the fluxes
-        if (ownerSolved)  {
+        if (ownerSolved[interfaceRawId])  {
             for (int k = 0; k < N_FIELDS; ++k) {
-                ownerRHS[k] -= interfaceArea * fluxes[k];
+                ownerRHS.data()[interfaceRawId][k] -=
+                    interfaceArea.data()[interfaceRawId]
+                  * fluxesVec.data()[interfaceRawId * N_FIELDS + k];
             }
         }
 
-        if (neighSolved)  {
+        if (neighSolved[interfaceRawId])  {
             for (int k = 0; k < N_FIELDS; ++k) {
-                neighRHS[k] += interfaceArea * fluxes[k];
+                neighRHS.data()[interfaceRawId][k] +=
+                    interfaceArea.data()[interfaceRawId]
+                  * fluxesVec.data()[interfaceRawId * N_FIELDS + k];
             }
         }
     }
+
+    delete[] ownerReconstruction;
+    delete[] neighReconstruction;
+    delete[] interfaceNormal;
+    delete[] ownerSolved;
+    delete[] neighSolved;
 }
 
 /*!
