@@ -339,9 +339,27 @@ void computation(int argc, char *argv[])
         double *conservatives = cellConservatives.rawData(cellRawId);
         problem::evalCellInitalConservatives(problemType, cell, meshInfo, conservatives);
 
-        double *primitives = cellPrimitives.rawData(cellRawId);
+        //double *primitives = cellPrimitives.rawData(cellRawId);
+        //::utils::conservative2primitive(conservatives, primitives);
+    }
+
+
+
+
+    double *primitivePtr = cellPrimitives.data();
+    const double *conservativePtr = cellConservatives.data();
+    const long *cellRawIdsPtr = cellRawIds.data();
+//#pragma acc data copyin(conservativePtr[0:nCells*N_FIELDS], cellRawIdsPtr[0:nCells]) copy(primitivePtr[0:nCells*N_FIELDS])
+#pragma acc enter data copyin(conservativePtr[0:nCells*N_FIELDS], cellRawIdsPtr[0:nCells]) create(primitivePtr[0:nCells*N_FIELDS])
+#pragma acc parallel loop 
+    for (long i = 0; i < nCells; ++i) {
+        double *primitives = &primitivePtr[cellRawIdsPtr[i]*N_FIELDS];
+        const double *conservatives = &conservativePtr[cellRawIdsPtr[i]*N_FIELDS];
         ::utils::conservative2primitive(conservatives, primitives);
     }
+
+#pragma acc update host(primitivePtr[0:nCells*N_FIELDS])
+
 
     mesh.write();
 
