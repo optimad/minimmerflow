@@ -347,6 +347,8 @@ void computation(int argc, char *argv[])
 
 
 
+    std::size_t checkCell = nCells / 2;
+    std::cout << "Before Init - CPU Temperature in cell raw id " << " = " << cellPrimitives.rawAt(cellRawIds[checkCell],FID_T) << std::endl;
 
     double *primitivePtr = cellPrimitives.data();
     const double *conservativePtr = cellConservatives.data();
@@ -361,6 +363,11 @@ void computation(int argc, char *argv[])
 
 #pragma acc update host(primitivePtr[0:nCells*N_FIELDS])
 
+    std::cout << "GPU-computed Temperature in cell raw id " << " = " << cellPrimitives.rawAt(cellRawIds[checkCell],FID_T) << std::endl;
+    const double *conservatives = &conservativePtr[cellRawIdsPtr[checkCell]*N_FIELDS];
+    double primitives[N_FIELDS];
+    ::utils::conservative2primitive(conservatives, primitives);
+    std::cout << "CPU-computed Temperature in cell raw id " << " = " << primitives[FID_T] << std::endl;
 
     mesh.write();
 
