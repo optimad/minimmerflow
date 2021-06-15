@@ -155,8 +155,8 @@ if (ENABLE_WARNINGS)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 
     if (MINIMMERFLOW_ENABLE_OPENACC)
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Minfo")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Minfo")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Minfo=accel")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Minfo=accel")
     endif()
 endif()
 
