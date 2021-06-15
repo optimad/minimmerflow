@@ -31,7 +31,9 @@ namespace utils {
 
 double normalVelocity(const double *fields, const double *n);
 
+#pragma acc routine
 void conservative2primitive(const double *c, double *p);
+
 void primitive2conservative(const double *p, double *c);
 
 }
