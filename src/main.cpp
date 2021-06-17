@@ -73,6 +73,11 @@ void computation(int argc, char *argv[])
     config::reset("minimmerflow", 1);
     config::read("settings.xml");
 
+#if ENABLE_CUDA
+    // Initialize constants
+    constants::cuda_initialize();
+#endif
+
     // Problem info
     const problem::ProblemType problemType = problem::getProblemType();
 
