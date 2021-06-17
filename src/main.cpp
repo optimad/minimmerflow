@@ -40,6 +40,9 @@
 #endif
 #include <vector>
 #include <time.h>
+#include <string>
+
+#include <nvtx3/nvToolsExt.h>
 
 using namespace bitpit;
 
@@ -392,6 +395,9 @@ void computation(int argc, char *argv[])
 
         double maxEig;
 
+        std::string rangeName = "TimeStep" + std::to_string(step);
+        nvtxRangePushA(rangeName.c_str());
+
         //
         // FIRST RK STAGE
         //
@@ -531,6 +537,9 @@ void computation(int argc, char *argv[])
             diskTime += clock() - diskStart;
             nextSave += (tMax - tMin) / nSaves;
         }
+      
+        nvtxRangePop();
+
     }
     clock_t computeEnd = clock();
 
