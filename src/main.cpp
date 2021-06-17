@@ -219,8 +219,8 @@ void computation(int argc, char *argv[])
     log::cout() << std::endl;
     log::cout() << "Storage initialization..."  << std::endl;
 
-    ScalarPiercedStorage<bool> cellSolvedFlag(1, &mesh.getCells());
-    ScalarPiercedStorage<bool> cellFluidFlag(1, &mesh.getCells());
+    ScalarPiercedStorage<int> cellSolvedFlag(1, &mesh.getCells());
+    ScalarPiercedStorage<int> cellFluidFlag(1, &mesh.getCells());
     ScalarPiercedStorage<double> cellPrimitives(N_FIELDS, &mesh.getCells());
     ScalarPiercedStorage<double> cellConservatives(N_FIELDS, &mesh.getCells());
     ScalarPiercedStorage<double> cellConservativesWork(N_FIELDS, &mesh.getCells());
@@ -233,7 +233,7 @@ void computation(int argc, char *argv[])
         const std::array<double, 3> &cellCentroid = meshInfo.rawGetCellCentroid(cellRawId);
 
         bool isFluid = body::isPointFluid(cellCentroid);
-        cellFluidFlag.rawSet(cellRawId, isFluid);
+        cellFluidFlag.rawSet(cellRawId, (isFluid ? 1 : 0));
 
         bool isSolved = isFluid;
 #if ENABLE_MPI
@@ -241,7 +241,7 @@ void computation(int argc, char *argv[])
             isSolved = cell.isInterior();
         }
 #endif
-        cellSolvedFlag.rawSet(cellRawId, isSolved);
+        cellSolvedFlag.rawSet(cellRawId, (isSolved ? 1 : 0));
     }
     log_memory_status();
 

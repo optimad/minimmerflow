@@ -125,7 +125,7 @@ void evalFluxes(const double *conservative, const double *primitive, const doubl
  * \param[out] maxEig on putput will containt the maximum eigenvalue
  */
 void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo,
-                const ScalarPiercedStorage<bool> &cellSolvedFlag, const int order,
+                const ScalarPiercedStorage<int> &cellSolvedFlag, int order,
                 const ScalarPiercedStorage<double> &cellConservatives, const ScalarPiercedStorage<int> &interfaceBCs,
                 ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
 {
