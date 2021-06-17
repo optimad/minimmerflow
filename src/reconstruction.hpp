@@ -38,8 +38,8 @@ namespace reconstruction {
 
 void initialize();
 
-void computePolynomials(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo, const CellStorageBool &cellSolved,
-                        const CellStorageDouble &conservativeFields, const InterfaceStorageInt &interfaceBCs);
+void computePolynomials(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo, const ScalarPiercedStorage<bool> &cellSolved,
+                        const ScalarPiercedStorage<double> &conservativeFields, const ScalarPiercedStorage<int> &interfaceBCs);
 
 void eval(std::size_t cellRawId, const MeshGeometricalInfo &meshInfo, int order, const std::array<double, 3> &point, const double *means, double *values);
 

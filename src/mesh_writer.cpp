@@ -37,8 +37,8 @@ using namespace bitpit;
  * \param RHS is the storage with the RHS
  */
 MeshWriter::MeshWriter(VolumeKernel *mesh,
-                       CellStorageDouble *primitives, CellStorageDouble *conservatives,
-                       CellStorageDouble *RHS)
+                       ScalarPiercedStorage<double> *primitives, ScalarPiercedStorage<double> *conservatives,
+                       ScalarPiercedStorage<double> *RHS)
     : m_mesh(mesh), m_primitives(primitives), m_conservatives(conservatives), m_RHS(RHS)
 {
 }

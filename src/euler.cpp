@@ -125,17 +125,17 @@ void evalFluxes(const double *conservative, const double *primitive, const std::
  * \param[out] maxEig on putput will containt the maximum eigenvalue
  */
 void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo,
-                const CellStorageBool &cellSolvedFlag, const int order,
-                const CellStorageDouble &cellConservatives, const InterfaceStorageInt &interfaceBCs,
-                CellStorageDouble *cellsRHS, double *maxEig)
+                const ScalarPiercedStorage<bool> &cellSolvedFlag, const int order,
+                const ScalarPiercedStorage<double> &cellConservatives, const ScalarPiercedStorage<int> &interfaceBCs,
+                ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
 {
     // Get mesh information
     const VolumeKernel &mesh = meshInfo.getPatch();
 
-    const std::vector<std::size_t> &internalCellRawIds = meshInfo.getCellRawIds();
+    const ScalarStorage<std::size_t> &internalCellRawIds = meshInfo.getCellRawIds();
     const std::size_t nInternalCells = internalCellRawIds.size();
 
-    const std::vector<std::size_t> &interfaceRawIds = meshInfo.getInterfaceRawIds();
+    const ScalarStorage<std::size_t> &interfaceRawIds = meshInfo.getInterfaceRawIds();
     const std::size_t nInterfaces = interfaceRawIds.size();
 
     // Reset the residuals

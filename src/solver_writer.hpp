@@ -26,6 +26,7 @@
 #define __MINIMMERFLOW_SOLVER_STREAMER_HPP__
 
 #include "constants.hpp"
+#include "containers.hpp"
 #include "storage.hpp"
 
 #include <bitpit_patchkernel.hpp>
@@ -34,8 +35,8 @@ class SolverWriter: public bitpit::VTKBaseStreamer {
 
 public:
     SolverWriter(bitpit::VolumeKernel *mesh,
-                 CellStorageDouble *primitives, CellStorageDouble *conservatives, CellStorageDouble *RHS,
-                 CellStorageBool *solved);
+                 ScalarPiercedStorage<double> *primitives, ScalarPiercedStorage<double> *conservatives, ScalarPiercedStorage<double> *RHS,
+                 ScalarPiercedStorage<bool> *solved);
 
     void flushData(std::fstream &stream, const std::string &name, bitpit::VTKFormat codex) override;
 
@@ -46,10 +47,10 @@ private:
     static const int SOURCE_SOLVED       = 3;
 
     bitpit::VolumeKernel *m_mesh;
-    CellStorageDouble *m_primitives;
-    CellStorageDouble *m_conservatives;
-    CellStorageDouble *m_RHS;
-    CellStorageBool *m_solved;
+    ScalarPiercedStorage<double> *m_primitives;
+    ScalarPiercedStorage<double> *m_conservatives;
+    ScalarPiercedStorage<double> *m_RHS;
+    ScalarPiercedStorage<bool> *m_solved;
 
 };
 

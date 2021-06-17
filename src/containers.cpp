@@ -22,13 +22,6 @@
  *
 \*---------------------------------------------------------------------------*/
 
-#ifndef __MINIMMERFLOW_STORAGE_HPP__
-#define __MINIMMERFLOW_STORAGE_HPP__
+#include "containers.hpp"
 
-#include "constants.hpp"
-
-#include <array>
-
-typedef std::array<double, N_FIELDS> FluxData;
-
-#endif
+using namespace bitpit;
