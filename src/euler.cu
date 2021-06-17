@@ -111,8 +111,8 @@ void evalSplitting_cu
         return;
     }
     // Fluxes
-    double *fL = new double [N_FIELDS];
-    double *fR = new double [N_FIELDS];
+    double fL[5];
+    double fR[5];
 
     evalFluxes_cu
     (
@@ -187,8 +187,6 @@ void evalSplitting_cu
                     )
                  );
     }
-    delete[] fL;
-    delete[] fR;
 }
 
 
@@ -265,12 +263,14 @@ namespace CudaWrappers {
         cudaMalloc((void **) &dfluxes,            Nif * N_FIELDS * sizeof(double));
         cudaMalloc((void **) &dfaceMaxEig,        Nif            * sizeof(double));
         cudaMalloc((void **) &dinterfaceNormal,   Nif * 3        * sizeof(double));
+        
 
         cudaMemcpy(dprimitiveOwner,     primitiveOwner->data(),    Nif * N_FIELDS * sizeof(double), cudaMemcpyHostToDevice);
         cudaMemcpy(dprimitiveNeigh,     primitiveNeigh->data(),    Nif * N_FIELDS * sizeof(double), cudaMemcpyHostToDevice);
         cudaMemcpy(dconservativeOwner,  conservativeOwner->data(), Nif * N_FIELDS * sizeof(double), cudaMemcpyHostToDevice);
         cudaMemcpy(dconservativeNeigh,  conservativeNeigh->data(), Nif * N_FIELDS * sizeof(double), cudaMemcpyHostToDevice);
         cudaMemcpy(dinterfaceNormal,    interfaceNormal->data(),   Nif * 3        * sizeof(double), cudaMemcpyHostToDevice);
+        
 
         // TODO: Use a cuda function here to get appropriate blockSize
         int blockSize = 256;
@@ -314,6 +314,9 @@ namespace CudaWrappers {
         cudaFree(dinterfaceNormal);
         cudaFree(dfaceMaxEig);
         cudaFree(dfluxes);
+
+        delete [] primitiveOwner;
+        delete [] primitiveNeigh;
     }
 
 
