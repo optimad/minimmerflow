@@ -24,8 +24,6 @@
 
 #include "constants.hcu"
 
-__constant__ int DEV_N_FIELDS;
-
 __constant__ int DEV_FID_P;
 __constant__ int DEV_FID_U;
 __constant__ int DEV_FID_V;
@@ -52,8 +50,6 @@ namespace constants
 
 void cuda_initialize()
 {
-    cudaMemcpyToSymbol(DEV_N_FIELDS, &N_FIELDS, sizeof(N_FIELDS));
-
     cudaMemcpyToSymbol(DEV_FID_P, &FID_P, sizeof(FID_P));
     cudaMemcpyToSymbol(DEV_FID_U, &FID_U, sizeof(FID_U));
     cudaMemcpyToSymbol(DEV_FID_V, &FID_V, sizeof(FID_V));
