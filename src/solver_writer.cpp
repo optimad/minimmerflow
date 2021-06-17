@@ -38,8 +38,8 @@ using namespace bitpit;
  * \param solved is the storage with the solved flag
  */
 SolverWriter::SolverWriter(VolumeKernel *mesh,
-                           CellStorageDouble *primitives, CellStorageDouble *conservatives,
-                           CellStorageDouble *RHS, CellStorageBool *solved)
+                           ScalarPiercedStorage<double> *primitives, ScalarPiercedStorage<double> *conservatives,
+                           ScalarPiercedStorage<double> *RHS, ScalarPiercedStorage<bool> *solved)
     : m_mesh(mesh),
       m_primitives(primitives), m_conservatives(conservatives), m_RHS(RHS),
       m_solved(solved)

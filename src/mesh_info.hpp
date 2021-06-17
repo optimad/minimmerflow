@@ -25,7 +25,8 @@
 #ifndef __MINIMMERFLOW_MESH_INFO_HPP__
 #define __MINIMMERFLOW_MESH_INFO_HPP__
 
-#include <bitpit_containers.hpp>
+#include "containers.hpp"
+
 #include <bitpit_patchkernel.hpp>
 
 class MeshGeometricalInfo : public bitpit::PatchInfo {
@@ -38,8 +39,8 @@ public:
 
     int getDimension() const;
 
-    const std::vector<std::size_t> & getCellRawIds() const;
-    const std::vector<std::size_t> & getInternalCellRawIds() const;
+    const ScalarStorage<std::size_t> & getCellRawIds() const;
+    const ScalarStorage<std::size_t> & getInternalCellRawIds() const;
 
     double getCellVolume(long id) const;
     double rawGetCellVolume(size_t pos) const;
@@ -56,7 +57,7 @@ public:
     const bitpit::PiercedStorage<std::array<double, 3>, long> & getCellCentroids() const;
     bitpit::PiercedStorage<std::array<double, 3>, long> & getCellCentroids();
 
-    const std::vector<std::size_t> & getInterfaceRawIds() const;
+    const ScalarStorage<std::size_t> & getInterfaceRawIds() const;
 
     double getInterfaceArea(long id) const;
     double rawGetInterfaceArea(size_t pos) const;
@@ -81,10 +82,10 @@ public:
 protected:
     const bitpit::VolumeKernel *m_volumePatch;
 
-    std::vector<std::size_t> m_cellRawIds;
-    std::vector<std::size_t> m_internalCellRawIds;
+    ScalarStorage<std::size_t> m_cellRawIds;
+    ScalarStorage<std::size_t> m_internalCellRawIds;
 
-    std::vector<std::size_t> m_interfaceRawIds;
+    ScalarStorage<std::size_t> m_interfaceRawIds;
 
     using bitpit::PatchInfo::setPatch;
 
@@ -93,14 +94,14 @@ protected:
     virtual void _extract();
 
 private:
-    bitpit::PiercedStorage<double, long> m_cellVolumes;
-    bitpit::PiercedStorage<double, long> m_cellSizes;
-    bitpit::PiercedStorage<std::array<double, 3>, long> m_cellCentroids;
+    ScalarPiercedStorage<double> m_cellVolumes;
+    ScalarPiercedStorage<double> m_cellSizes;
+    VectorPiercedStorage<double> m_cellCentroids;
 
-    bitpit::PiercedStorage<double, long> m_interfaceAreas;
-    bitpit::PiercedStorage<std::array<double, 3>, long> m_interfaceCentroids;
-    bitpit::PiercedStorage<std::array<double, 3>, long> m_interfaceNormals;
-    bitpit::PiercedStorage<std::array<double, 3>, long> m_interfaceTangents;
+    ScalarPiercedStorage<double> m_interfaceAreas;
+    VectorPiercedStorage<double> m_interfaceCentroids;
+    VectorPiercedStorage<double> m_interfaceNormals;
+    VectorPiercedStorage<double> m_interfaceTangents;
 
 };
 
