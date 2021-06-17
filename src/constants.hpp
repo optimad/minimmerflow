@@ -25,12 +25,6 @@
 #ifndef __MINIMMERFLOW_CONSTANTS_HPP__
 #define __MINIMMERFLOW_CONSTANTS_HPP__
 
-#if ENABLE_MPI
-#include "communications.hpp"
-#endif
-
-#include <bitpit_containers.hpp>
-
 // Constants
 const int N_FIELDS = 5;
 
