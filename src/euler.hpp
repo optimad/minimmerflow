@@ -43,6 +43,22 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
                 const int order, const ScalarPiercedStorage<double> &cellConservatives,
                 const ScalarPiercedStorage<int> &interfaceBCs, ScalarPiercedStorage<double> *cellsRHS, double *maxEig);
 
+void resetRHS(ScalarPiercedStorage<double> *cellsRHS);
+#if ENABLE_CUDA
+void cuda_resetRHS(ScalarPiercedStorage<double> *cellsRHS);
+#endif
+
+void updateRHS(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo,
+               const ScalarPiercedStorage<int> &cellSolvedFlag, const ScalarPiercedStorage<int> &interfaceSolvedFlag,
+               const int order, const ScalarPiercedStorage<double> &cellConservatives,
+               const ScalarPiercedStorage<int> &interfaceBCs, ScalarPiercedStorage<double> *cellsRHS, double *maxEig);
+#if ENABLE_CUDA
+void cuda_updateRHS(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo,
+                    const ScalarPiercedStorage<int> &cellSolvedFlag, const ScalarPiercedStorage<int> &interfaceSolvedFlag,
+                    const int order, const ScalarPiercedStorage<double> &cellConservatives,
+                    const ScalarPiercedStorage<int> &interfaceBCs, ScalarPiercedStorage<double> *cellsRHS, double *maxEig);
+#endif
+
 void evalInterfaceBCValues(problem::ProblemType problemType, int BCType,
                            const std::array<double, 3> &point,
                            const std::array<double, 3> &normal,

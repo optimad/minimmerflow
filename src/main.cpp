@@ -228,6 +228,13 @@ void computation(int argc, char *argv[])
 
     ScalarPiercedStorage<int> interfaceSolvedFlag(1, &mesh.getInterfaces());
 
+#if ENABLE_CUDA
+    cellRHS.cuda_allocate();
+    cellConservatives.cuda_allocate();
+
+    interfaceSolvedFlag.cuda_allocate();
+#endif
+
     // Initialize fluid and solved flag
     for (std::size_t i = 0; i < nCells; ++i) {
         const std::size_t cellRawId = cellRawIds[i];
@@ -264,6 +271,10 @@ void computation(int argc, char *argv[])
         // Check if the interface needs to be solved
         interfaceSolvedFlag.rawAt(interfaceRawId) = (ownerSolved || neighSolved);
     }
+
+#if ENABLE_CUDA
+    interfaceSolvedFlag.cuda_updateDevice();
+#endif
 
     log_memory_status();
 
@@ -415,6 +426,10 @@ void computation(int argc, char *argv[])
         //
 
         // Compute the residuals
+#if ENABLE_CUDA
+        cellConservatives.cuda_updateDevice();
+#endif
+
         reconstruction::computePolynomials(problemType, meshInfo, cellSolvedFlag, cellConservatives, interfaceBCs);
         euler::computeRHS(problemType, meshInfo, cellSolvedFlag, interfaceSolvedFlag, order, cellConservatives, interfaceBCs, &cellRHS, &maxEig);
 
@@ -459,6 +474,10 @@ void computation(int argc, char *argv[])
         }
 #endif
 
+#if ENABLE_CUDA
+        cellConservatives.cuda_updateDevice();
+#endif
+
         reconstruction::computePolynomials(problemType, meshInfo, cellSolvedFlag, cellConservativesWork, interfaceBCs);
         euler::computeRHS(problemType, meshInfo, cellSolvedFlag, interfaceSolvedFlag, order, cellConservativesWork, interfaceBCs, &cellRHS, &maxEig);
 #if ENABLE_MPI
@@ -493,6 +512,10 @@ void computation(int argc, char *argv[])
             conservativeWorkCommunicator->startAllExchanges();
             conservativeWorkCommunicator->completeAllExchanges();
         }
+#endif
+
+#if ENABLE_CUDA
+        cellConservatives.cuda_updateDevice();
 #endif
 
         reconstruction::computePolynomials(problemType, meshInfo, cellSolvedFlag, cellConservativesWork, interfaceBCs);
@@ -603,6 +626,11 @@ void computation(int argc, char *argv[])
     log::cout() << std::endl;
 
 #if ENABLE_CUDA
+    // Storage finalization
+    cellRHS.cuda_free();
+
+    interfaceSolvedFlag.cuda_free();
+
     // Cuda finalization
     meshInfo.cuda_finalize();
 #endif
