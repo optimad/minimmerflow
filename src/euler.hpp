@@ -38,7 +38,7 @@ void evalSplitting(const double *conservativeL, const double *conservativeR, con
 
 void evalFluxes(const double *conservative, const double *primitive, const double *n, double *fluxes);
 
-void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo, const ScalarPiercedStorage<bool> &cellSolvedFlag,
+void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo, const ScalarPiercedStorage<int> &cellSolvedFlag,
                 const int order, const ScalarPiercedStorage<double> &cellConservatives, const ScalarPiercedStorage<int> &interfaceBCs,
                 ScalarPiercedStorage<double> *cellsRHS, double *maxEig);
 

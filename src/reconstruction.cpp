@@ -44,7 +44,7 @@ void initialize()
  * \param conservativeFields are the conservative fields
  * \param interfaceBCs is the storage for the interface boundary conditions
  */
-void computePolynomials(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo, const ScalarPiercedStorage<bool> &cellSolvedFlag,
+void computePolynomials(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo, const ScalarPiercedStorage<int> &cellSolvedFlag,
                        const ScalarPiercedStorage<double> &conservativeFields, const ScalarPiercedStorage<int> &interfaceBCs)
 {
     BITPIT_UNUSED(problemType);
