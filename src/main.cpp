@@ -342,10 +342,10 @@ void computation(int argc, char *argv[])
 
     for (std::size_t i = 0; i < nCells; ++i) {
         const std::size_t cellRawId = cellRawIds[i];
-        const Cell &cell = mesh.getCells().rawAt(cellRawId);
+        const long cellId = mesh.getCells().rawFind(cellRawId).getId();
 
         double *conservatives = cellConservatives.rawData(cellRawId);
-        problem::evalCellInitalConservatives(problemType, cell, meshInfo, conservatives);
+        problem::evalCellInitalConservatives(problemType, cellId, meshInfo, conservatives);
 
         double *primitives = cellPrimitives.rawData(cellRawId);
         ::utils::conservative2primitive(conservatives, primitives);
@@ -564,7 +564,7 @@ void computation(int argc, char *argv[])
         const long cellId = cell.getId();
 
         const double *conservatives = cellConservatives.data(cellId);
-        problem::evalCellExactConservatives(problemType, cell, meshInfo, tMax, evalConservatives.data());
+        problem::evalCellExactConservatives(problemType, cell.getId(), meshInfo, tMax, evalConservatives.data());
         error += std::abs(conservatives[FID_P] - evalConservatives[FID_P]) * meshInfo.getCellVolume(cellId);
     }
 

@@ -48,8 +48,8 @@ void getDomainData(ProblemType problemType, int &dimensions, std::array<double, 
 double getStartTime(ProblemType problemType, int dimensions);
 double getEndTime(ProblemType problemType, int dimensions);
 
-void evalCellInitalConservatives(ProblemType problemType, const bitpit::Cell &cell, const MeshGeometricalInfo &meshInfo, double *primitives);
-void evalCellExactConservatives(ProblemType problemType, const bitpit::Cell &cell, const MeshGeometricalInfo &meshInfo, double t, double *primitives);
+void evalCellInitalConservatives(ProblemType problemType, long cellId, const MeshGeometricalInfo &meshInfo, double *primitives);
+void evalCellExactConservatives(ProblemType problemType, long cellId, const MeshGeometricalInfo &meshInfo, double t, double *primitives);
 
 void evalExactConservatives(ProblemType problemType, int dimensions, std::array<double, 3> point, double t, double *primitives);
 
