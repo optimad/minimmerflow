@@ -34,9 +34,9 @@
 
 namespace euler {
 
-void evalSplitting(const double *conservativeL, const double *conservativeR, const std::array<double, 3> &n, FluxData *fluxes, double *lambda);
+void evalSplitting(const double *conservativeL, const double *conservativeR, const double *n, double *fluxes, double *lambda);
 
-void evalFluxes(const double *conservative, const double *primitive, const std::array<double, 3> &n, FluxData *fluxes);
+void evalFluxes(const double *conservative, const double *primitive, const double *n, double *fluxes);
 
 void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo, const ScalarPiercedStorage<bool> &cellSolvedFlag,
                 const int order, const ScalarPiercedStorage<double> &cellConservatives, const ScalarPiercedStorage<int> &interfaceBCs,
