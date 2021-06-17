@@ -22,17 +22,17 @@
  *
 \*---------------------------------------------------------------------------*/
 
-#ifndef __MINIMMERFLOW_UTILS_HPP__
-#define __MINIMMERFLOW_UTILS_HPP__
+#ifndef __MINIMMERFLOW_UTILS_HCU__
+#define __MINIMMERFLOW_UTILS_HCU__
 
 #include <array>
 
 namespace utils {
 
-double normalVelocity(const double *fields, const double *n);
+__device__ double dev_normalVelocity(const double *fields, const double *n);
 
-void conservative2primitive(const double *c, double *p);
-void primitive2conservative(const double *p, double *c);
+__device__ void dev_conservative2primitive(const double *c, double *p);
+__device__ void dev_primitive2conservative(const double *p, double *c);
 
 }
 
