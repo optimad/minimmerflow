@@ -25,8 +25,6 @@
 # include "constants.hpp"
 # include "utils.hpp"
 
-using namespace bitpit;
-
 namespace utils {
 
 /*!
