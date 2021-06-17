@@ -27,8 +27,6 @@
 
 #include "constants.hpp"
 
-extern __constant__ int DEV_N_FIELDS;
-
 extern __constant__ int DEV_FID_P;
 extern __constant__ int DEV_FID_U;
 extern __constant__ int DEV_FID_V;
