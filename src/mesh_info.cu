@@ -38,6 +38,8 @@ void MeshGeometricalInfo::cuda_initialize()
     m_cellCentroids.cuda_allocate();
 
     m_interfaceRawIds.cuda_allocate();
+    m_interfaceOwnerRawIds.cuda_allocate();
+    m_interfaceNeighRawIds.cuda_allocate();
 
     m_interfaceAreas.cuda_allocate();
     m_interfaceCentroids.cuda_allocate();
@@ -53,6 +55,8 @@ void MeshGeometricalInfo::cuda_initialize()
     m_cellCentroids.cuda_updateDevice();
 
     m_interfaceRawIds.cuda_updateDevice();
+    m_interfaceOwnerRawIds.cuda_updateDevice();
+    m_interfaceNeighRawIds.cuda_updateDevice();
 
     m_interfaceAreas.cuda_updateDevice();
     m_interfaceCentroids.cuda_updateDevice();
@@ -74,6 +78,8 @@ void MeshGeometricalInfo::cuda_finalize()
     m_cellCentroids.cuda_free();
 
     m_interfaceRawIds.cuda_free();
+    m_interfaceOwnerRawIds.cuda_free();
+    m_interfaceNeighRawIds.cuda_free();
 
     m_interfaceAreas.cuda_free();
     m_interfaceCentroids.cuda_free();
@@ -169,6 +175,26 @@ const double * MeshGeometricalInfo::cuda_getCellCentroidDevData() const
 const std::size_t * MeshGeometricalInfo::cuda_getInterfaceRawIdDevData() const
 {
     return m_interfaceRawIds.cuda_devData();
+}
+
+/*!
+ * Gets a constant pointer to the interface owner raw id CUDA data storage.
+ *
+ * \result A constant pointer to the interface owner raw id CUDA data storage.
+ */
+const std::size_t * MeshGeometricalInfo::cuda_getInterfaceOwnerRawIdDevData() const
+{
+    return m_interfaceOwnerRawIds.cuda_devData();
+}
+
+/*!
+ * Gets a constant pointer to the interface neigh raw id CUDA data storage.
+ *
+ * \result A constant pointer to the interface neigh raw id CUDA data storage.
+ */
+const std::size_t * MeshGeometricalInfo::cuda_getInterfaceNeighRawIdDevData() const
+{
+    return m_interfaceNeighRawIds.cuda_devData();
 }
 
 /*!
