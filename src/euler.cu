@@ -25,7 +25,35 @@
 #include "euler.hcu"
 #include "reconstruction.hpp"
 
+#define uint64					unsigned long long
+
 namespace euler {
+
+/**
+ * @brief Compute the maximum of 2 double-precision floating point values using an atomic operation
+ *
+ * @param[in]	address	The address of the reference value which might get updated with the maximum
+ * @param[in]	value	The value that is compared to the reference in order to determine the maximum
+ */
+__device__ void atomicMax(double * const address, const double value)
+{
+    if (* address >= value) {
+        return;
+    }
+
+    uint64 * const address_as_i = (uint64 *)address;
+    uint64 old = * address_as_i;
+   
+    uint64 assumed;
+    do {
+        assumed = old;
+        if (__longlong_as_double(assumed) >= value) {
+            break;
+        }
+		
+        old = atomicCAS(address_as_i, assumed, __double_as_longlong(value));
+    } while (assumed != old);
+}
 
 /*!
  * Calculates the conservative fluxes for a perfect gas.
@@ -123,7 +151,7 @@ __device__ void dev_evalSplitting(const double *conservativeL, const double *con
  */
 __global__ void dev_computeInterfaceFluxes(std::size_t nInterfaces, const std::size_t *interfaceRawIds, const int *interfaceSolvedFlag, const double *interfaceNormals,
                                            const double *ownerReconstructions, const double *neighReconstructions,
-                                           double *interfacesFluxes, double *interfacesMaxEig)
+                                           double *interfacesFluxes, double *maxEig)
 {
     // Get interface information
     int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -150,10 +178,11 @@ __global__ void dev_computeInterfaceFluxes(std::size_t nInterfaces, const std::s
         interfaceFluxes[k] = 0.;
     }
 
-    double *interfaceMaxEig = interfacesMaxEig + interfaceRawId;
-    *interfaceMaxEig = 0.;
+    double interfaceMaxEig;
 
-    dev_evalSplitting(ownerReconstruction, neighReconstruction, interfaceNormal, interfaceFluxes, interfaceMaxEig);
+    dev_evalSplitting(ownerReconstruction, neighReconstruction, interfaceNormal, interfaceFluxes, &interfaceMaxEig);
+
+    atomicMax(maxEig, interfaceMaxEig);
 }
 
 /*!
@@ -177,10 +206,6 @@ void cuda_computeInterfaceFluxes(const MeshGeometricalInfo &meshInfo, const Scal
     const ScalarStorage<std::size_t> &interfaceRawIds = meshInfo.getInterfaceRawIds();
     const std::size_t nInterfaces = interfaceRawIds.size();
 
-    // Initialize device data
-    ScalarPiercedStorage<double> interfacesMaxEig(1, &mesh.getInterfaces());
-    interfacesMaxEig.cuda_allocate();
-
     // Evaluate fluxes
     const int *devInterfaceSolvedFlag = interfaceSolvedFlag.cuda_devData();
     const std::size_t *devInterfaceRawIds = meshInfo.cuda_getInterfaceRawIdDevData();
@@ -190,32 +215,23 @@ void cuda_computeInterfaceFluxes(const MeshGeometricalInfo &meshInfo, const Scal
     const double *devNeighReconstructions = neighReconstructions.cuda_devData();
 
     double *devInterfacesFluxes = interfacesFluxes->cuda_devData();
-    double *devInterfacesMaxEig = interfacesMaxEig.cuda_devData();
+
+    double *devMaxEig;
+    cudaMalloc((void **) &devMaxEig, 1 * sizeof(double));
+    cudaMemset(devMaxEig, 0., 1 * sizeof(double));
 
     int blockSize = 256;
     int numBlocks = (nInterfaces + blockSize - 1) / blockSize;
     dev_computeInterfaceFluxes<<<numBlocks, blockSize>>>(nInterfaces, devInterfaceRawIds, devInterfaceSolvedFlag, devInterfaceNormals,
                                                          devOwnerReconstructions, devNeighReconstructions,
-                                                         devInterfacesFluxes, devInterfacesMaxEig);
+                                                         devInterfacesFluxes, devMaxEig);
 
     // Update host data
     interfacesFluxes->cuda_updateHost();
-    interfacesMaxEig.cuda_updateHost();
+    cudaMemcpy(maxEig, devMaxEig, 1 * sizeof(double), cudaMemcpyDeviceToHost);
 
-    // Compute maximum eigenvlaue
-    *maxEig = 0.;
-    for (std::size_t i = 0; i < nInterfaces; ++i) {
-        const std::size_t interfaceRawId = interfaceRawIds[i];
-        if (!interfaceSolvedFlag.rawAt(interfaceRawId)) {
-            continue;
-        }
-
-        const double interfaceMaxEig = interfacesMaxEig.rawAt(interfaceRawId);
-        *maxEig = std::max(interfaceMaxEig, *maxEig);
-    }
-
-    // Finalize data
-    interfacesMaxEig.cuda_free();
+    // Clean up
+    cudaFree(devMaxEig);
 }
 
 /*!
