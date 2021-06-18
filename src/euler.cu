@@ -182,7 +182,8 @@ __global__ void dev_computeInterfaceFluxes(std::size_t nInterfaces, const std::s
 
     dev_evalSplitting(ownerReconstruction, neighReconstruction, interfaceNormal, interfaceFluxes, &interfaceMaxEig);
 
-    atomicMax(maxEig, interfaceMaxEig);
+//  atomicMax(maxEig, interfaceMaxEig);
+    maxEig[i] = interfaceMaxEig;
 }
 
 /*!
@@ -217,8 +218,8 @@ void cuda_computeInterfaceFluxes(const MeshGeometricalInfo &meshInfo, const Scal
     double *devInterfacesFluxes = interfacesFluxes->cuda_devData();
 
     double *devMaxEig;
-    cudaMalloc((void **) &devMaxEig, 1 * sizeof(double));
-    cudaMemset(devMaxEig, 0., 1 * sizeof(double));
+    cudaMalloc((void **) &devMaxEig, mesh.getInterfaceCount() * sizeof(double));
+    cudaMemset(devMaxEig, 0., mesh.getInterfaceCount() * sizeof(double));
 
     int blockSize = 256;
     int numBlocks = (nInterfaces + blockSize - 1) / blockSize;
@@ -228,7 +229,12 @@ void cuda_computeInterfaceFluxes(const MeshGeometricalInfo &meshInfo, const Scal
 
     // Update host data
     interfacesFluxes->cuda_updateHost();
-    cudaMemcpy(maxEig, devMaxEig, 1 * sizeof(double), cudaMemcpyDeviceToHost);
+
+    // Compute maxEig
+    std::vector<double> maxEigs(mesh.getInterfaceCount());
+    cudaMemcpy(maxEigs.data(), devMaxEig, mesh.getInterfaceCount() * sizeof(double), cudaMemcpyDeviceToHost);
+
+    *maxEig = *std::max_element(maxEigs.begin(), maxEigs.end());
 
     // Clean up
     cudaFree(devMaxEig);
