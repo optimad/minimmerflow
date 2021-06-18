@@ -32,13 +32,15 @@
 
 namespace euler {
 
+__device__ void atomicMax(double * const address, const double value);
+
 __device__ void dev_evalFluxes(const double *conservative, const double *primitive, const double *n, double *fluxes);
 
 __device__ void dev_evalSplitting(const double *conservativeL, const double *conservativeR, const double *n, double *fluxes, double *lambda);
 
 __global__ void dev_computeInterfaceFluxes(std::size_t nInterfaces, const std::size_t *interfaceRawIds, const int *interfaceSolvedFlag, const double *interfaceNormals,
                                            const double *ownerReconstructions, const double *neighReconstructions,
-                                           double *interfacesFluxes, double *interfacesMaxEig);
+                                           double *interfacesFluxes, double *maxEig);
 
 __host__ void cuda_computeInterfaceFluxes(const MeshGeometricalInfo &meshInfo, const ScalarPiercedStorage<int> &interfaceSolvedFlag,
                                           const ScalarPiercedStorage<double> &ownerReconstructions, const ScalarPiercedStorage<double> &neighReconstructions,
