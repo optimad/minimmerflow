@@ -39,19 +39,18 @@ void initialize()
  * Compute the reconstruction polynomials.
  *
  * \param problemType is the problem type
- * \param meshInfo are the mesh information
- * \param cellSolvedFlag is the storage for the solved flag
+ * \param computationInfo are the computation information
  * \param conservativeFields are the conservative fields
- * \param interfaceBCs is the storage for the interface boundary conditions
+ * \param solvedBoundaryInterfaceBCs is the storage for the interface boundary
+ * conditions of the solved boundary cells
  */
-void computePolynomials(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo, const ScalarPiercedStorage<int> &cellSolvedFlag,
-                       const ScalarPiercedStorage<double> &conservativeFields, const ScalarPiercedStorage<int> &interfaceBCs)
+void computePolynomials(problem::ProblemType problemType, const ComputationInfo &computationInfo,
+                       const ScalarPiercedStorage<double> &conservativeFields, const ScalarStorage<int> &solvedBoundaryInterfaceBCs)
 {
     BITPIT_UNUSED(problemType);
-    BITPIT_UNUSED(meshInfo);
-    BITPIT_UNUSED(cellSolvedFlag);
+    BITPIT_UNUSED(computationInfo);
     BITPIT_UNUSED(conservativeFields);
-    BITPIT_UNUSED(interfaceBCs);
+    BITPIT_UNUSED(solvedBoundaryInterfaceBCs);
 }
 
 /*!
