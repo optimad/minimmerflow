@@ -29,6 +29,9 @@
 
 #include <bitpit_containers.hpp>
 
+#if ENABLE_OPENACC
+#include <openacc.h>
+#endif
 #include <vector>
 #include <array>
 
