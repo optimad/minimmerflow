@@ -322,7 +322,7 @@ void computation(int argc, char *argv[])
     log::cout() << std::endl;
     log::cout() << "Output initialization..."  << std::endl;
 
-    SolverWriter solverStreamer(&mesh, &cellPrimitives, &cellConservatives, &cellRHS, &cellSolvedFlag);
+    SolverWriter solverStreamer(&mesh, &cellSolvedFlag, &cellPrimitives, &cellConservatives, &cellRHS);
 
     VTKUnstructuredGrid &vtk = mesh.getVTK();
     vtk.setCounter(0);
