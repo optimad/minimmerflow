@@ -33,17 +33,17 @@ void ComputationInfo::cuda_initialize()
     MeshGeometricalInfo::cuda_initialize();
 
     // Allocate device memory
-    m_cellSolveMethods.cuda_allocate();
+    m_cellSolveMethods.cuda_allocateDevice();
 
-    m_solvedCellRawIds.cuda_allocate();
+    m_solvedCellRawIds.cuda_allocateDevice();
 
-    m_solvedUniformInterfaceRawIds.cuda_allocate();
-    m_solvedUniformInterfaceOwnerRawIds.cuda_allocate();
-    m_solvedUniformInterfaceNeighRawIds.cuda_allocate();
+    m_solvedUniformInterfaceRawIds.cuda_allocateDevice();
+    m_solvedUniformInterfaceOwnerRawIds.cuda_allocateDevice();
+    m_solvedUniformInterfaceNeighRawIds.cuda_allocateDevice();
 
-    m_solvedBoundaryInterfaceRawIds.cuda_allocate();
-    m_solvedBoundaryInterfaceSigns.cuda_allocate();
-    m_solvedBoundaryInterfaceFluidRawIds.cuda_allocate();
+    m_solvedBoundaryInterfaceRawIds.cuda_allocateDevice();
+    m_solvedBoundaryInterfaceSigns.cuda_allocateDevice();
+    m_solvedBoundaryInterfaceFluidRawIds.cuda_allocateDevice();
 
     // Copy data to the device
     m_cellSolveMethods.cuda_updateDevice();
@@ -68,17 +68,17 @@ void ComputationInfo::cuda_finalize()
     MeshGeometricalInfo::cuda_finalize();
 
     // Deallocate device memory
-    m_cellSolveMethods.cuda_free();
+    m_cellSolveMethods.cuda_freeDevice();
 
-    m_solvedCellRawIds.cuda_free();
+    m_solvedCellRawIds.cuda_freeDevice();
 
-    m_solvedUniformInterfaceRawIds.cuda_free();
-    m_solvedUniformInterfaceOwnerRawIds.cuda_free();
-    m_solvedUniformInterfaceNeighRawIds.cuda_free();
+    m_solvedUniformInterfaceRawIds.cuda_freeDevice();
+    m_solvedUniformInterfaceOwnerRawIds.cuda_freeDevice();
+    m_solvedUniformInterfaceNeighRawIds.cuda_freeDevice();
 
-    m_solvedBoundaryInterfaceRawIds.cuda_free();
-    m_solvedBoundaryInterfaceSigns.cuda_free();
-    m_solvedBoundaryInterfaceFluidRawIds.cuda_free();
+    m_solvedBoundaryInterfaceRawIds.cuda_freeDevice();
+    m_solvedBoundaryInterfaceSigns.cuda_freeDevice();
+    m_solvedBoundaryInterfaceFluidRawIds.cuda_freeDevice();
 }
 
 /*!
@@ -88,7 +88,7 @@ void ComputationInfo::cuda_finalize()
  */
 const int * ComputationInfo::cuda_getCellSolveMethodDevData() const
 {
-    return m_cellSolveMethods.cuda_devData();
+    return m_cellSolveMethods.cuda_deviceData();
 }
 
 /*!
@@ -98,7 +98,7 @@ const int * ComputationInfo::cuda_getCellSolveMethodDevData() const
  */
 const std::size_t * ComputationInfo::cuda_getSolvedCellRawIdDevData() const
 {
-    return m_solvedCellRawIds.cuda_devData();
+    return m_solvedCellRawIds.cuda_deviceData();
 }
 
 /*!
@@ -109,7 +109,7 @@ const std::size_t * ComputationInfo::cuda_getSolvedCellRawIdDevData() const
  */
 const int * ComputationInfo::cuda_getInterfaceSolveMethodDevData() const
 {
-    return m_interfaceSolveMethods.cuda_devData();
+    return m_interfaceSolveMethods.cuda_deviceData();
 }
 
 /*!
@@ -121,7 +121,7 @@ const int * ComputationInfo::cuda_getInterfaceSolveMethodDevData() const
  */
 const std::size_t * ComputationInfo::cuda_getSolvedUniformInterfaceRawIdDevData() const
 {
-    return m_solvedUniformInterfaceRawIds.cuda_devData();
+    return m_solvedUniformInterfaceRawIds.cuda_deviceData();
 }
 
 /*!
@@ -133,7 +133,7 @@ const std::size_t * ComputationInfo::cuda_getSolvedUniformInterfaceRawIdDevData(
  */
 const std::size_t * ComputationInfo::cuda_getSolvedUniformInterfaceOwnerRawIdDevData() const
 {
-    return m_solvedUniformInterfaceOwnerRawIds.cuda_devData();
+    return m_solvedUniformInterfaceOwnerRawIds.cuda_deviceData();
 }
 
 /*!
@@ -145,7 +145,7 @@ const std::size_t * ComputationInfo::cuda_getSolvedUniformInterfaceOwnerRawIdDev
  */
 const std::size_t * ComputationInfo::cuda_getSolvedUniformInterfaceNeighRawIdDevData() const
 {
-    return m_solvedUniformInterfaceNeighRawIds.cuda_devData();
+    return m_solvedUniformInterfaceNeighRawIds.cuda_deviceData();
 }
 
 /*!
@@ -157,7 +157,7 @@ const std::size_t * ComputationInfo::cuda_getSolvedUniformInterfaceNeighRawIdDev
  */
 const std::size_t * ComputationInfo::cuda_getSolvedBoundaryInterfaceRawIdDevData() const
 {
-    return m_solvedBoundaryInterfaceRawIds.cuda_devData();
+    return m_solvedBoundaryInterfaceRawIds.cuda_deviceData();
 }
 
 /*!
@@ -169,7 +169,7 @@ const std::size_t * ComputationInfo::cuda_getSolvedBoundaryInterfaceRawIdDevData
  */
 const std::size_t * ComputationInfo::cuda_getSolvedBoundaryInterfaceSignDevData() const
 {
-    return m_solvedBoundaryInterfaceSigns.cuda_devData();
+    return m_solvedBoundaryInterfaceSigns.cuda_deviceData();
 }
 
 /*!
@@ -181,5 +181,5 @@ const std::size_t * ComputationInfo::cuda_getSolvedBoundaryInterfaceSignDevData(
  */
 const std::size_t * ComputationInfo::cuda_getSolvedBoundaryInterfaceFluidRawIdDevData() const
 {
-    return m_solvedBoundaryInterfaceFluidRawIds.cuda_devData();
+    return m_solvedBoundaryInterfaceFluidRawIds.cuda_deviceData();
 }

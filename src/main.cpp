@@ -224,8 +224,8 @@ void computation(int argc, char *argv[])
     ScalarPiercedStorage<double> cellRHS(N_FIELDS, &mesh.getCells());
 
 #if ENABLE_CUDA
-    cellRHS.cuda_allocate();
-    cellConservatives.cuda_allocate();
+    cellRHS.cuda_allocateDevice();
+    cellConservatives.cuda_allocateDevice();
 #endif
 
     log_memory_status();
@@ -568,7 +568,7 @@ void computation(int argc, char *argv[])
 
     // Clean-up
 #if ENABLE_CUDA
-    cellRHS.cuda_free();
+    cellRHS.cuda_freeDevice();
     computationInfo.cuda_finalize();
 #endif
 }
