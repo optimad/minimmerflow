@@ -35,12 +35,12 @@ using namespace bitpit;
  * \param primitives is the storage with the primitive fields
  * \param conservatives is the storage with the conservatives fields
  * \param RHS is the storage with the RHS
- * \param solved is the storage with the solved flag
+ * \param solveMethods is the storage with the solve method
  */
-SolverWriter::SolverWriter(const VolumeKernel *mesh, const ScalarPiercedStorage<int> *solved,
+SolverWriter::SolverWriter(const VolumeKernel *mesh, const ScalarPiercedStorage<int> *solveMethods,
                            const ScalarPiercedStorage<double> *primitives, const  ScalarPiercedStorage<double> *conservatives,
                            const ScalarPiercedStorage<double> *RHS)
-    : m_mesh(mesh), m_solved(solved),
+    : m_mesh(mesh), m_solveMethods(solveMethods),
       m_primitives(primitives), m_conservatives(conservatives),
       m_RHS(RHS)
 {
@@ -85,8 +85,8 @@ void SolverWriter::flushData(std::fstream &stream, const std::string &name, bitp
     } else if( name == "residualE") {
         offset = FID_EQ_E;
         source = SOURCE_RHS;
-    } else if( name == "solved") {
-        source = SOURCE_SOLVED;
+    } else if( name == "solveMethod") {
+        source = SOURCE_SOLVE_METHOD;
     } else {
         return;
     }
@@ -110,9 +110,9 @@ void SolverWriter::flushData(std::fstream &stream, const std::string &name, bitp
             double value = m_RHS->at(cell.getId(), offset);
             bitpit::genericIO::flushBINARY(stream, value);
         }
-    } else if (source == SOURCE_SOLVED) {
+    } else if (source == SOURCE_SOLVE_METHOD) {
         for (const Cell &cell : m_mesh->getCells()) {
-            int value = m_solved->at(cell.getId(), offset) ? 1 : 0;
+            int value = m_solveMethods->at(cell.getId(), offset) ? 1 : 0;
             bitpit::genericIO::flushBINARY(stream, value);
         }
     }

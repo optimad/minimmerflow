@@ -25,6 +25,7 @@
 #ifndef __MINIMMERFLOW_EULER_HPP__
 #define __MINIMMERFLOW_EULER_HPP__
 
+#include "computation_info.hpp"
 #include "constants.hpp"
 #include "mesh_info.hpp"
 #include "problem.hpp"
@@ -38,25 +39,22 @@ void evalSplitting(const double *conservativeL, const double *conservativeR, con
 
 void evalFluxes(const double *conservative, const double *primitive, const double *n, double *fluxes);
 
-void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo,
-                const ScalarPiercedStorage<int> &cellSolvedFlag, const ScalarPiercedStorage<int> &interfaceSolvedFlag,
-                const int order, const ScalarPiercedStorage<double> &cellConservatives,
-                const ScalarPiercedStorage<int> &interfaceBCs, ScalarPiercedStorage<double> *cellsRHS, double *maxEig);
+void computeRHS(problem::ProblemType problemType, const ComputationInfo &computationInfo,
+                const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
+                const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig);
 
 void resetRHS(ScalarPiercedStorage<double> *cellsRHS);
 #if ENABLE_CUDA
 void cuda_resetRHS(ScalarPiercedStorage<double> *cellsRHS);
 #endif
 
-void updateRHS(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo,
-               const ScalarPiercedStorage<int> &cellSolvedFlag, const ScalarPiercedStorage<int> &interfaceSolvedFlag,
-               const int order, const ScalarPiercedStorage<double> &cellConservatives,
-               const ScalarPiercedStorage<int> &interfaceBCs, ScalarPiercedStorage<double> *cellsRHS, double *maxEig);
+void updateRHS(problem::ProblemType problemType, const ComputationInfo &computationInfo,
+               const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
+               const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig);
 #if ENABLE_CUDA
-void cuda_updateRHS(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo,
-                    const ScalarPiercedStorage<int> &cellSolvedFlag, const ScalarPiercedStorage<int> &interfaceSolvedFlag,
-                    const int order, const ScalarPiercedStorage<double> &cellConservatives,
-                    const ScalarPiercedStorage<int> &interfaceBCs, ScalarPiercedStorage<double> *cellsRHS, double *maxEig);
+void cuda_updateRHS(problem::ProblemType problemType, const ComputationInfo &computationInfo,
+                    const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
+                    const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig);
 #endif
 
 void evalInterfaceBCValues(problem::ProblemType problemType, int BCType,
