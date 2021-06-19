@@ -52,7 +52,6 @@ void initialize()
         return;
     }
 
-    std::cout << config::root["bodies"].getSections().size() << std::endl;
     for (const auto &bodyEntry : config::root["bodies"].getSections()) {
         const Config &bodyInfo = *bodyEntry.second;
         const std::string bodyShape = bodyInfo.get<std::string>("type", "");
