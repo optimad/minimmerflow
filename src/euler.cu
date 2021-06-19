@@ -281,7 +281,7 @@ void cuda_resetRHS(ScalarPiercedStorage<double> *cellsRHS)
  * \param[out] cellsRHS on output will containt the RHS
  * \param[out] maxEig on putput will containt the maximum eigenvalue
  */
-void cuda_updateRHS(problem::ProblemType problemType, const ComputationInfo &computationInfo,
+void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computationInfo,
                     const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
                     const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
 {
@@ -297,6 +297,18 @@ void cuda_updateRHS(problem::ProblemType problemType, const ComputationInfo &com
 
     double *devCellsRHS = cellsRHS->cuda_deviceData();
 
+    const ScalarStorage<std::size_t> &solvedUniformInterfaceRawIds = computationInfo.getSolvedUniformInterfaceRawIds();
+    const std::size_t nSolvedUniformInterfaces = solvedUniformInterfaceRawIds.size();
+
+    const ScalarStorage<std::size_t> &solvedBoundaryInterfaceRawIds = computationInfo.getSolvedBoundaryInterfaceRawIds();
+    const std::size_t nSolvedBoundaryInterfaces = solvedBoundaryInterfaceRawIds.size();
+
+    ScalarStorage<double> *leftReconstructions = &(computationInfo.getSolvedInterfaceLeftReconstructions());
+    ScalarStorage<double> *rightReconstructions = &(computationInfo.getSolvedInterfaceRightReconstructions());
+
+    double *devLeftReconstructions = computationInfo.getSolvedInterfaceLeftReconstructions().cuda_deviceData();
+    double *devRightReconstructions = computationInfo.getSolvedInterfaceRightReconstructions().cuda_deviceData();
+
     //
     // Initialize residual
     //
@@ -307,16 +319,8 @@ void cuda_updateRHS(problem::ProblemType problemType, const ComputationInfo &com
     //
     // Process uniform interfaces
     //
-    const ScalarStorage<std::size_t> &solvedUniformInterfaceRawIds = computationInfo.getSolvedUniformInterfaceRawIds();
     const ScalarStorage<std::size_t> &solvedUniformInterfaceOwnerRawIds = computationInfo.getSolvedUniformInterfaceOwnerRawIds();
     const ScalarStorage<std::size_t> &solvedUniformInterfaceNeighRawIds = computationInfo.getSolvedUniformInterfaceNeighRawIds();
-    const std::size_t nSolvedUniformInterfaces = solvedUniformInterfaceRawIds.size();
-
-    // Evaluate interface reconstructions
-    ScalarStorage<double> uniformOwnerReconstructions(N_FIELDS * nSolvedUniformInterfaces);
-    ScalarStorage<double> uniformNeighReconstructions(N_FIELDS * nSolvedUniformInterfaces);
-    uniformOwnerReconstructions.cuda_allocateDevice();
-    uniformNeighReconstructions.cuda_allocateDevice();
 
     // Reconstruct interface values
     for (std::size_t i = 0; i < nSolvedUniformInterfaces; ++i) {
@@ -333,15 +337,15 @@ void cuda_updateRHS(problem::ProblemType problemType, const ComputationInfo &com
         const double *neighMean = cellConservatives.rawData(neighRawId);
 
         // Evaluate interface reconstructions
-        double *ownerReconstruction = uniformOwnerReconstructions.data() + N_FIELDS * i;
-        double *neighReconstruction = uniformNeighReconstructions.data() + N_FIELDS * i;
+        double *ownerReconstruction = leftReconstructions->data() + N_FIELDS * i;
+        double *neighReconstruction = rightReconstructions->data() + N_FIELDS * i;
 
         reconstruction::eval(ownerRawId, computationInfo, order, interfaceCentroid, ownerMean, ownerReconstruction);
         reconstruction::eval(neighRawId, computationInfo, order, interfaceCentroid, neighMean, neighReconstruction);
     }
 
-    uniformOwnerReconstructions.cuda_updateDevice();
-    uniformNeighReconstructions.cuda_updateDevice();
+    leftReconstructions->cuda_updateDevice(N_FIELDS * nSolvedUniformInterfaces);
+    rightReconstructions->cuda_updateDevice(N_FIELDS * nSolvedUniformInterfaces);
 
     // Evaluate fluxes
     const std::size_t *devSolvedUniformInterfaceRawIds = solvedUniformInterfaceRawIds.cuda_deviceData();
@@ -349,37 +353,22 @@ void cuda_updateRHS(problem::ProblemType problemType, const ComputationInfo &com
     const std::size_t *devUniformOwnerRawIds = solvedUniformInterfaceOwnerRawIds.cuda_deviceData();
     const std::size_t *devUniformNeighRawIds = solvedUniformInterfaceNeighRawIds.cuda_deviceData();
 
-    const double *devUniformOwnerReconstructions = uniformOwnerReconstructions.cuda_deviceData();
-    const double *devUniformNeighReconstructions = uniformNeighReconstructions.cuda_deviceData();
-
     const int UNIFORM_BLOCK_SIZE = 256;
     int nUniformnBlocks = (nSolvedUniformInterfaces + UNIFORM_BLOCK_SIZE - 1) / UNIFORM_BLOCK_SIZE;
     dev_uniformUpdateRHS<<<nUniformnBlocks, UNIFORM_BLOCK_SIZE>>>(nSolvedUniformInterfaces, devSolvedUniformInterfaceRawIds,
                                                                   devInterfaceNormals, devInterfaceAreas,
                                                                   devUniformOwnerRawIds, devUniformNeighRawIds,
-                                                                  devUniformOwnerReconstructions, devUniformNeighReconstructions,
+                                                                  devLeftReconstructions, devRightReconstructions,
                                                                   devCellsRHS, devMaxEig);
 
     double uniformMaxEig;
     cudaMemcpy(&uniformMaxEig, devMaxEig, 1 * sizeof(double), cudaMemcpyDeviceToHost);
 
-    // Clean-up
-    uniformOwnerReconstructions.cuda_freeDevice();
-    uniformNeighReconstructions.cuda_freeDevice();
-
     //
     // Process boundary interfaces
     //
-    const ScalarStorage<std::size_t> &solvedBoundaryInterfaceRawIds = computationInfo.getSolvedBoundaryInterfaceRawIds();
     const ScalarStorage<std::size_t> &solvedBoundaryInterfaceSigns = computationInfo.getSolvedBoundaryInterfaceSigns();
     const ScalarStorage<std::size_t> &solvedBoundaryInterfaceFluidRawIds = computationInfo.getSolvedBoundaryInterfaceFluidRawIds();
-    const std::size_t nSolvedBoundaryInterfaces = solvedBoundaryInterfaceRawIds.size();
-
-    // Evaluate interface reconstructions
-    ScalarStorage<double> boundaryFluidReconstructions(N_FIELDS * nSolvedBoundaryInterfaces);
-    ScalarStorage<double> boundaryVirtualReconstructions(N_FIELDS * nSolvedBoundaryInterfaces);
-    boundaryFluidReconstructions.cuda_allocateDevice();
-    boundaryVirtualReconstructions.cuda_allocateDevice();
 
     // Reconstruct interface values
     for (std::size_t i = 0; i < nSolvedBoundaryInterfaces; ++i) {
@@ -394,15 +383,15 @@ void cuda_updateRHS(problem::ProblemType problemType, const ComputationInfo &com
         const double *fluidMean = cellConservatives.rawData(fluidRawId);
 
         // Evaluate interface reconstructions
-        double *fluidReconstruction   = boundaryFluidReconstructions.data()   + N_FIELDS * i;
-        double *virtualReconstruction = boundaryVirtualReconstructions.data() + N_FIELDS * i;
+        double *fluidReconstruction   = leftReconstructions->data() + N_FIELDS * i;
+        double *virtualReconstruction = rightReconstructions->data() + N_FIELDS * i;
 
         reconstruction::eval(fluidRawId, computationInfo, order, interfaceCentroid, fluidMean, fluidReconstruction);
         evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, interfaceNormal, fluidReconstruction, virtualReconstruction);
     }
 
-    boundaryFluidReconstructions.cuda_updateDevice();
-    boundaryVirtualReconstructions.cuda_updateDevice();
+    leftReconstructions->cuda_updateDevice(N_FIELDS * nSolvedBoundaryInterfaces);
+    rightReconstructions->cuda_updateDevice(N_FIELDS * nSolvedBoundaryInterfaces);
 
     // Evaluate fluxes
     const std::size_t *devSolvedBoundaryInterfaceRawIds = solvedBoundaryInterfaceRawIds.cuda_deviceData();
@@ -411,23 +400,16 @@ void cuda_updateRHS(problem::ProblemType problemType, const ComputationInfo &com
 
     const std::size_t *devBoundarySigns = solvedBoundaryInterfaceSigns.cuda_deviceData();
 
-    const double *devBoundaryFluidReconstructions   = boundaryFluidReconstructions.cuda_deviceData();
-    const double *devBoundaryVirtualReconstructions = boundaryVirtualReconstructions.cuda_deviceData();
-
     const int BOUNDARY_BLOCK_SIZE = 256;
     int nBoundarynBlocks = (nSolvedBoundaryInterfaces + BOUNDARY_BLOCK_SIZE - 1) / BOUNDARY_BLOCK_SIZE;
     dev_boundaryUpdateRHS<<<nBoundarynBlocks, UNIFORM_BLOCK_SIZE>>>(nSolvedBoundaryInterfaces, devSolvedBoundaryInterfaceRawIds,
                                                                     devInterfaceNormals, devInterfaceAreas,
                                                                     devBoundaryFluidRawIds, devBoundarySigns,
-                                                                    devBoundaryFluidReconstructions, devBoundaryVirtualReconstructions,
+                                                                    devLeftReconstructions, devRightReconstructions,
                                                                     devCellsRHS, devMaxEig);
 
     double boundaryMaxEig;
     cudaMemcpy(&boundaryMaxEig, devMaxEig, 1 * sizeof(double), cudaMemcpyDeviceToHost);
-
-    // Clean-up
-    boundaryFluidReconstructions.cuda_freeDevice();
-    boundaryVirtualReconstructions.cuda_freeDevice();
 
     // Evaluate maximum eigenvalue
     *maxEig = std::max(uniformMaxEig, boundaryMaxEig);

@@ -24,6 +24,7 @@
 
 #include "body.hpp"
 #include "computation_info.hpp"
+#include "constants.hpp"
 
 using namespace bitpit;
 
@@ -177,6 +178,10 @@ void ComputationInfo::_extract()
 
         }
     }
+
+    // Initialize storage for reconstructions
+    m_solvedInterfaceLeftReconstructions.resize(N_FIELDS * std::max(nSolvedUniformInterfaces, nSolvedBoundaryInterfaces));
+    m_solvedInterfaceRightReconstructions.resize(N_FIELDS * std::max(nSolvedUniformInterfaces, nSolvedBoundaryInterfaces));
 }
 
 /*!
@@ -291,4 +296,44 @@ const ScalarStorage<std::size_t> & ComputationInfo::getSolvedBoundaryInterfaceSi
 const ScalarStorage<std::size_t> & ComputationInfo::getSolvedBoundaryInterfaceFluidRawIds() const
 {
     return m_solvedBoundaryInterfaceFluidRawIds;
+}
+
+/*!
+ * Gets a reference to the left interface reconstructions storage.
+ *
+ * \result A reference to the left interface reconstructions storage.
+ */
+ScalarStorage<double> & ComputationInfo::getSolvedInterfaceLeftReconstructions()
+{
+    return m_solvedInterfaceLeftReconstructions;
+}
+
+/*!
+ * Gets a constant reference to the left interface reconstructions storage.
+ *
+ * \result A constant reference to the left interface reconstructions storage.
+ */
+const ScalarStorage<double> & ComputationInfo::getSolvedInterfaceLeftReconstructions() const
+{
+    return m_solvedInterfaceLeftReconstructions;
+}
+
+/*!
+ * Gets a reference to the right interface reconstructions storage.
+ *
+ * \result A reference to the right interface reconstructions storage.
+ */
+ScalarStorage<double> & ComputationInfo::getSolvedInterfaceRightReconstructions()
+{
+    return m_solvedInterfaceRightReconstructions;
+}
+
+/*!
+ * Gets a constant reference to the right interface reconstructions storage.
+ *
+ * \result A constant reference to the right interface reconstructions storage.
+ */
+const ScalarStorage<double> & ComputationInfo::getSolvedInterfaceRightReconstructions() const
+{
+    return m_solvedInterfaceRightReconstructions;
 }

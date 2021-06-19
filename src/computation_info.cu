@@ -45,6 +45,9 @@ void ComputationInfo::cuda_initialize()
     m_solvedBoundaryInterfaceSigns.cuda_allocateDevice();
     m_solvedBoundaryInterfaceFluidRawIds.cuda_allocateDevice();
 
+    m_solvedInterfaceLeftReconstructions.cuda_allocateDevice();
+    m_solvedInterfaceRightReconstructions.cuda_allocateDevice();
+
     // Copy data to the device
     m_cellSolveMethods.cuda_updateDevice();
 
@@ -79,6 +82,9 @@ void ComputationInfo::cuda_finalize()
     m_solvedBoundaryInterfaceRawIds.cuda_freeDevice();
     m_solvedBoundaryInterfaceSigns.cuda_freeDevice();
     m_solvedBoundaryInterfaceFluidRawIds.cuda_freeDevice();
+
+    m_solvedInterfaceLeftReconstructions.cuda_freeDevice();
+    m_solvedInterfaceRightReconstructions.cuda_freeDevice();
 }
 
 /*!
@@ -182,4 +188,24 @@ const std::size_t * ComputationInfo::cuda_getSolvedBoundaryInterfaceSignDevData(
 const std::size_t * ComputationInfo::cuda_getSolvedBoundaryInterfaceFluidRawIdDevData() const
 {
     return m_solvedBoundaryInterfaceFluidRawIds.cuda_deviceData();
+}
+
+/*!
+ * Gets a pointer to the device storage for the left interface reconstructions.
+ *
+ * \result A pointer to the device storage for the left interface reconstructions.
+ */
+const double * ComputationInfo::cuda_getSolvedInterfaceLeftReconstructionsDevData() const
+{
+    return m_solvedInterfaceLeftReconstructions.cuda_deviceData();
+}
+
+/*!
+ * Gets a pointer to the device storage for the right interface reconstructions.
+ *
+ * \result A pointer to the device storage for the right interface reconstructions.
+ */
+const double * ComputationInfo::cuda_getSolvedInterfaceRightReconstructionsDevData() const
+{
+    return m_solvedInterfaceRightReconstructions.cuda_deviceData();
 }

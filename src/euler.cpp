@@ -124,7 +124,7 @@ void evalFluxes(const double *conservative, const double *primitive, const doubl
  * \param[out] cellsRHS on output will containt the RHS
  * \param[out] maxEig on putput will containt the maximum eigenvalue
  */
-void computeRHS(problem::ProblemType problemType, const ComputationInfo &computationInfo,
+void computeRHS(problem::ProblemType problemType, ComputationInfo &computationInfo,
                 const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
                 const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
 {
@@ -166,7 +166,7 @@ void resetRHS(ScalarPiercedStorage<double> *cellsRHS)
  * \param[out] cellsRHS on output will containt the RHS
  * \param[out] maxEig on putput will containt the maximum eigenvalue
  */
-void updateRHS(problem::ProblemType problemType, const ComputationInfo &computationInfo,
+void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInfo,
                const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
                const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
 {

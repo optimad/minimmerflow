@@ -39,7 +39,7 @@ void evalSplitting(const double *conservativeL, const double *conservativeR, con
 
 void evalFluxes(const double *conservative, const double *primitive, const double *n, double *fluxes);
 
-void computeRHS(problem::ProblemType problemType, const ComputationInfo &computationInfo,
+void computeRHS(problem::ProblemType problemType, ComputationInfo &computationInfo,
                 const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
                 const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig);
 
@@ -48,11 +48,11 @@ void resetRHS(ScalarPiercedStorage<double> *cellsRHS);
 void cuda_resetRHS(ScalarPiercedStorage<double> *cellsRHS);
 #endif
 
-void updateRHS(problem::ProblemType problemType, const ComputationInfo &computationInfo,
+void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInfo,
                const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
                const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig);
 #if ENABLE_CUDA
-void cuda_updateRHS(problem::ProblemType problemType, const ComputationInfo &computationInfo,
+void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computationInfo,
                     const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
                     const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig);
 #endif
