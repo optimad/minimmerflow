@@ -113,7 +113,16 @@ class ValueStorage : public ValueBaseStorage<std::vector<value_t>, value_t, dev_
 public:
     using ValueBaseStorage<std::vector<value_t>, value_t, dev_value_t>::ValueBaseStorage;
 
+    void cuda_updateHost(std::size_t count, std::size_t offset = 0);
+    using ValueBaseStorage<std::vector<value_t>, value_t, dev_value_t>::cuda_updateHost;
+
+    void cuda_updateDevice(std::size_t count, std::size_t offset = 0);
+    using ValueBaseStorage<std::vector<value_t>, value_t, dev_value_t>::cuda_updateDevice;
+
     std::size_t cuda_deviceDataSize() const override;
+
+protected:
+    std::size_t cuda_deviceDataSize(std::size_t count) const;
 
 };
 #else
