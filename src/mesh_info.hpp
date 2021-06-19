@@ -139,6 +139,8 @@ protected:
     ScalarStorage<std::size_t> m_interfaceOwnerRawIds;
     ScalarStorage<std::size_t> m_interfaceNeighRawIds;
 
+    MeshGeometricalInfo(bitpit::VolumeKernel *patch, bool extractInfo);
+
     using bitpit::PatchInfo::setPatch;
 
     virtual void _init();

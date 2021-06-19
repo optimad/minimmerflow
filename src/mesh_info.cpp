@@ -36,6 +36,17 @@ using namespace bitpit;
  * \param patch is patch from which the informations will be extracted
  */
 MeshGeometricalInfo::MeshGeometricalInfo(VolumeKernel *patch)
+    : MeshGeometricalInfo(patch, true)
+{
+}
+
+/*!
+ * Creates a new info.
+ *
+ * \param patch is patch from which the informations will be extracted
+ * \param extractInfo constrols if mesh information will be extracted
+ */
+MeshGeometricalInfo::MeshGeometricalInfo(VolumeKernel *patch, bool extractInfo)
     : PatchInfo(patch)
 {
     m_volumePatch = dynamic_cast<const VolumeKernel *>(patch);
@@ -45,7 +56,9 @@ MeshGeometricalInfo::MeshGeometricalInfo(VolumeKernel *patch)
 
     MeshGeometricalInfo::_init();
 
-    extract();
+    if (extractInfo) {
+        extract();
+    }
 }
 
 /*!
