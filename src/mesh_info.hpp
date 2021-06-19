@@ -32,7 +32,7 @@
 class MeshGeometricalInfo : public bitpit::PatchInfo {
 
 public:
-    MeshGeometricalInfo(bitpit::VolumeKernel *patch = nullptr);
+    MeshGeometricalInfo(bitpit::VolumeKernel *patch);
 
     void setPatch(bitpit::VolumeKernel const *patch);
     bitpit::VolumeKernel const & getPatch() const;
