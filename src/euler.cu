@@ -38,25 +38,43 @@ double *devMaxEig;
  * @param[in]	address	The address of the reference value which might get updated with the maximum
  * @param[in]	value	The value that is compared to the reference in order to determine the maximum
  */
-__device__ void atomicMax(double * const address, const double value)
+__device__ double atomicMax(double *const address, const double value)
 {
-    if (* address >= value) {
-        return;
+    uint64 *address_as_i =(uint64*)address;
+    uint64 old = *address_as_i, assumed;
+    while (value > __longlong_as_double(old)) {
+        assumed = old;
+        old = atomicCAS(address_as_i, assumed,
+                        __double_as_longlong(value));
+        }
+    return __longlong_as_double(old);
+}
+
+
+/**
+ * @brief Compute the maximum of double-precision floating point values
+ *
+ * @param[in]	d_array  The address of the value which is the candidate for the  the max. eigenvalue
+ * @param[in]	d_max    The address of the max. value
+ * @param[in]	elements The number of elements which are parsed
+ * @param[in]	value	 The address of the shared memory values
+ */
+__device__ void max_reduce(const double* const d_array, double* d_max, const size_t elements, double *shared)
+{
+    int tid = threadIdx.x;
+    shared[tid] = *d_array;
+    __syncthreads();
+    int gid = (blockDim.x * blockIdx.x) + tid;
+    for (unsigned int s=blockDim.x/2; s>0; s>>=1) {
+        if (tid < s && gid < elements)
+            shared[tid] = max(shared[tid], shared[tid + s]);
+        __syncthreads();
     }
 
-    uint64 * const address_as_i = (uint64 *)address;
-    uint64 old = * address_as_i;
-
-    uint64 assumed;
-    do {
-        assumed = old;
-        if (__longlong_as_double(assumed) >= value) {
-            break;
-        }
-
-        old = atomicCAS(address_as_i, assumed, __double_as_longlong(value));
-    } while (assumed != old);
+    if (tid == 0)
+      atomicMax(d_max, shared[0]);
 }
+
 
 /*!
  * Calculates the conservative fluxes for a perfect gas.
@@ -193,7 +211,8 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t 
     }
 
     // Update maximum eigenvalue
-    atomicMax(maxEig, interfaceMaxEig);
+    extern __shared__ double shared[];
+    max_reduce(&interfaceMaxEig, maxEig, nInterfaces, shared);
 }
 
 /*!
@@ -365,11 +384,11 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
 
     const int UNIFORM_BLOCK_SIZE = 256;
     int nUniformnBlocks = (nSolvedUniformInterfaces + UNIFORM_BLOCK_SIZE - 1) / UNIFORM_BLOCK_SIZE;
-    dev_uniformUpdateRHS<<<nUniformnBlocks, UNIFORM_BLOCK_SIZE>>>(nSolvedUniformInterfaces, devSolvedUniformInterfaceRawIds,
-                                                                  devInterfaceNormals, devInterfaceAreas,
-                                                                  devUniformOwnerRawIds, devUniformNeighRawIds,
-                                                                  devLeftReconstructions, devRightReconstructions,
-                                                                  devCellsRHS, devMaxEig);
+    dev_uniformUpdateRHS<<<nUniformnBlocks, UNIFORM_BLOCK_SIZE, UNIFORM_BLOCK_SIZE*sizeof(double)>>>(nSolvedUniformInterfaces, devSolvedUniformInterfaceRawIds,
+                                                                                                     devInterfaceNormals, devInterfaceAreas,
+                                                                                                     devUniformOwnerRawIds, devUniformNeighRawIds,
+                                                                                                     devLeftReconstructions, devRightReconstructions,
+                                                                                                     devCellsRHS, devMaxEig);
 
     //
     // Process boundary interfaces
