@@ -229,6 +229,7 @@ void computation(int argc, char *argv[])
 #if ENABLE_CUDA
     cellRHS.cuda_allocateDevice();
     cellConservatives.cuda_allocateDevice();
+    cellPrimitives.cuda_allocateDevice();
 #endif
 
     log_memory_status();
@@ -337,9 +338,41 @@ void computation(int argc, char *argv[])
         double *conservatives = cellConservatives.rawData(cellRawId);
         problem::evalCellInitalConservatives(problemType, cellId, computationInfo, conservatives);
 
-        double *primitives = cellPrimitives.rawData(cellRawId);
-        ::utils::conservative2primitive(conservatives, primitives);
+        //double *primitives = cellPrimitives.rawData(cellRawId);
+        //::utils::conservative2primitive(conservatives, primitives);
     }
+
+    // UPdate conservative on gpu
+    cellConservatives.cuda_updateDevice();
+
+
+//    double *primitiveHostPtr = nullptr;
+//    double *primitiveDevPtr = cellPrimitives.cuda_deviceData();
+//    double *conservativeHostPtr = nullptr;
+//    double *conservativeDevPtr = cellConservatives.cuda_deviceData();
+//    std::size_t *solvedCellRawIdsHostPtr = nullptr;
+//    const std::size_t *solvedCellRawIdsDevPtr = solvedCellRawIds.cuda_deviceData();
+//
+//    acc_map_data(primitiveHostPtr, primitiveDevPtr, nSolvedCells*N_FIELDS*sizeof(double));
+//    acc_map_data(conservativeHostPtr, conservativeDevPtr, nSolvedCells*N_FIELDS*sizeof(double));
+//    acc_map_data(solvedCellRawIdsHostPtr, const_cast<std::size_t*>(solvedCellRawIdsDevPtr), nSolvedCells*sizeof(std::size_t));
+
+      double *cellPrimitivesHostPtr = cellPrimitives.data();
+      double *cellConservativesHostPtr = cellConservatives.data();
+      const std::size_t *solvedCellRawIdsHostPtr = solvedCellRawIds.data();
+
+#pragma acc parallel loop present(cellPrimitivesHostPtr, cellConservativesHostPtr, solvedCellRawIdsHostPtr)
+     for (long i = 0; i < nSolvedCells; ++i) {
+         double *primitives = &cellPrimitivesHostPtr[solvedCellRawIdsHostPtr[i]*N_FIELDS];
+         const double *conservatives = &cellConservativesHostPtr[solvedCellRawIdsHostPtr[i]*N_FIELDS];
+         ::utils::conservative2primitive(conservatives, primitives);
+     }
+
+     log::cout() << std::endl;
+     log::cout() << "Update primitives on host..."  << std::endl;
+     cellPrimitives.cuda_updateHost();
+
+
 
 #if ENABLE_MPI
     if (mesh.isPartitioned()) {
