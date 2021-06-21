@@ -201,18 +201,17 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t 
 
     dev_evalSplitting(leftReconstruction, rightReconstruction, interfaceNormal, interfaceFluxes, &interfaceMaxEig);
 
-    // Update residual of left cell
-    std::size_t leftCellRawId = leftCellRawIds[i];
-    double *leftRHS = cellRHS + N_FIELDS * leftCellRawId;
-    for (int k = 0; k < N_FIELDS; ++k) {
-        atomicAdd(leftRHS + k, - interfaceArea * interfaceFluxes[k]);
-    }
-
-    // Update residual of right cell
+    // Update cell residuals
+    std::size_t leftCellRawId  = leftCellRawIds[i];
     std::size_t rightCellRawId = rightCellRawIds[i];
+
+    double *leftRHS  = cellRHS + N_FIELDS * leftCellRawId;
     double *rightRHS = cellRHS + N_FIELDS * rightCellRawId;
     for (int k = 0; k < N_FIELDS; ++k) {
-        atomicAdd(rightRHS + k, interfaceArea * interfaceFluxes[k]);
+	double interfaceContribution = interfaceArea * interfaceFluxes[k];
+
+        atomicAdd(leftRHS + k,  - interfaceContribution);
+        atomicAdd(rightRHS + k,   interfaceContribution);
     }
 
     // Update maximum eigenvalue
