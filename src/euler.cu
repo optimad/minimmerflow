@@ -201,8 +201,9 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t 
     const std::size_t interfaceRawId = interfaceRawIds[i];
 
     // Info about the interface
-    const double *interfaceNormal = interfaceNormals + 3 * interfaceRawId;
-    const double interfaceArea    = interfaceAreas[interfaceRawId];
+    const double *interfaceNormalStorage = interfaceNormals + 3 * interfaceRawId;
+    const double interfaceNormal[3] = { interfaceNormalStorage[0], interfaceNormalStorage[1], interfaceNormalStorage[2] };
+    const double interfaceArea = interfaceAreas[interfaceRawId];
 
 
     // Evaluate the conservative fluxes
@@ -266,8 +267,9 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, const std::size_t
     const std::size_t interfaceRawId = interfaceRawIds[i];
 
     // Info about the interface
-    const double *interfaceNormal = interfaceNormals + 3 * interfaceRawId;
-    const double interfaceArea    = interfaceAreas[interfaceRawId];
+    const double *interfaceNormalStorage = interfaceNormals + 3 * interfaceRawId;
+    const double interfaceNormal[3] = { interfaceNormalStorage[0], interfaceNormalStorage[1], interfaceNormalStorage[2] };
+    const double interfaceArea = interfaceAreas[interfaceRawId];
 
     // Info abount the bounday
     const int boundarySign = boundarySigns[i];
