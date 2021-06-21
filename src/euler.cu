@@ -33,29 +33,30 @@ namespace euler {
 double *devMaxEig;
 
 /**
- * @brief Compute the maximum of 2 double-precision floating point values using an atomic operation
+ * Compute the maximum of two double-precision floating point values using an
+ * atomic operation.
  *
- * @param[in]	address	The address of the reference value which might get updated with the maximum
- * @param[in]	value	The value that is compared to the reference in order to determine the maximum
+ * \param value is the value that is compared to the reference in order to
+ * determine the maximum
+ * \param[in,out] maxValue is the address of the reference value which might
+ * get updated with the maximum
  */
-__device__ void atomicMax(double * const address, const double value)
+__device__ void dev_atomicMax(const double value, double * const maxValue)
 {
-    if (* address >= value) {
+    if (*maxValue >= value) {
         return;
     }
 
-    uint64 * const address_as_i = (uint64 *)address;
-    uint64 old = * address_as_i;
-
-    uint64 assumed;
+    uint64 oldMaxValue = *((uint64 *) maxValue);
+    uint64 assumedMaxValue;
     do {
-        assumed = old;
-        if (__longlong_as_double(assumed) >= value) {
+        assumedMaxValue = oldMaxValue;
+        if (__longlong_as_double(assumedMaxValue) >= value) {
             break;
         }
 
-        old = atomicCAS(address_as_i, assumed, __double_as_longlong(value));
-    } while (assumed != old);
+        oldMaxValue = atomicCAS((uint64 *) maxValue, assumedMaxValue, __double_as_longlong(value));
+    } while (assumedMaxValue != oldMaxValue);
 }
 
 /*!
@@ -193,7 +194,7 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t 
     }
 
     // Update maximum eigenvalue
-    atomicMax(maxEig, interfaceMaxEig);
+    atomicMax(interfaceMaxEig, maxEig);
 }
 
 /*!
@@ -252,7 +253,7 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, const std::size_t
     }
 
     // Update maximum eigenvalue
-    atomicMax(maxEig, interfaceMaxEig);
+    atomicMax(interfaceMaxEig, maxEig);
 }
 
 /*!
