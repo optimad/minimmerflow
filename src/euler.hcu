@@ -34,7 +34,7 @@ namespace euler {
 
 __device__ void atomicMax(double * const address, const double value);
 
-__device__ void dev_evalFluxes(const double *conservative, const double *primitive, const double *n, double *fluxes);
+__device__ void dev_evalFluxes(const double *conservative, const double *n, double *fluxes, double *lambda);
 
 __device__ void dev_evalSplitting(const double *conservativeL, const double *conservativeR, const double *n, double *fluxes, double *lambda);
 
