@@ -237,6 +237,11 @@ void computation(int argc, char *argv[])
     reconstruction::initialize();
     log_memory_status();
 
+#if ENABLE_CUDA
+    // Initialize Euler solver
+    euler::cuda_initialize();
+#endif
+
     // Boundary conditions
     log::cout() << std::endl;
     log::cout() << "Boundary conditions initialization..."  << std::endl;
@@ -570,6 +575,7 @@ void computation(int argc, char *argv[])
 #if ENABLE_CUDA
     cellRHS.cuda_freeDevice();
     computationInfo.cuda_finalize();
+    euler::cuda_finalize();
 #endif
 }
 
