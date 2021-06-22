@@ -36,7 +36,7 @@ __device__ double atomicMax(double *const address, const double value);
 
 __device__ void max_reduce(const double* const d_array, double* d_max, const size_t elements, double *shared);
 
-__device__ void dev_evalFluxes(const double *conservative, const double *primitive, const double *n, double *fluxes);
+__device__ void dev_evalFluxes(const double *conservative, const double *primitive, const double *n, double *fluxes, double *lambda);
 
 __device__ void dev_evalSplitting(const double *conservativeL, const double *conservativeR, const double *n, double *fluxes, double *lambda);
 
