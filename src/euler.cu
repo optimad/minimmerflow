@@ -24,6 +24,7 @@
 
 #include "euler.hcu"
 #include "reconstruction.hpp"
+#include "utils_cuda.hpp"
 
 #define uint64  unsigned long long
 
@@ -292,8 +293,8 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     const double *devInterfaceAreas   = computationInfo.cuda_getInterfaceAreaDevData();
 
     double *devMaxEig;
-    cudaMalloc((void **) &devMaxEig, 1 * sizeof(double));
-    cudaMemset(devMaxEig, 0., 1 * sizeof(double));
+    CUDA_ERROR_CHECK(cudaMalloc((void **) &devMaxEig, 1 * sizeof(double)));
+    CUDA_ERROR_CHECK(cudaMemset(devMaxEig, 0., 1 * sizeof(double)));
 
     double *devCellsRHS = cellsRHS->cuda_deviceData();
 
@@ -362,7 +363,7 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
                                                                   devCellsRHS, devMaxEig);
 
     double uniformMaxEig;
-    cudaMemcpy(&uniformMaxEig, devMaxEig, 1 * sizeof(double), cudaMemcpyDeviceToHost);
+    CUDA_ERROR_CHECK(cudaMemcpy(&uniformMaxEig, devMaxEig, 1 * sizeof(double), cudaMemcpyDeviceToHost));
 
     //
     // Process boundary interfaces
@@ -409,7 +410,7 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
                                                                     devCellsRHS, devMaxEig);
 
     double boundaryMaxEig;
-    cudaMemcpy(&boundaryMaxEig, devMaxEig, 1 * sizeof(double), cudaMemcpyDeviceToHost);
+    CUDA_ERROR_CHECK(cudaMemcpy(&boundaryMaxEig, devMaxEig, 1 * sizeof(double), cudaMemcpyDeviceToHost));
 
     // Evaluate maximum eigenvalue
     *maxEig = std::max(uniformMaxEig, boundaryMaxEig);
@@ -423,7 +424,7 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     //
     // Clean-up
     //
-    cudaFree(devMaxEig);
+    CUDA_ERROR_CHECK(cudaFree(devMaxEig));
 }
 
 }
