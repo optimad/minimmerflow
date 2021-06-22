@@ -102,7 +102,7 @@ void computation(int argc, char *argv[])
     // Discretization parameters
     const int order = config::root["discretization"]["space"].get<int>("order");
 
-    const double cfl = config::root["discretization"]["time"].get<double>("CFL");
+    const double cfl = double(config::root["discretization"]["time"].get<double>("CFL"));
 
     long nCellsPerDirection;
     if (argc > 1) {
@@ -361,7 +361,7 @@ void computation(int argc, char *argv[])
 
 #if ENABLE_MPI
     if (mesh.isPartitioned()) {
-        MPI_Allreduce(MPI_IN_PLACE, &minCellSize, 1, MPI_DOUBLE, MPI_MIN, mesh.getCommunicator());
+        MPI_Allreduce(MPI_IN_PLACE, &minCellSize, 1, MPI_FLOAT, MPI_MIN, mesh.getCommunicator());
     }
 #endif
 
@@ -378,7 +378,7 @@ void computation(int argc, char *argv[])
     int step = 0;
     double t = tMin;
     double nextSave = tMin;
-    while (t < tMax) {
+    while ((t < tMax)) {
         log::cout() << std::endl;
         log::cout() << "Step n. " << step << std::endl;
 
@@ -398,7 +398,7 @@ void computation(int argc, char *argv[])
 
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
-            MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_DOUBLE, MPI_MAX, mesh.getCommunicator());
+            MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_FLOAT, MPI_MAX, mesh.getCommunicator());
         }
 #endif
 
@@ -417,7 +417,7 @@ void computation(int argc, char *argv[])
         for (std::size_t i = 0; i < nSolvedCells; ++i) {
             const std::size_t cellRawId = solvedCellRawIds[i];
 
-            const double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
+            const double cellVolume = double(computationInfo.rawGetCellVolume(cellRawId));
             const double *RHS = cellRHS.rawData(cellRawId);
             const double *conservative = cellConservatives.rawData(cellRawId);
             double *conservativeTmp = cellConservativesWork.rawData(cellRawId);
@@ -441,7 +441,7 @@ void computation(int argc, char *argv[])
         euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservativesWork, &cellRHS, &maxEig);
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
-            MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_DOUBLE, MPI_MAX, mesh.getCommunicator());
+            MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_FLOAT, MPI_MAX, mesh.getCommunicator());
         }
 #endif
 
@@ -453,7 +453,7 @@ void computation(int argc, char *argv[])
         for (std::size_t i = 0; i < nSolvedCells; ++i) {
             const std::size_t cellRawId = solvedCellRawIds[i];
 
-            double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
+            double cellVolume = double(computationInfo.rawGetCellVolume(cellRawId));
             const double *RHS = cellRHS.rawData(cellRawId);
             const double *conservative = cellConservatives.rawData(cellRawId);
             double *conservativeTmp = cellConservativesWork.rawData(cellRawId);
@@ -477,7 +477,7 @@ void computation(int argc, char *argv[])
         euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservativesWork, &cellRHS, &maxEig);
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
-            MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_DOUBLE, MPI_MAX, mesh.getCommunicator());
+            MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_FLOAT, MPI_MAX, mesh.getCommunicator());
         }
 #endif
 
@@ -489,7 +489,7 @@ void computation(int argc, char *argv[])
         for (std::size_t i = 0; i < nSolvedCells; ++i) {
             const std::size_t cellRawId = solvedCellRawIds[i];
 
-            const double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
+            const double cellVolume = double(computationInfo.rawGetCellVolume(cellRawId));
             const double *RHS = cellRHS.rawData(cellRawId);
             double *conservative = cellConservatives.rawData(cellRawId);
             const double *conservativeTmp = cellConservativesWork.rawData(cellRawId);
@@ -561,7 +561,7 @@ void computation(int argc, char *argv[])
 
 #if ENABLE_MPI
     if (mesh.isPartitioned()) {
-        MPI_Allreduce(MPI_IN_PLACE, &error, 1, MPI_DOUBLE, MPI_SUM, mesh.getCommunicator());
+        MPI_Allreduce(MPI_IN_PLACE, &error, 1, MPI_FLOAT, MPI_SUM, mesh.getCommunicator());
     }
 #endif
 

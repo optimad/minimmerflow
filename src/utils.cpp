@@ -36,7 +36,7 @@ namespace utils {
  */
 double normalVelocity(const double *fields, const double *n)
 {
-    return (fields[FID_U] * n[0] + fields[FID_V] * n[1] + fields[FID_W] * n[2]);
+    return (fields[FID_U] * double(n[0]) + fields[FID_V] * double(n[1]) + fields[FID_W] * double(n[2]));
 }
 
 /*!

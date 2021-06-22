@@ -33,7 +33,7 @@ namespace euler {
 double *devMaxEig;
 
 /**
- * @brief Compute the maximum of 2 double-precision floating point values using an atomic operation
+ * @brief Compute the maximum of 2 double-precision doubleing point values using an atomic operation
  *
  * @param[in]	address	The address of the reference value which might get updated with the maximum
  * @param[in]	value	The value that is compared to the reference in order to determine the maximum
@@ -52,7 +52,7 @@ __device__ double atomicMax(double *const address, const double value)
 
 
 /**
- * @brief Compute the maximum of double-precision floating point values
+ * @brief Compute the maximum of double-precision doubleing point values
  *
  * @param[in]	d_array  The address of the value which is the candidate for the  the max. eigenvalue
  * @param[in]	d_max    The address of the max. value

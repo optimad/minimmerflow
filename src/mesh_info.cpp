@@ -103,8 +103,8 @@ void MeshGeometricalInfo::_extract()
         long cellId = cellItr.getId();
         std::size_t cellRawId = cellItr.getRawIndex();
 
-        m_cellVolumes.rawSet(cellRawId, m_volumePatch->evalCellVolume(cellId));
-        m_cellSizes.rawSet(cellRawId, m_volumePatch->evalCellSize(cellId));
+        m_cellVolumes.rawSet(cellRawId, double(m_volumePatch->evalCellVolume(cellId)));
+        m_cellSizes.rawSet(cellRawId, double(m_volumePatch->evalCellSize(cellId)));
         m_cellCentroids.rawSet(cellRawId, m_volumePatch->evalCellCentroid(cellId));
     }
 
@@ -113,7 +113,7 @@ void MeshGeometricalInfo::_extract()
         long interfaceId = interfaceItr.getId();
         std::size_t interfaceRawId = interfaceItr.getRawIndex();
 
-        m_interfaceAreas.rawSet(interfaceRawId, m_volumePatch->evalInterfaceArea(interfaceId));
+        m_interfaceAreas.rawSet(interfaceRawId, double(m_volumePatch->evalInterfaceArea(interfaceId)));
         m_interfaceCentroids.rawSet(interfaceRawId, m_volumePatch->evalInterfaceCentroid(interfaceId));
         m_interfaceNormals.rawSet(interfaceRawId, m_volumePatch->evalInterfaceNormal(interfaceId));
         m_interfaceTangents.rawSet(interfaceRawId, {{1., 0, 0}});

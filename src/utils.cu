@@ -36,7 +36,7 @@ namespace utils {
  */
 __device__ double dev_normalVelocity(const double *fields, const double *n)
 {
-    return (fields[DEV_FID_U] * n[0] + fields[DEV_FID_V] * n[1] + fields[DEV_FID_W] * n[2]);
+    return (fields[DEV_FID_U] * double(n[0]) + fields[DEV_FID_V] * double(n[1]) + fields[DEV_FID_W] * double(n[2]));
 }
 
 /*!
