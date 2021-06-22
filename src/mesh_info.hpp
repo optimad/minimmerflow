@@ -39,67 +39,67 @@ public:
 
     int getDimension() const;
 
-    double getCellVolume(long id) const;
-    double rawGetCellVolume(size_t pos) const;
-    const bitpit::PiercedStorage<double, long> & getCellVolumes() const;
-    bitpit::PiercedStorage<double, long> & getCellVolumes();
+    float getCellVolume(long id) const;
+    float rawGetCellVolume(size_t pos) const;
+    const bitpit::PiercedStorage<float, long> & getCellVolumes() const;
+    bitpit::PiercedStorage<float, long> & getCellVolumes();
 #if ENABLE_CUDA
-    double * cuda_getCellVolumeDevData();
-    const double * cuda_getCellVolumeDevData() const;
+    float * cuda_getCellVolumeDevData();
+    const float * cuda_getCellVolumeDevData() const;
 #endif
 
-    double getCellSize(long id) const;
-    double rawGetCellSize(size_t pos) const;
-    const bitpit::PiercedStorage<double, long> & getCellSizes() const;
-    bitpit::PiercedStorage<double, long> & getCellSizes();
+    float getCellSize(long id) const;
+    float rawGetCellSize(size_t pos) const;
+    const bitpit::PiercedStorage<float, long> & getCellSizes() const;
+    bitpit::PiercedStorage<float, long> & getCellSizes();
 #if ENABLE_CUDA
-    double * cuda_getCellSizeDevData();
-    const double * cuda_getCellSizeDevData() const;
+    float * cuda_getCellSizeDevData();
+    const float * cuda_getCellSizeDevData() const;
 #endif
 
-    const std::array<double, 3> & getCellCentroid(long id) const;
-    const std::array<double, 3> & rawGetCellCentroid(size_t pos) const;
-    const bitpit::PiercedStorage<std::array<double, 3>, long> & getCellCentroids() const;
-    bitpit::PiercedStorage<std::array<double, 3>, long> & getCellCentroids();
+    const std::array<float, 3> & getCellCentroid(long id) const;
+    const std::array<float, 3> & rawGetCellCentroid(size_t pos) const;
+    const bitpit::PiercedStorage<std::array<float, 3>, long> & getCellCentroids() const;
+    bitpit::PiercedStorage<std::array<float, 3>, long> & getCellCentroids();
 #if ENABLE_CUDA
-    double * cuda_getCellCentroidDevData();
-    const double * cuda_getCellCentroidDevData() const;
+    float * cuda_getCellCentroidDevData();
+    const float * cuda_getCellCentroidDevData() const;
 #endif
 
-    double getInterfaceArea(long id) const;
-    double rawGetInterfaceArea(size_t pos) const;
-    const bitpit::PiercedStorage<double, long> & getInterfaceAreas() const;
-    bitpit::PiercedStorage<double, long> & getInterfaceAreas();
+    float getInterfaceArea(long id) const;
+    float rawGetInterfaceArea(size_t pos) const;
+    const bitpit::PiercedStorage<float, long> & getInterfaceAreas() const;
+    bitpit::PiercedStorage<float, long> & getInterfaceAreas();
 #if ENABLE_CUDA
-    double * cuda_getInterfaceAreaDevData();
-    const double * cuda_getInterfaceAreaDevData() const;
+    float * cuda_getInterfaceAreaDevData();
+    const float * cuda_getInterfaceAreaDevData() const;
 #endif
 
-    const std::array<double, 3> & getInterfaceCentroid(long id) const;
-    const std::array<double, 3> & rawGetInterfaceCentroid(size_t pos) const;
-    const bitpit::PiercedStorage<std::array<double, 3>, long> & getInterfaceCentroids() const;
-    bitpit::PiercedStorage<std::array<double, 3>, long> & getInterfaceCentroids();
+    const std::array<float, 3> & getInterfaceCentroid(long id) const;
+    const std::array<float, 3> & rawGetInterfaceCentroid(size_t pos) const;
+    const bitpit::PiercedStorage<std::array<float, 3>, long> & getInterfaceCentroids() const;
+    bitpit::PiercedStorage<std::array<float, 3>, long> & getInterfaceCentroids();
 #if ENABLE_CUDA
-    double * cuda_getInterfaceCentroidDevData();
-    const double * cuda_getInterfaceCentroidDevData() const;
+    float * cuda_getInterfaceCentroidDevData();
+    const float * cuda_getInterfaceCentroidDevData() const;
 #endif
 
-    const std::array<double, 3> & getInterfaceNormal(long id) const;
-    const std::array<double, 3> & rawGetInterfaceNormal(size_t pos) const;
-    const bitpit::PiercedStorage<std::array<double, 3>, long> & getInterfaceNormals() const;
-    bitpit::PiercedStorage<std::array<double, 3>, long> & getInterfaceNormals();
+    const std::array<float, 3> & getInterfaceNormal(long id) const;
+    const std::array<float, 3> & rawGetInterfaceNormal(size_t pos) const;
+    const bitpit::PiercedStorage<std::array<float, 3>, long> & getInterfaceNormals() const;
+    bitpit::PiercedStorage<std::array<float, 3>, long> & getInterfaceNormals();
 #if ENABLE_CUDA
-    double * cuda_getInterfaceNormalDevData();
-    const double * cuda_getInterfaceNormalDevData() const;
+    float * cuda_getInterfaceNormalDevData();
+    const float * cuda_getInterfaceNormalDevData() const;
 #endif
 
-    const std::array<double, 3> & getInterfaceTangent(long id) const;
-    const std::array<double, 3> & rawGetInterfaceTangent(size_t pos) const;
-    const bitpit::PiercedStorage<std::array<double, 3>, long> & getInterfaceTangents() const;
-    bitpit::PiercedStorage<std::array<double, 3>, long> & getInterfaceTangents();
+    const std::array<float, 3> & getInterfaceTangent(long id) const;
+    const std::array<float, 3> & rawGetInterfaceTangent(size_t pos) const;
+    const bitpit::PiercedStorage<std::array<float, 3>, long> & getInterfaceTangents() const;
+    bitpit::PiercedStorage<std::array<float, 3>, long> & getInterfaceTangents();
 #if ENABLE_CUDA
-    double * cuda_getInterfaceTangentDevData();
-    const double * cuda_getInterfaceTangentDevData() const;
+    float * cuda_getInterfaceTangentDevData();
+    const float * cuda_getInterfaceTangentDevData() const;
 #endif
 
 #if ENABLE_CUDA
@@ -119,14 +119,14 @@ protected:
     void _extract() override;
 
 private:
-    ScalarPiercedStorage<double> m_cellVolumes;
-    ScalarPiercedStorage<double> m_cellSizes;
-    VectorPiercedStorage<double> m_cellCentroids;
+    ScalarPiercedStorage<float> m_cellVolumes;
+    ScalarPiercedStorage<float> m_cellSizes;
+    VectorPiercedStorage<float> m_cellCentroids;
 
-    ScalarPiercedStorage<double> m_interfaceAreas;
-    VectorPiercedStorage<double> m_interfaceCentroids;
-    VectorPiercedStorage<double> m_interfaceNormals;
-    VectorPiercedStorage<double> m_interfaceTangents;
+    ScalarPiercedStorage<float> m_interfaceAreas;
+    VectorPiercedStorage<float> m_interfaceCentroids;
+    VectorPiercedStorage<float> m_interfaceNormals;
+    VectorPiercedStorage<float> m_interfaceTangents;
 
 };
 

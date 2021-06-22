@@ -30,36 +30,36 @@
 
 namespace euler {
 
-double *devMaxEig;
+float *devMaxEig;
 
 /**
- * @brief Compute the maximum of 2 double-precision floating point values using an atomic operation
+ * @brief Compute the maximum of 2 float-precision floating point values using an atomic operation
  *
  * @param[in]	address	The address of the reference value which might get updated with the maximum
  * @param[in]	value	The value that is compared to the reference in order to determine the maximum
  */
-__device__ double atomicMax(double *const address, const double value)
+__device__ float atomicMax(float *const address, const float value)
 {
     uint64 *address_as_i =(uint64*)address;
     uint64 old = *address_as_i, assumed;
-    while (value > __longlong_as_double(old)) {
+    while (value > __int_as_float(old)) {
         assumed = old;
         old = atomicCAS(address_as_i, assumed,
-                        __double_as_longlong(value));
+                        __float_as_int(value));
         }
-    return __longlong_as_double(old);
+    return __int_as_float(old);
 }
 
 
 /**
- * @brief Compute the maximum of double-precision floating point values
+ * @brief Compute the maximum of float-precision floating point values
  *
  * @param[in]	d_array  The address of the value which is the candidate for the  the max. eigenvalue
  * @param[in]	d_max    The address of the max. value
  * @param[in]	elements The number of elements which are parsed
  * @param[in]	value	 The address of the shared memory values
  */
-__device__ void max_reduce(const double* const d_array, double* d_max, const size_t elements, double *shared)
+__device__ void max_reduce(const float* const d_array, float* d_max, const size_t elements, float *shared)
 {
     int tid = threadIdx.x;
     shared[tid] = *d_array;
@@ -84,35 +84,35 @@ __device__ void max_reduce(const double* const d_array, double* d_max, const siz
  * \param[out] fluxes on output will contain the conservative fluxes
  * \param[out] lambda on output will contain the maximum eigenvalue
  */
-__device__ void dev_evalFluxes(const double *conservative, const double *n,
-                               double *fluxes, double *lambda)
+__device__ void dev_evalFluxes(const float *conservative, const float *n,
+                               float *fluxes, float *lambda)
 {
     // Compute variables
-    double primitive[N_FIELDS];
+    float primitive[N_FIELDS];
     ::utils::dev_conservative2primitive(conservative, primitive);
 
-    double u = primitive[DEV_FID_U];
-    double v = primitive[DEV_FID_V];
-    double w = primitive[DEV_FID_W];
+    float u = primitive[DEV_FID_U];
+    float v = primitive[DEV_FID_V];
+    float w = primitive[DEV_FID_W];
 
-    double vel2 = u * u + v * v + w * w;
-    double un   = ::utils::dev_normalVelocity(primitive, n);
-    double a    = std::sqrt(DEV_GAMMA * primitive[DEV_FID_T]);
+    float vel2 = u * u + v * v + w * w;
+    float un   = ::utils::dev_normalVelocity(primitive, n);
+    float a    = std::sqrt(DEV_GAMMA * primitive[DEV_FID_T]);
 
-    double p = primitive[DEV_FID_P];
+    float p = primitive[DEV_FID_P];
     if (p < 0.) {
         printf("***** Negative pressure (%f) in flux computation!\n", p);
     }
 
-    double rho = conservative[DEV_FID_RHO];
+    float rho = conservative[DEV_FID_RHO];
     if (rho < 0.) {
        printf("***** Negative density (%f) in flux computation!\n", rho);
     }
 
-    double eto = p / (DEV_GAMMA - 1.) + 0.5 * rho * vel2;
+    float eto = p / (DEV_GAMMA - 1.) + 0.5 * rho * vel2;
 
     // Compute fluxes
-    double massFlux = rho * un;
+    float massFlux = rho * un;
 
     fluxes[DEV_FID_EQ_C]   = massFlux;
     fluxes[DEV_FID_EQ_M_X] = massFlux * u + p * n[0];
@@ -133,15 +133,15 @@ __device__ void dev_evalFluxes(const double *conservative, const double *n,
  * \param[out] fluxes on output will contain the conservative fluxes
  * \param[out] lambda on output will contain the maximum eigenvalue
  */
-__device__ void dev_evalSplitting(const double *conservativeL, const double *conservativeR, const double *n, double *fluxes, double *lambda)
+__device__ void dev_evalSplitting(const float *conservativeL, const float *conservativeR, const float *n, float *fluxes, float *lambda)
 {
     // Fluxes
-    double fL[N_FIELDS];
-    double lambdaL;
+    float fL[N_FIELDS];
+    float lambdaL;
     dev_evalFluxes(conservativeL, n, fL, &lambdaL);
 
-    double fR[N_FIELDS];
-    double lambdaR;
+    float fR[N_FIELDS];
+    float lambdaR;
     dev_evalFluxes(conservativeR, n, fR, &lambdaR);
 
     // Splitting
@@ -167,10 +167,10 @@ __device__ void dev_evalSplitting(const double *conservativeL, const double *con
  * \param[out] maxEig on output will containt the maximum eigenvalue
  */
 __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t *interfaceRawIds,
-                                     const double *interfaceNormals, const double *interfaceAreas,
+                                     const float *interfaceNormals, const float *interfaceAreas,
                                      const std::size_t *leftCellRawIds, const std::size_t *rightCellRawIds,
-                                     const double *leftReconstructions, const double *rightReconstructions,
-                                     double *cellRHS, double *maxEig)
+                                     const float *leftReconstructions, const float *rightReconstructions,
+                                     float *cellRHS, float *maxEig)
 {
     // Get interface information
     int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -181,19 +181,19 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t 
     const std::size_t interfaceRawId = interfaceRawIds[i];
 
     // Info about the interface
-    const double *interfaceNormal = interfaceNormals + 3 * interfaceRawId;
-    const double interfaceArea    = interfaceAreas[interfaceRawId];
+    const float *interfaceNormal = interfaceNormals + 3 * interfaceRawId;
+    const float interfaceArea    = interfaceAreas[interfaceRawId];
 
     // Evaluate the conservative fluxes
-    const double *leftReconstruction  = leftReconstructions  + N_FIELDS * i;
-    const double *rightReconstruction = rightReconstructions + N_FIELDS * i;
+    const float *leftReconstruction  = leftReconstructions  + N_FIELDS * i;
+    const float *rightReconstruction = rightReconstructions + N_FIELDS * i;
 
-    double interfaceFluxes[N_FIELDS];
+    float interfaceFluxes[N_FIELDS];
     for (int k = 0; k < N_FIELDS; ++k) {
         interfaceFluxes[k] = 0.;
     }
 
-    double interfaceMaxEig;
+    float interfaceMaxEig;
 
     dev_evalSplitting(leftReconstruction, rightReconstruction, interfaceNormal, interfaceFluxes, &interfaceMaxEig);
 
@@ -201,17 +201,17 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t 
     std::size_t leftCellRawId  = leftCellRawIds[i];
     std::size_t rightCellRawId = rightCellRawIds[i];
 
-    double *leftRHS  = cellRHS + N_FIELDS * leftCellRawId;
-    double *rightRHS = cellRHS + N_FIELDS * rightCellRawId;
+    float *leftRHS  = cellRHS + N_FIELDS * leftCellRawId;
+    float *rightRHS = cellRHS + N_FIELDS * rightCellRawId;
     for (int k = 0; k < N_FIELDS; ++k) {
-	double interfaceContribution = interfaceArea * interfaceFluxes[k];
+	float interfaceContribution = interfaceArea * interfaceFluxes[k];
 
         atomicAdd(leftRHS + k,  - interfaceContribution);
         atomicAdd(rightRHS + k,   interfaceContribution);
     }
 
     // Update maximum eigenvalue
-    extern __shared__ double shared[];
+    extern __shared__ float shared[];
     max_reduce(&interfaceMaxEig, maxEig, nInterfaces, shared);
 }
 
@@ -230,10 +230,10 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t 
  * \param[out] maxEig on output will containt the maximum eigenvalue
  */
 __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, const std::size_t *interfaceRawIds,
-                                      const double *interfaceNormals, const double *interfaceAreas,
+                                      const float *interfaceNormals, const float *interfaceAreas,
                                       const std::size_t *fluidCellRawIds, const std::size_t *boundarySigns,
-                                      const double *fluidReconstructions, const double *virtualReconstructions,
-                                      double *cellRHS, double *maxEig)
+                                      const float *fluidReconstructions, const float *virtualReconstructions,
+                                      float *cellRHS, float *maxEig)
 {
     // Get interface information
     int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -244,28 +244,28 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, const std::size_t
     const std::size_t interfaceRawId = interfaceRawIds[i];
 
     // Info about the interface
-    const double *interfaceNormal = interfaceNormals + 3 * interfaceRawId;
-    const double interfaceArea    = interfaceAreas[interfaceRawId];
+    const float *interfaceNormal = interfaceNormals + 3 * interfaceRawId;
+    const float interfaceArea    = interfaceAreas[interfaceRawId];
 
     // Info abount the bounday
     const int boundarySign = boundarySigns[i];
 
     // Evaluate the conservative fluxes
-    const double *fluidReconstruction   = fluidReconstructions   + N_FIELDS * i;
-    const double *virtualReconstruction = virtualReconstructions + N_FIELDS * i;
+    const float *fluidReconstruction   = fluidReconstructions   + N_FIELDS * i;
+    const float *virtualReconstruction = virtualReconstructions + N_FIELDS * i;
 
-    double interfaceFluxes[N_FIELDS];
+    float interfaceFluxes[N_FIELDS];
     for (int k = 0; k < N_FIELDS; ++k) {
         interfaceFluxes[k] = 0.;
     }
 
-    double interfaceMaxEig;
+    float interfaceMaxEig;
 
     dev_evalSplitting(fluidReconstruction, virtualReconstruction, interfaceNormal, interfaceFluxes, &interfaceMaxEig);
 
     // Update residual of fluid cell
     std::size_t fluidCellRawId = fluidCellRawIds[i];
-    double *fluidRHS = cellRHS + N_FIELDS * fluidCellRawId;
+    float *fluidRHS = cellRHS + N_FIELDS * fluidCellRawId;
     for (int k = 0; k < N_FIELDS; ++k) {
         atomicAdd(fluidRHS + k, - boundarySign * interfaceArea * interfaceFluxes[k]);
     }
@@ -279,7 +279,7 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, const std::size_t
  */
 void cuda_initialize()
 {
-    CUDA_ERROR_CHECK(cudaMalloc((void **) &devMaxEig, 1 * sizeof(double)));
+    CUDA_ERROR_CHECK(cudaMalloc((void **) &devMaxEig, 1 * sizeof(float)));
 }
 
 /*!
@@ -295,7 +295,7 @@ void cuda_finalize()
  *
  * \param[in,out] rhs is the RHS that will be reset
  */
-void cuda_resetRHS(ScalarPiercedStorage<double> *cellsRHS)
+void cuda_resetRHS(ScalarPiercedStorage<float> *cellsRHS)
 {
     cellsRHS->cuda_fillDevice(0.);
     cellsRHS->cuda_updateHost();
@@ -314,17 +314,17 @@ void cuda_resetRHS(ScalarPiercedStorage<double> *cellsRHS)
  */
 void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computationInfo,
                     const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-                    const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
+                    const ScalarPiercedStorage<float> &cellConservatives, ScalarPiercedStorage<float> *cellsRHS, float *maxEig)
 {
     //
     // Initialization
     //
-    const double *devInterfaceNormals = computationInfo.cuda_getInterfaceNormalDevData();
-    const double *devInterfaceAreas   = computationInfo.cuda_getInterfaceAreaDevData();
+    const float *devInterfaceNormals = computationInfo.cuda_getInterfaceNormalDevData();
+    const float *devInterfaceAreas   = computationInfo.cuda_getInterfaceAreaDevData();
 
-    CUDA_ERROR_CHECK(cudaMemset(devMaxEig, 0., 1 * sizeof(double)));
+    CUDA_ERROR_CHECK(cudaMemset(devMaxEig, 0., 1 * sizeof(float)));
 
-    double *devCellsRHS = cellsRHS->cuda_deviceData();
+    float *devCellsRHS = cellsRHS->cuda_deviceData();
 
     const ScalarStorage<std::size_t> &solvedUniformInterfaceRawIds = computationInfo.getSolvedUniformInterfaceRawIds();
     const std::size_t nSolvedUniformInterfaces = solvedUniformInterfaceRawIds.size();
@@ -332,11 +332,11 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     const ScalarStorage<std::size_t> &solvedBoundaryInterfaceRawIds = computationInfo.getSolvedBoundaryInterfaceRawIds();
     const std::size_t nSolvedBoundaryInterfaces = solvedBoundaryInterfaceRawIds.size();
 
-    ScalarStorage<double> *leftReconstructions = &(computationInfo.getSolvedInterfaceLeftReconstructions());
-    ScalarStorage<double> *rightReconstructions = &(computationInfo.getSolvedInterfaceRightReconstructions());
+    ScalarStorage<float> *leftReconstructions = &(computationInfo.getSolvedInterfaceLeftReconstructions());
+    ScalarStorage<float> *rightReconstructions = &(computationInfo.getSolvedInterfaceRightReconstructions());
 
-    double *devLeftReconstructions = computationInfo.getSolvedInterfaceLeftReconstructions().cuda_deviceData();
-    double *devRightReconstructions = computationInfo.getSolvedInterfaceRightReconstructions().cuda_deviceData();
+    float *devLeftReconstructions = computationInfo.getSolvedInterfaceLeftReconstructions().cuda_deviceData();
+    float *devRightReconstructions = computationInfo.getSolvedInterfaceRightReconstructions().cuda_deviceData();
 
     //
     // Initialize residual
@@ -355,19 +355,19 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     for (std::size_t i = 0; i < nSolvedUniformInterfaces; ++i) {
         // Info about the interface
         const std::size_t interfaceRawId = solvedUniformInterfaceRawIds[i];
-        const std::array<double, 3> &interfaceCentroid = computationInfo.rawGetInterfaceCentroid(interfaceRawId);
+        const std::array<float, 3> &interfaceCentroid = computationInfo.rawGetInterfaceCentroid(interfaceRawId);
 
         // Info about the interface owner
         std::size_t ownerRawId = solvedUniformInterfaceOwnerRawIds[i];
-        const double *ownerMean = cellConservatives.rawData(ownerRawId);
+        const float *ownerMean = cellConservatives.rawData(ownerRawId);
 
         // Info about the interface neighbour
         std::size_t neighRawId = solvedUniformInterfaceNeighRawIds[i];
-        const double *neighMean = cellConservatives.rawData(neighRawId);
+        const float *neighMean = cellConservatives.rawData(neighRawId);
 
         // Evaluate interface reconstructions
-        double *ownerReconstruction = leftReconstructions->data() + N_FIELDS * i;
-        double *neighReconstruction = rightReconstructions->data() + N_FIELDS * i;
+        float *ownerReconstruction = leftReconstructions->data() + N_FIELDS * i;
+        float *neighReconstruction = rightReconstructions->data() + N_FIELDS * i;
 
         reconstruction::eval(ownerRawId, computationInfo, order, interfaceCentroid, ownerMean, ownerReconstruction);
         reconstruction::eval(neighRawId, computationInfo, order, interfaceCentroid, neighMean, neighReconstruction);
@@ -384,7 +384,7 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
 
     const int UNIFORM_BLOCK_SIZE = 256;
     int nUniformnBlocks = (nSolvedUniformInterfaces + UNIFORM_BLOCK_SIZE - 1) / UNIFORM_BLOCK_SIZE;
-    dev_uniformUpdateRHS<<<nUniformnBlocks, UNIFORM_BLOCK_SIZE, UNIFORM_BLOCK_SIZE*sizeof(double)>>>(nSolvedUniformInterfaces, devSolvedUniformInterfaceRawIds,
+    dev_uniformUpdateRHS<<<nUniformnBlocks, UNIFORM_BLOCK_SIZE, UNIFORM_BLOCK_SIZE*sizeof(float)>>>(nSolvedUniformInterfaces, devSolvedUniformInterfaceRawIds,
                                                                                                      devInterfaceNormals, devInterfaceAreas,
                                                                                                      devUniformOwnerRawIds, devUniformNeighRawIds,
                                                                                                      devLeftReconstructions, devRightReconstructions,
@@ -400,17 +400,17 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     for (std::size_t i = 0; i < nSolvedBoundaryInterfaces; ++i) {
         // Info about the interface
         const std::size_t interfaceRawId = solvedBoundaryInterfaceRawIds[i];
-        const std::array<double, 3> &interfaceNormal = computationInfo.rawGetInterfaceNormal(interfaceRawId);
-        const std::array<double, 3> &interfaceCentroid = computationInfo.rawGetInterfaceCentroid(interfaceRawId);
+        const std::array<float, 3> &interfaceNormal = computationInfo.rawGetInterfaceNormal(interfaceRawId);
+        const std::array<float, 3> &interfaceCentroid = computationInfo.rawGetInterfaceCentroid(interfaceRawId);
         int interfaceBC = solvedBoundaryInterfaceBCs[i];
 
         // Info about the interface fluid cell
         std::size_t fluidRawId = solvedBoundaryInterfaceFluidRawIds[i];
-        const double *fluidMean = cellConservatives.rawData(fluidRawId);
+        const float *fluidMean = cellConservatives.rawData(fluidRawId);
 
         // Evaluate interface reconstructions
-        double *fluidReconstruction   = leftReconstructions->data() + N_FIELDS * i;
-        double *virtualReconstruction = rightReconstructions->data() + N_FIELDS * i;
+        float *fluidReconstruction   = leftReconstructions->data() + N_FIELDS * i;
+        float *virtualReconstruction = rightReconstructions->data() + N_FIELDS * i;
 
         reconstruction::eval(fluidRawId, computationInfo, order, interfaceCentroid, fluidMean, fluidReconstruction);
         evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, interfaceNormal, fluidReconstruction, virtualReconstruction);
@@ -436,7 +436,7 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
 
 
     // Evaluate maximum eigenvalue
-    CUDA_ERROR_CHECK(cudaMemcpy(maxEig, devMaxEig, sizeof(double), cudaMemcpyDeviceToHost));
+    CUDA_ERROR_CHECK(cudaMemcpy(maxEig, devMaxEig, sizeof(float), cudaMemcpyDeviceToHost));
 
     //
     // Update host memory

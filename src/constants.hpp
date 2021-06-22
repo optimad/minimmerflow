@@ -46,8 +46,8 @@ const int FID_EQ_M_Y = 2;
 const int FID_EQ_M_Z = 3;
 const int FID_EQ_E   = 4;
 
-const double GAMMA = 1.4;
-const double R     = 287;
+const float GAMMA = 1.4;
+const float R     = 287;
 
 const int BC_NONE       = -1;
 const int BC_FREE_FLOW  =  0;

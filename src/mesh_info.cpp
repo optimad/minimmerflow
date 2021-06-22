@@ -103,9 +103,14 @@ void MeshGeometricalInfo::_extract()
         long cellId = cellItr.getId();
         std::size_t cellRawId = cellItr.getRawIndex();
 
-        m_cellVolumes.rawSet(cellRawId, m_volumePatch->evalCellVolume(cellId));
-        m_cellSizes.rawSet(cellRawId, m_volumePatch->evalCellSize(cellId));
-        m_cellCentroids.rawSet(cellRawId, m_volumePatch->evalCellCentroid(cellId));
+        m_cellVolumes.rawSet(cellRawId, float(m_volumePatch->evalCellVolume(cellId)));
+        m_cellSizes.rawSet(cellRawId, float(m_volumePatch->evalCellSize(cellId)));
+        std::array<double, 3> cellCD =  m_volumePatch->evalCellCentroid(cellId);
+        std::array<float, 3> cellC = {0, 0, 0};
+        for(int i = 0; i < 3; i++){
+            cellC[i] = float(cellCD[i]);
+        }
+        m_cellCentroids.rawSet(cellRawId, cellC);
     }
 
     // Evaluate interface data
@@ -113,9 +118,17 @@ void MeshGeometricalInfo::_extract()
         long interfaceId = interfaceItr.getId();
         std::size_t interfaceRawId = interfaceItr.getRawIndex();
 
-        m_interfaceAreas.rawSet(interfaceRawId, m_volumePatch->evalInterfaceArea(interfaceId));
-        m_interfaceCentroids.rawSet(interfaceRawId, m_volumePatch->evalInterfaceCentroid(interfaceId));
-        m_interfaceNormals.rawSet(interfaceRawId, m_volumePatch->evalInterfaceNormal(interfaceId));
+        m_interfaceAreas.rawSet(interfaceRawId, float(m_volumePatch->evalInterfaceArea(interfaceId)));
+        std::array<double, 3> intCD = m_volumePatch->evalInterfaceCentroid(interfaceId);
+        std::array<double, 3> intND = m_volumePatch->evalInterfaceNormal(interfaceId);
+        std::array<float, 3> intC = {0, 0, 0};
+        std::array<float, 3> intN = {0, 0, 0};
+        for(int i = 0; i < 3; i++){
+            intC[i] = float(intCD[i]);
+            intN[i] = float(intND[i]);
+        }
+        m_interfaceCentroids.rawSet(interfaceRawId, intC);
+        m_interfaceNormals.rawSet(interfaceRawId, intN);
         m_interfaceTangents.rawSet(interfaceRawId, {{1., 0, 0}});
     }
 }
@@ -136,7 +149,7 @@ int MeshGeometricalInfo::getDimension() const
  * \param id is the id of the cell
  * \result The volume of the specified cell.
  */
-double MeshGeometricalInfo::getCellVolume(long id) const
+float MeshGeometricalInfo::getCellVolume(long id) const
 {
     return m_cellVolumes.at(id);
 }
@@ -147,7 +160,7 @@ double MeshGeometricalInfo::getCellVolume(long id) const
  * \param pos is the raw position of the item
  * \result The volume of the specified cell.
  */
-double MeshGeometricalInfo::rawGetCellVolume(size_t pos) const
+float MeshGeometricalInfo::rawGetCellVolume(size_t pos) const
 {
     return m_cellVolumes.rawAt(pos);
 }
@@ -157,7 +170,7 @@ double MeshGeometricalInfo::rawGetCellVolume(size_t pos) const
  *
  * \result A constant reference to the cell volume storage.
  */
-const PiercedStorage<double, long> & MeshGeometricalInfo::getCellVolumes() const
+const PiercedStorage<float, long> & MeshGeometricalInfo::getCellVolumes() const
 {
     return m_cellVolumes;
 }
@@ -167,7 +180,7 @@ const PiercedStorage<double, long> & MeshGeometricalInfo::getCellVolumes() const
  *
  * \result A reference to the cell volume storage.
  */
-PiercedStorage<double, long> & MeshGeometricalInfo::getCellVolumes()
+PiercedStorage<float, long> & MeshGeometricalInfo::getCellVolumes()
 {
     return m_cellVolumes;
 }
@@ -178,7 +191,7 @@ PiercedStorage<double, long> & MeshGeometricalInfo::getCellVolumes()
  * \param id is the id of the cell
  * \result The size of the specified cell.
  */
-double MeshGeometricalInfo::getCellSize(long id) const
+float MeshGeometricalInfo::getCellSize(long id) const
 {
     return m_cellSizes.at(id);
 }
@@ -189,7 +202,7 @@ double MeshGeometricalInfo::getCellSize(long id) const
  * \param pos is the raw position of the item
  * \result The size of the specified cell.
  */
-double MeshGeometricalInfo::rawGetCellSize(size_t pos) const
+float MeshGeometricalInfo::rawGetCellSize(size_t pos) const
 {
     return m_cellSizes.rawAt(pos);
 }
@@ -199,7 +212,7 @@ double MeshGeometricalInfo::rawGetCellSize(size_t pos) const
  *
  * \result A constant reference to the cell size storage.
  */
-const PiercedStorage<double, long> & MeshGeometricalInfo::getCellSizes() const
+const PiercedStorage<float, long> & MeshGeometricalInfo::getCellSizes() const
 {
     return m_cellSizes;
 }
@@ -209,7 +222,7 @@ const PiercedStorage<double, long> & MeshGeometricalInfo::getCellSizes() const
  *
  * \result A reference to the cell size storage.
  */
-PiercedStorage<double, long> & MeshGeometricalInfo::getCellSizes()
+PiercedStorage<float, long> & MeshGeometricalInfo::getCellSizes()
 {
     return m_cellSizes;
 }
@@ -220,7 +233,7 @@ PiercedStorage<double, long> & MeshGeometricalInfo::getCellSizes()
  * \param id is the id of the cell
  * \result The centroid of the specified cell.
  */
-const std::array<double, 3> & MeshGeometricalInfo::getCellCentroid(long id) const
+const std::array<float, 3> & MeshGeometricalInfo::getCellCentroid(long id) const
 {
     return m_cellCentroids.at(id);
 }
@@ -231,7 +244,7 @@ const std::array<double, 3> & MeshGeometricalInfo::getCellCentroid(long id) cons
  * \param pos is the raw position of the item
  * \result The centroid of the specified cell.
  */
-const std::array<double, 3> & MeshGeometricalInfo::rawGetCellCentroid(size_t pos) const
+const std::array<float, 3> & MeshGeometricalInfo::rawGetCellCentroid(size_t pos) const
 {
     return m_cellCentroids.rawAt(pos);
 }
@@ -241,7 +254,7 @@ const std::array<double, 3> & MeshGeometricalInfo::rawGetCellCentroid(size_t pos
  *
  * \result A constant reference to the cell centroid storage.
  */
-const PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getCellCentroids() const
+const PiercedStorage<std::array<float, 3>, long> & MeshGeometricalInfo::getCellCentroids() const
 {
     return m_cellCentroids;
 }
@@ -251,7 +264,7 @@ const PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getCell
  *
  * \result A reference to the cell centroid storage.
  */
-PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getCellCentroids()
+PiercedStorage<std::array<float, 3>, long> & MeshGeometricalInfo::getCellCentroids()
 {
     return m_cellCentroids;
 }
@@ -262,7 +275,7 @@ PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getCellCentro
  * \param id is the id of the interface
  * \result The centroid of the specified interface.
  */
-double MeshGeometricalInfo::getInterfaceArea(long id) const
+float MeshGeometricalInfo::getInterfaceArea(long id) const
 {
     return m_interfaceAreas.at(id);
 }
@@ -273,7 +286,7 @@ double MeshGeometricalInfo::getInterfaceArea(long id) const
  * \param pos is the raw position of the item
  * \result The area of the specified interface.
  */
-double MeshGeometricalInfo::rawGetInterfaceArea(size_t pos) const
+float MeshGeometricalInfo::rawGetInterfaceArea(size_t pos) const
 {
     return m_interfaceAreas.rawAt(pos);
 }
@@ -283,7 +296,7 @@ double MeshGeometricalInfo::rawGetInterfaceArea(size_t pos) const
  *
  * \result A constant reference to the interface area storage.
  */
-const PiercedStorage<double, long> & MeshGeometricalInfo::getInterfaceAreas() const
+const PiercedStorage<float, long> & MeshGeometricalInfo::getInterfaceAreas() const
 {
     return m_interfaceAreas;
 }
@@ -293,7 +306,7 @@ const PiercedStorage<double, long> & MeshGeometricalInfo::getInterfaceAreas() co
  *
  * \result A reference to the interface area storage.
  */
-PiercedStorage<double, long> & MeshGeometricalInfo::getInterfaceAreas()
+PiercedStorage<float, long> & MeshGeometricalInfo::getInterfaceAreas()
 {
     return m_interfaceAreas;
 }
@@ -304,7 +317,7 @@ PiercedStorage<double, long> & MeshGeometricalInfo::getInterfaceAreas()
  * \param id is the id of the interface
  * \result The centroid of the specified interface.
  */
-const std::array<double, 3> & MeshGeometricalInfo::getInterfaceCentroid(long id) const
+const std::array<float, 3> & MeshGeometricalInfo::getInterfaceCentroid(long id) const
 {
     return m_interfaceCentroids.at(id);
 }
@@ -315,7 +328,7 @@ const std::array<double, 3> & MeshGeometricalInfo::getInterfaceCentroid(long id)
  * \param pos is the raw position of the item
  * \result The centroid of the specified interface.
  */
-const std::array<double, 3> & MeshGeometricalInfo::rawGetInterfaceCentroid(size_t pos) const
+const std::array<float, 3> & MeshGeometricalInfo::rawGetInterfaceCentroid(size_t pos) const
 {
     return m_interfaceCentroids.rawAt(pos);
 }
@@ -325,7 +338,7 @@ const std::array<double, 3> & MeshGeometricalInfo::rawGetInterfaceCentroid(size_
  *
  * \result A constant reference to the interface centroid storage.
  */
-const PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInterfaceCentroids() const
+const PiercedStorage<std::array<float, 3>, long> & MeshGeometricalInfo::getInterfaceCentroids() const
 {
     return m_interfaceCentroids;
 }
@@ -335,7 +348,7 @@ const PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInte
  *
  * \result A reference to the interface centroid storage.
  */
-PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInterfaceCentroids()
+PiercedStorage<std::array<float, 3>, long> & MeshGeometricalInfo::getInterfaceCentroids()
 {
     return m_interfaceCentroids;
 }
@@ -346,7 +359,7 @@ PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInterfaceC
  * \param id is the id of the interface
  * \result The normal of the specified interface.
  */
-const std::array<double, 3> & MeshGeometricalInfo::getInterfaceNormal(long id) const
+const std::array<float, 3> & MeshGeometricalInfo::getInterfaceNormal(long id) const
 {
     return m_interfaceNormals.at(id);
 }
@@ -357,7 +370,7 @@ const std::array<double, 3> & MeshGeometricalInfo::getInterfaceNormal(long id) c
  * \param pos is the raw position of the item
  * \result The normal of the specified interface.
  */
-const std::array<double, 3> & MeshGeometricalInfo::rawGetInterfaceNormal(size_t pos) const
+const std::array<float, 3> & MeshGeometricalInfo::rawGetInterfaceNormal(size_t pos) const
 {
     return m_interfaceNormals.rawAt(pos);
 }
@@ -367,7 +380,7 @@ const std::array<double, 3> & MeshGeometricalInfo::rawGetInterfaceNormal(size_t 
  *
  * \result A constant reference to the interface normal storage.
  */
-const PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInterfaceNormals() const
+const PiercedStorage<std::array<float, 3>, long> & MeshGeometricalInfo::getInterfaceNormals() const
 {
     return m_interfaceNormals;
 }
@@ -377,7 +390,7 @@ const PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInte
  *
  * \result A reference to the interface normal storage.
  */
-PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInterfaceNormals()
+PiercedStorage<std::array<float, 3>, long> & MeshGeometricalInfo::getInterfaceNormals()
 {
     return m_interfaceNormals;
 }
@@ -388,7 +401,7 @@ PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInterfaceN
  * \param id is the id of the interface
  * \result The tangent of the specified interface.
  */
-const std::array<double, 3> & MeshGeometricalInfo::getInterfaceTangent(long id) const
+const std::array<float, 3> & MeshGeometricalInfo::getInterfaceTangent(long id) const
 {
     return m_interfaceTangents.at(id);
 }
@@ -399,7 +412,7 @@ const std::array<double, 3> & MeshGeometricalInfo::getInterfaceTangent(long id) 
  * \param pos is the raw position of the item
  * \result The tangent of the specified interface.
  */
-const std::array<double, 3> & MeshGeometricalInfo::rawGetInterfaceTangent(size_t pos) const
+const std::array<float, 3> & MeshGeometricalInfo::rawGetInterfaceTangent(size_t pos) const
 {
     return m_interfaceTangents.rawAt(pos);
 }
@@ -409,7 +422,7 @@ const std::array<double, 3> & MeshGeometricalInfo::rawGetInterfaceTangent(size_t
  *
  * \result A constant reference to the interface tangent storage.
  */
-const PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInterfaceTangents() const
+const PiercedStorage<std::array<float, 3>, long> & MeshGeometricalInfo::getInterfaceTangents() const
 {
     return m_interfaceTangents;
 }
@@ -419,7 +432,7 @@ const PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInte
  *
  * \result A reference to the interface tangent storage.
  */
-PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInterfaceTangents()
+PiercedStorage<std::array<float, 3>, long> & MeshGeometricalInfo::getInterfaceTangents()
 {
     return m_interfaceTangents;
 }

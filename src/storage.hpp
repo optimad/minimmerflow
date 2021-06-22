@@ -29,6 +29,6 @@
 
 #include <array>
 
-typedef std::array<double, N_FIELDS> FluxData;
+typedef std::array<float, N_FIELDS> FluxData;
 
 #endif

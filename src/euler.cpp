@@ -39,13 +39,13 @@ namespace euler {
  * \param[out] fluxes on output will contain the conservative fluxes
  * \param[out] lambda on output will contain the maximum eigenvalue
  */
-void evalSplitting(const double *conservativeL, const double *conservativeR, const double *n, double *fluxes, double *lambda)
+void evalSplitting(const float *conservativeL, const float *conservativeR, const float *n, float *fluxes, float *lambda)
 {
     // Primitive variables
-    std::array<double, N_FIELDS> primitiveL;
+    std::array<float, N_FIELDS> primitiveL;
     ::utils::conservative2primitive(conservativeL, primitiveL.data());
 
-    std::array<double, N_FIELDS> primitiveR;
+    std::array<float, N_FIELDS> primitiveR;
     ::utils::conservative2primitive(conservativeR, primitiveR.data());
 
     // Fluxes
@@ -56,13 +56,13 @@ void evalSplitting(const double *conservativeL, const double *conservativeR, con
     evalFluxes(conservativeR, primitiveR.data(), n, fR.data());
 
     // Eigenvalues
-    double unL     = ::utils::normalVelocity(primitiveL.data(), n);
-    double aL      = std::sqrt(GAMMA * primitiveL[FID_T]);
-    double lambdaL = std::abs(unL) + aL;
+    float unL     = ::utils::normalVelocity(primitiveL.data(), n);
+    float aL      = std::sqrt(GAMMA * primitiveL[FID_T]);
+    float lambdaL = std::abs(unL) + aL;
 
-    double unR     = ::utils::normalVelocity(primitiveR.data(), n);
-    double aR      = std::sqrt(GAMMA * primitiveR[FID_T]);
-    double lambdaR = std::abs(unR) + aR;
+    float unR     = ::utils::normalVelocity(primitiveR.data(), n);
+    float aR      = std::sqrt(GAMMA * primitiveR[FID_T]);
+    float lambdaR = std::abs(unR) + aR;
 
     *lambda = std::max(lambdaR, lambdaL);
 
@@ -80,30 +80,30 @@ void evalSplitting(const double *conservativeL, const double *conservativeR, con
  * \param n is the normal direction
  * \param[out] fluxes on output will contain the conservative fluxes
  */
-void evalFluxes(const double *conservative, const double *primitive, const double *n, double *fluxes)
+void evalFluxes(const float *conservative, const float *primitive, const float *n, float *fluxes)
 {
     // Compute variables
-    double u = primitive[FID_U];
-    double v = primitive[FID_V];
-    double w = primitive[FID_W];
+    float u = primitive[FID_U];
+    float v = primitive[FID_V];
+    float w = primitive[FID_W];
 
-    double vel2 = u * u + v * v + w * w;
-    double un   = ::utils::normalVelocity(primitive, n);
+    float vel2 = u * u + v * v + w * w;
+    float un   = ::utils::normalVelocity(primitive, n);
 
-    double p = primitive[FID_P];
+    float p = primitive[FID_P];
     if (p < 0.) {
       log::cout() << "***** Negative pressure (" << p << ") in flux computation!\n";
     }
 
-    double rho = conservative[FID_RHO];
+    float rho = conservative[FID_RHO];
     if (rho < 0.) {
         log::cout() << "***** Negative density in flux computation!\n";
     }
 
-    double eto = p / (GAMMA - 1.) + 0.5 * rho * vel2;
+    float eto = p / (GAMMA - 1.) + 0.5 * rho * vel2;
 
     // Compute fluxes
-    double massFlux = rho * un;
+    float massFlux = rho * un;
 
     fluxes[FID_EQ_C]   = massFlux;
     fluxes[FID_EQ_M_X] = massFlux * u + p * n[0];
@@ -126,7 +126,7 @@ void evalFluxes(const double *conservative, const double *primitive, const doubl
  */
 void computeRHS(problem::ProblemType problemType, ComputationInfo &computationInfo,
                 const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-                const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
+                const ScalarPiercedStorage<float> &cellConservatives, ScalarPiercedStorage<float> *cellsRHS, float *maxEig)
 {
     // Reset residuals
 #if ENABLE_CUDA
@@ -150,7 +150,7 @@ void computeRHS(problem::ProblemType problemType, ComputationInfo &computationIn
  *
  * \param[in,out] rhs is the RHS that will be reset
  */
-void resetRHS(ScalarPiercedStorage<double> *cellsRHS)
+void resetRHS(ScalarPiercedStorage<float> *cellsRHS)
 {
     cellsRHS->fill(0.);
 }
@@ -168,7 +168,7 @@ void resetRHS(ScalarPiercedStorage<double> *cellsRHS)
  */
 void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInfo,
                const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-               const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
+               const ScalarPiercedStorage<float> &cellConservatives, ScalarPiercedStorage<float> *cellsRHS, float *maxEig)
 {
     // Get mesh information
     const ScalarStorage<std::size_t> &solvedUniformInterfaceRawIds = computationInfo.getSolvedUniformInterfaceRawIds();
@@ -188,23 +188,23 @@ void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInf
     for (std::size_t i = 0; i < nSolvedUniformInterfaces; ++i) {
         // Info about the interface
         const std::size_t interfaceRawId = solvedUniformInterfaceRawIds[i];
-        const double interfaceArea = computationInfo.rawGetInterfaceArea(interfaceRawId);
-        const std::array<double, 3> &interfaceNormal = computationInfo.rawGetInterfaceNormal(interfaceRawId);
-        const std::array<double, 3> &interfaceCentroid = computationInfo.rawGetInterfaceCentroid(interfaceRawId);
+        const float interfaceArea = computationInfo.rawGetInterfaceArea(interfaceRawId);
+        const std::array<float, 3> &interfaceNormal = computationInfo.rawGetInterfaceNormal(interfaceRawId);
+        const std::array<float, 3> &interfaceCentroid = computationInfo.rawGetInterfaceCentroid(interfaceRawId);
 
         // Info about the interface owner
         std::size_t ownerRawId = solvedUniformInterfaceOwnerRawIds[i];
-        const double *ownerMean = cellConservatives.rawData(ownerRawId);
-        double *ownerRHS = cellsRHS->rawData(ownerRawId);
+        const float *ownerMean = cellConservatives.rawData(ownerRawId);
+        float *ownerRHS = cellsRHS->rawData(ownerRawId);
 
         // Info about the interface neighbour
         std::size_t neighRawId = solvedUniformInterfaceNeighRawIds[i];
-        const double *neighMean = cellConservatives.rawData(neighRawId);
-        double *neighRHS = cellsRHS->rawData(neighRawId);
+        const float *neighMean = cellConservatives.rawData(neighRawId);
+        float *neighRHS = cellsRHS->rawData(neighRawId);
 
         // Evaluate interface reconstructions
-        std::array<double, N_FIELDS> ownerReconstruction;
-        std::array<double, N_FIELDS> neighReconstruction;
+        std::array<float, N_FIELDS> ownerReconstruction;
+        std::array<float, N_FIELDS> neighReconstruction;
 
         reconstruction::eval(ownerRawId, computationInfo, order, interfaceCentroid, ownerMean, ownerReconstruction.data());
         reconstruction::eval(neighRawId, computationInfo, order, interfaceCentroid, neighMean, neighReconstruction.data());
@@ -213,7 +213,7 @@ void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInf
         FluxData fluxes;
         fluxes.fill(0.);
 
-        double faceMaxEig;
+        float faceMaxEig;
         euler::evalSplitting(ownerReconstruction.data(), neighReconstruction.data(), interfaceNormal.data(), fluxes.data(), &faceMaxEig);
 
         *maxEig = std::max(faceMaxEig, *maxEig);
@@ -229,20 +229,20 @@ void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInf
     for (std::size_t i = 0; i < nSolvedBoundaryInterfaces; ++i) {
         // Info about the interface
         const std::size_t interfaceRawId = solvedBoundaryInterfaceRawIds[i];
-        const double interfaceArea = computationInfo.rawGetInterfaceArea(interfaceRawId);
+        const float interfaceArea = computationInfo.rawGetInterfaceArea(interfaceRawId);
         const int interfaceSign = solvedBoundaryInterfaceSigns[i];
-        const std::array<double, 3> &interfaceNormal = computationInfo.rawGetInterfaceNormal(interfaceRawId);
-        const std::array<double, 3> &interfaceCentroid = computationInfo.rawGetInterfaceCentroid(interfaceRawId);
+        const std::array<float, 3> &interfaceNormal = computationInfo.rawGetInterfaceNormal(interfaceRawId);
+        const std::array<float, 3> &interfaceCentroid = computationInfo.rawGetInterfaceCentroid(interfaceRawId);
         int interfaceBC = solvedBoundaryInterfaceBCs[i];
 
         // Info about the interface fluid cell
         std::size_t fluidRawId = solvedBoundaryInterfaceFluidRawIds[i];
-        const double *fluidMean = cellConservatives.rawData(fluidRawId);
-        double *fluidRHS = cellsRHS->rawData(fluidRawId);
+        const float *fluidMean = cellConservatives.rawData(fluidRawId);
+        float *fluidRHS = cellsRHS->rawData(fluidRawId);
 
         // Evaluate interface reconstructions
-        std::array<double, N_FIELDS> fluidReconstruction;
-        std::array<double, N_FIELDS> virtualReconstruction;
+        std::array<float, N_FIELDS> fluidReconstruction;
+        std::array<float, N_FIELDS> virtualReconstruction;
 
         reconstruction::eval(fluidRawId, computationInfo, order, interfaceCentroid, fluidMean, fluidReconstruction.data());
         evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, interfaceNormal, fluidReconstruction.data(), virtualReconstruction.data());
@@ -251,7 +251,7 @@ void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInf
         FluxData fluxes;
         fluxes.fill(0.);
 
-        double faceMaxEig;
+        float faceMaxEig;
         euler::evalSplitting(fluidReconstruction.data(), virtualReconstruction.data(), interfaceNormal.data(), fluxes.data(), &faceMaxEig);
 
         *maxEig = std::max(faceMaxEig, *maxEig);
@@ -274,11 +274,11 @@ void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInf
  * \param[out] conservative_BC are the outer conservative values
  */
 void evalInterfaceBCValues(problem::ProblemType problemType, int BCType,
-                           const std::array<double, 3> &point,
-                           const std::array<double, 3> &normal,
-                           const double *conservative, double *conservative_BC)
+                           const std::array<float, 3> &point,
+                           const std::array<float, 3> &normal,
+                           const float *conservative, float *conservative_BC)
 {
-    std::array<double, BC_INFO_SIZE> info;
+    std::array<float, BC_INFO_SIZE> info;
     problem::getBorderBCInfo(problemType, BCType, point, normal, info);
 
     switch (BCType)
@@ -310,10 +310,10 @@ void evalInterfaceBCValues(problem::ProblemType problemType, int BCType,
  * \param info are the info needed for evaluating the boundary condition
  * \param[out] conservative_BC are the outer conservative values
  */
-void evalFreeFlowBCValues(const std::array<double, 3> &point,
-                          const std::array<double, 3> &normal,
-                          const std::array<double, BC_INFO_SIZE> &info,
-                          const double *conservative, double *conservative_BC)
+void evalFreeFlowBCValues(const std::array<float, 3> &point,
+                          const std::array<float, 3> &normal,
+                          const std::array<float, BC_INFO_SIZE> &info,
+                          const float *conservative, float *conservative_BC)
 {
     BITPIT_UNUSED(point);
     BITPIT_UNUSED(normal);
@@ -330,19 +330,23 @@ void evalFreeFlowBCValues(const std::array<double, 3> &point,
  * \param info are the info needed for evaluating the boundary condition
  * \param[out] conservative_BC are the outer conservative values
  */
-void evalReflectingBCValues(const std::array<double, 3> &point,
-                            const std::array<double, 3> &normal,
-                            const std::array<double, BC_INFO_SIZE> &info,
-                            const double *conservative, double *conservative_BC)
+void evalReflectingBCValues(const std::array<float, 3> &point,
+                            const std::array<float, 3> &normal,
+                            const std::array<float, BC_INFO_SIZE> &info,
+                            const float *conservative, float *conservative_BC)
 {
     BITPIT_UNUSED(point);
     BITPIT_UNUSED(info);
 
-    std::array<double, N_FIELDS> primitive;
+    std::array<float, N_FIELDS> primitive;
     ::utils::conservative2primitive(conservative, primitive.data());
 
-    std::array<double, 3> u    = {{primitive[FID_U], primitive[FID_V], primitive[FID_W]}};
-    std::array<double, 3> u_n  = ::utils::normalVelocity(primitive.data(), normal.data()) * normal;
+    std::array<float, 3> u    = {{primitive[FID_U], primitive[FID_V], primitive[FID_W]}};
+    std::array<float, 3> normalF = {0, 0, 0};
+    for(int i = 0; i < 3; i++){
+        normalF[i] = float(normal[i]);
+    }
+    std::array<float, 3> u_n  = ::utils::normalVelocity(primitive.data(), normal.data()) * normalF;
 
     primitive[FID_U] = u[0] - 2 * u_n[0];
     primitive[FID_V] = u[1] - 2 * u_n[1];
@@ -359,10 +363,10 @@ void evalReflectingBCValues(const std::array<double, 3> &point,
  * \param info are the info needed for evaluating the boundary condition
  * \param[out] conservative_BC are the outer conservative values
  */
-void evalWallBCValues(const std::array<double, 3> &point,
-                      const std::array<double, 3> &normal,
-                      const std::array<double, BC_INFO_SIZE> &info,
-                      const double *conservative, double *conservative_BC)
+void evalWallBCValues(const std::array<float, 3> &point,
+                      const std::array<float, 3> &normal,
+                      const std::array<float, BC_INFO_SIZE> &info,
+                      const float *conservative, float *conservative_BC)
 {
     BITPIT_UNUSED(point);
     BITPIT_UNUSED(info);
@@ -378,10 +382,10 @@ void evalWallBCValues(const std::array<double, 3> &point,
  * \param info are the info needed for evaluating the boundary condition
  * \param[out] conservative_BC are the outer conservative values
  */
-void evalDirichletBCValues(const std::array<double, 3> &point,
-                           const std::array<double, 3> &normal,
-                           const std::array<double, BC_INFO_SIZE> &info,
-                           const double *conservative, double *conservative_BC)
+void evalDirichletBCValues(const std::array<float, 3> &point,
+                           const std::array<float, 3> &normal,
+                           const std::array<float, BC_INFO_SIZE> &info,
+                           const float *conservative, float *conservative_BC)
 {
     BITPIT_UNUSED(point);
     BITPIT_UNUSED(normal);

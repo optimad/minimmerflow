@@ -45,8 +45,8 @@ __constant__ int DEV_FID_EQ_M_Y;
 __constant__ int DEV_FID_EQ_M_Z;
 __constant__ int DEV_FID_EQ_E;
 
-__constant__ double DEV_GAMMA;
-__constant__ double DEV_R;
+__constant__ float DEV_GAMMA;
+__constant__ float DEV_R;
 
 namespace constants
 {

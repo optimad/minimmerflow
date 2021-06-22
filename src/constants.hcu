@@ -45,7 +45,7 @@ extern __constant__ int DEV_FID_EQ_M_Y;
 extern __constant__ int DEV_FID_EQ_M_Z;
 extern __constant__ int DEV_FID_EQ_E;
 
-extern __constant__ double DEV_GAMMA;
-extern __constant__ double DEV_R;
+extern __constant__ float DEV_GAMMA;
+extern __constant__ float DEV_R;
 
 #endif

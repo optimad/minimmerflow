@@ -195,7 +195,7 @@ const std::size_t * ComputationInfo::cuda_getSolvedBoundaryInterfaceFluidRawIdDe
  *
  * \result A pointer to the device storage for the left interface reconstructions.
  */
-const double * ComputationInfo::cuda_getSolvedInterfaceLeftReconstructionsDevData() const
+const float * ComputationInfo::cuda_getSolvedInterfaceLeftReconstructionsDevData() const
 {
     return m_solvedInterfaceLeftReconstructions.cuda_deviceData();
 }
@@ -205,7 +205,7 @@ const double * ComputationInfo::cuda_getSolvedInterfaceLeftReconstructionsDevDat
  *
  * \result A pointer to the device storage for the right interface reconstructions.
  */
-const double * ComputationInfo::cuda_getSolvedInterfaceRightReconstructionsDevData() const
+const float * ComputationInfo::cuda_getSolvedInterfaceRightReconstructionsDevData() const
 {
     return m_solvedInterfaceRightReconstructions.cuda_deviceData();
 }

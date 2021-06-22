@@ -45,7 +45,7 @@ void initialize()
  * conditions of the solved boundary cells
  */
 void computePolynomials(problem::ProblemType problemType, const ComputationInfo &computationInfo,
-                       const ScalarPiercedStorage<double> &conservativeFields, const ScalarStorage<int> &solvedBoundaryInterfaceBCs)
+                       const ScalarPiercedStorage<float> &conservativeFields, const ScalarStorage<int> &solvedBoundaryInterfaceBCs)
 {
     BITPIT_UNUSED(problemType);
     BITPIT_UNUSED(computationInfo);
@@ -63,7 +63,7 @@ void computePolynomials(problem::ProblemType problemType, const ComputationInfo 
  * \param means are the mean valuesof the fields
  * \param[out] values on output will contain the reconstructed values
  */
-void eval(std::size_t cellRawId, const MeshGeometricalInfo &meshInfo, int order, const std::array<double, 3> &point, const double *means, double *values)
+void eval(std::size_t cellRawId, const MeshGeometricalInfo &meshInfo, int order, const std::array<float, 3> &point, const float *means, float *values)
 {
     switch (order) {
 
@@ -86,7 +86,7 @@ void eval(std::size_t cellRawId, const MeshGeometricalInfo &meshInfo, int order,
  * \param point is the point where the reconstruction will be evaluated
  * \param[out] values on output will contain the reconstructed values
  */
-void eval_1(std::size_t cellRawId, const MeshGeometricalInfo &meshInfo, const std::array<double, 3> &point, const double *means, double *values)
+void eval_1(std::size_t cellRawId, const MeshGeometricalInfo &meshInfo, const std::array<float, 3> &point, const float *means, float *values)
 {
     BITPIT_UNUSED(cellRawId);
     BITPIT_UNUSED(meshInfo);

@@ -43,20 +43,20 @@ enum ProblemType {
 
 ProblemType getProblemType();
 
-void getDomainData(ProblemType problemType, int &dimensions, std::array<double, 3> *origin, double *length);
+void getDomainData(ProblemType problemType, int &dimensions, std::array<float, 3> *origin, float *length);
 
-double getStartTime(ProblemType problemType, int dimensions);
-double getEndTime(ProblemType problemType, int dimensions);
+float getStartTime(ProblemType problemType, int dimensions);
+float getEndTime(ProblemType problemType, int dimensions);
 
-void evalCellInitalConservatives(ProblemType problemType, long cellId, const MeshGeometricalInfo &meshInfo, double *primitives);
-void evalCellExactConservatives(ProblemType problemType, long cellId, const MeshGeometricalInfo &meshInfo, double t, double *primitives);
+void evalCellInitalConservatives(ProblemType problemType, long cellId, const MeshGeometricalInfo &meshInfo, float *primitives);
+void evalCellExactConservatives(ProblemType problemType, long cellId, const MeshGeometricalInfo &meshInfo, float t, float *primitives);
 
-void evalExactConservatives(ProblemType problemType, int dimensions, std::array<double, 3> point, double t, double *primitives);
+void evalExactConservatives(ProblemType problemType, int dimensions, std::array<float, 3> point, float t, float *primitives);
 
 int getBorderBCType(ProblemType problemType, long id, const MeshGeometricalInfo &meshInfo);
 
-void getBorderBCInfo(ProblemType problemType, int BCType, const std::array<double, 3> &point,
-                     const std::array<double, 3> &normal, std::array<double, BC_INFO_SIZE> &info);
+void getBorderBCInfo(ProblemType problemType, int BCType, const std::array<float, 3> &point,
+                     const std::array<float, 3> &normal, std::array<float, BC_INFO_SIZE> &info);
 
 }
 

@@ -29,10 +29,10 @@
 
 namespace utils {
 
-__device__ double dev_normalVelocity(const double *fields, const double *n);
+__device__ float dev_normalVelocity(const float *fields, const float *n);
 
-__device__ void dev_conservative2primitive(const double *c, double *p);
-__device__ void dev_primitive2conservative(const double *p, double *c);
+__device__ void dev_conservative2primitive(const float *c, float *p);
+__device__ void dev_primitive2conservative(const float *p, float *c);
 
 }
 

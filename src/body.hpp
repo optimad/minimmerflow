@@ -31,7 +31,7 @@ namespace body {
 
 void initialize();
 
-bool isPointFluid(const std::array<double, 3> &point);
+bool isPointFluid(const std::array<float, 3> &point);
 
 }
 

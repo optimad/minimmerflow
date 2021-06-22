@@ -79,7 +79,7 @@ void ComputationInfo::_extract()
     for (VolumeKernel::CellConstIterator cellItr = m_patch->cellConstBegin(); cellItr != m_patch->cellConstEnd(); ++cellItr) {
         std::size_t cellRawId = cellItr.getRawIndex();
         const Cell &cell = *cellItr;
-        const std::array<double, 3> &cellCentroid = rawGetCellCentroid(cellRawId);
+        const std::array<float, 3> &cellCentroid = rawGetCellCentroid(cellRawId);
 
         // Identify solve method
         bool isSolved = body::isPointFluid(cellCentroid);
@@ -199,8 +199,8 @@ bool ComputationInfo::isInterfaceBoundary(const Interface &interface) const
 
     long ownerId = interface.getOwner();
 
-    const std::array<double, 3> &cellCentroid  = getCellCentroid(ownerId);
-    const std::array<double, 3> &neighCentroid = getCellCentroid(neighId);
+    const std::array<float, 3> &cellCentroid  = getCellCentroid(ownerId);
+    const std::array<float, 3> &neighCentroid = getCellCentroid(neighId);
 
     bool isOwnerFluid = body::isPointFluid(cellCentroid);
     bool isNeighFluid = body::isPointFluid(neighCentroid);
@@ -303,7 +303,7 @@ const ScalarStorage<std::size_t> & ComputationInfo::getSolvedBoundaryInterfaceFl
  *
  * \result A reference to the left interface reconstructions storage.
  */
-ScalarStorage<double> & ComputationInfo::getSolvedInterfaceLeftReconstructions()
+ScalarStorage<float> & ComputationInfo::getSolvedInterfaceLeftReconstructions()
 {
     return m_solvedInterfaceLeftReconstructions;
 }
@@ -313,7 +313,7 @@ ScalarStorage<double> & ComputationInfo::getSolvedInterfaceLeftReconstructions()
  *
  * \result A constant reference to the left interface reconstructions storage.
  */
-const ScalarStorage<double> & ComputationInfo::getSolvedInterfaceLeftReconstructions() const
+const ScalarStorage<float> & ComputationInfo::getSolvedInterfaceLeftReconstructions() const
 {
     return m_solvedInterfaceLeftReconstructions;
 }
@@ -323,7 +323,7 @@ const ScalarStorage<double> & ComputationInfo::getSolvedInterfaceLeftReconstruct
  *
  * \result A reference to the right interface reconstructions storage.
  */
-ScalarStorage<double> & ComputationInfo::getSolvedInterfaceRightReconstructions()
+ScalarStorage<float> & ComputationInfo::getSolvedInterfaceRightReconstructions()
 {
     return m_solvedInterfaceRightReconstructions;
 }
@@ -333,7 +333,7 @@ ScalarStorage<double> & ComputationInfo::getSolvedInterfaceRightReconstructions(
  *
  * \result A constant reference to the right interface reconstructions storage.
  */
-const ScalarStorage<double> & ComputationInfo::getSolvedInterfaceRightReconstructions() const
+const ScalarStorage<float> & ComputationInfo::getSolvedInterfaceRightReconstructions() const
 {
     return m_solvedInterfaceRightReconstructions;
 }

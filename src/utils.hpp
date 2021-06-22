@@ -29,10 +29,10 @@
 
 namespace utils {
 
-double normalVelocity(const double *fields, const double *n);
+float normalVelocity(const float *fields, const float *n);
 
-void conservative2primitive(const double *c, double *p);
-void primitive2conservative(const double *p, double *c);
+void conservative2primitive(const float *c, float *p);
+void primitive2conservative(const float *p, float *c);
 
 }
 

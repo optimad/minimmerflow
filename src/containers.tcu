@@ -112,7 +112,7 @@ void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_fillDevice(const 
 template<typename value_t, typename dev_value_t>
 std::size_t ValuePiercedStorage<value_t, dev_value_t>::cuda_deviceDataSize() const
 {
-    return (this->rawSize() * this->getFieldCount() * static_cast<double>(sizeof(value_t)) / sizeof(dev_value_t));
+    return (this->rawSize() * this->getFieldCount() * static_cast<float>(sizeof(value_t)) / sizeof(dev_value_t));
 }
 
 /*!
@@ -178,7 +178,7 @@ std::size_t ValueStorage<value_t, dev_value_t>::cuda_deviceDataSize() const
 template<typename value_t, typename dev_value_t>
 std::size_t ValueStorage<value_t, dev_value_t>::cuda_deviceDataSize(std::size_t count) const
 {
-    return (count * static_cast<double>(sizeof(value_t)) / sizeof(dev_value_t));
+    return (count * static_cast<float>(sizeof(value_t)) / sizeof(dev_value_t));
 }
 
 #endif

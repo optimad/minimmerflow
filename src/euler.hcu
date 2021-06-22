@@ -32,25 +32,25 @@
 
 namespace euler {
 
-__device__ double atomicMax(double *const address, const double value);
+__device__ float atomicMax(float *const address, const float value);
 
-__device__ void max_reduce(const double* const d_array, double* d_max, const size_t elements, double *shared);
+__device__ void max_reduce(const float* const d_array, float* d_max, const size_t elements, float *shared);
 
-__device__ void dev_evalFluxes(const double *conservative, const double *primitive, const double *n, double *fluxes, double *lambda);
+__device__ void dev_evalFluxes(const float *conservative, const float *primitive, const float *n, float *fluxes);
 
-__device__ void dev_evalSplitting(const double *conservativeL, const double *conservativeR, const double *n, double *fluxes, double *lambda);
+__device__ void dev_evalSplitting(const float *conservativeL, const float *conservativeR, const float *n, float *fluxes, float *lambda);
 
 __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t *interfaceRawIds,
-                                     const double *interfaceNormals, const double *interfaceAreas,
+                                     const float *interfaceNormals, const float *interfaceAreas,
                                      const std::size_t *leftCellRawIds, const std::size_t *rightCellRawIds,
-                                     const double *leftReconstructions, const double *rightReconstructions,
-                                     double *cellRHS, double *maxEig);
+                                     const float *leftReconstructions, const float *rightReconstructions,
+                                     float *cellRHS, float *maxEig);
 
 __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, const std::size_t *interfaceRawIds,
-                                      const double *interfaceNormals, const double *interfaceAreas,
+                                      const float *interfaceNormals, const float *interfaceAreas,
                                       const std::size_t *fluidCellRawIds, const std::size_t *boundarySigns,
-                                      const double *fluidReconstructions, const double *virtualReconstructions,
-                                      double *cellRHS, double *maxEig);
+                                      const float *fluidReconstructions, const float *virtualReconstructions,
+                                      float *cellRHS, float *maxEig);
 
 }
 

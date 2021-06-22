@@ -82,12 +82,12 @@ void computation(int argc, char *argv[])
     const problem::ProblemType problemType = problem::getProblemType();
 
     int dimensions;
-    double length;
-    std::array<double, 3> origin;
+    float length;
+    std::array<float, 3> origin;
     problem::getDomainData(problemType, dimensions, &origin, &length);
 
-    const double tMin = problem::getStartTime(problemType, dimensions);
-    const double tMax = problem::getEndTime(problemType, dimensions);
+    const float tMin = problem::getStartTime(problemType, dimensions);
+    const float tMax = problem::getEndTime(problemType, dimensions);
 
     log::cout() << std::endl;
     log::cout() << "Domain info: "  << std::endl;
@@ -102,7 +102,7 @@ void computation(int argc, char *argv[])
     // Discretization parameters
     const int order = config::root["discretization"]["space"].get<int>("order");
 
-    const double cfl = config::root["discretization"]["time"].get<double>("CFL");
+    const float cfl = float(config::root["discretization"]["time"].get<float>("CFL"));
 
     long nCellsPerDirection;
     if (argc > 1) {
@@ -148,10 +148,14 @@ void computation(int argc, char *argv[])
                 << " cells per direction, which will be uniformly refined " <<  initialRefs
                 << " times." << std::endl;
 
+    std::array<double, 3> originD = {0, 0, 0};
+    for(int i = 0; i < 3; i++){
+        originD[i] = double(origin[i]);
+    }
 #if ENABLE_MPI
-    VolOctree mesh(dimensions, origin, length, length / nCellsPerDirection, MPI_COMM_WORLD);
+    VolOctree mesh(dimensions, originD, double(length), double(length) / nCellsPerDirection, MPI_COMM_WORLD);
 #else
-    VolOctree mesh(dimensions, origin, length, length / nCellsPerDirection);
+    VolOctree mesh(dimensions, originD, double(length), double(length) / nCellsPerDirection);
 #endif
 
     mesh.initializeAdjacencies();
@@ -218,10 +222,10 @@ void computation(int argc, char *argv[])
     log::cout() << std::endl;
     log::cout() << "Storage initialization..."  << std::endl;
 
-    ScalarPiercedStorage<double> cellPrimitives(N_FIELDS, &mesh.getCells());
-    ScalarPiercedStorage<double> cellConservatives(N_FIELDS, &mesh.getCells());
-    ScalarPiercedStorage<double> cellConservativesWork(N_FIELDS, &mesh.getCells());
-    ScalarPiercedStorage<double> cellRHS(N_FIELDS, &mesh.getCells());
+    ScalarPiercedStorage<float> cellPrimitives(N_FIELDS, &mesh.getCells());
+    ScalarPiercedStorage<float> cellConservatives(N_FIELDS, &mesh.getCells());
+    ScalarPiercedStorage<float> cellConservativesWork(N_FIELDS, &mesh.getCells());
+    ScalarPiercedStorage<float> cellRHS(N_FIELDS, &mesh.getCells());
 
 #if ENABLE_CUDA
     cellRHS.cuda_allocateDevice();
@@ -272,15 +276,15 @@ void computation(int argc, char *argv[])
     vtk.setCounter(0);
 
     vtk.addData<int>("solveMethod"   , VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
-    vtk.addData<double>("velocity"   , VTKFieldType::VECTOR, VTKLocation::CELL, &solverStreamer);
-    vtk.addData<double>("pressure"   , VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
-    vtk.addData<double>("temperature", VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
-    vtk.addData<double>("density"    , VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
-    vtk.addData<double>("residualC"  , VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
-    vtk.addData<double>("residualMX", VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
-    vtk.addData<double>("residualMY", VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
-    vtk.addData<double>("residualMZ", VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
-    vtk.addData<double>("residualE", VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
+    vtk.addData<float>("velocity"   , VTKFieldType::VECTOR, VTKLocation::CELL, &solverStreamer);
+    vtk.addData<float>("pressure"   , VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
+    vtk.addData<float>("temperature", VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
+    vtk.addData<float>("density"    , VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
+    vtk.addData<float>("residualC"  , VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
+    vtk.addData<float>("residualMX", VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
+    vtk.addData<float>("residualMY", VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
+    vtk.addData<float>("residualMZ", VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
+    vtk.addData<float>("residualE", VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
 
     log_memory_status();
 
@@ -293,16 +297,16 @@ void computation(int argc, char *argv[])
     std::unique_ptr<GhostCommunicator> conservativeCommunicator;
     std::unique_ptr<GhostCommunicator> conservativeWorkCommunicator;
 
-    std::unique_ptr<ValuePiercedStorageBufferStreamer<double>> primitiveGhostStreamer;
-    std::unique_ptr<ValuePiercedStorageBufferStreamer<double>> conservativeGhostStreamer;
-    std::unique_ptr<ValuePiercedStorageBufferStreamer<double>> conservativeWorkGhostStreamer;
+    std::unique_ptr<ValuePiercedStorageBufferStreamer<float>> primitiveGhostStreamer;
+    std::unique_ptr<ValuePiercedStorageBufferStreamer<float>> conservativeGhostStreamer;
+    std::unique_ptr<ValuePiercedStorageBufferStreamer<float>> conservativeWorkGhostStreamer;
     if (mesh.isPartitioned()) {
         // Primitive fields
         primitiveCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh));
         primitiveCommunicator->resetExchangeLists();
         primitiveCommunicator->setRecvsContinuous(true);
 
-        primitiveGhostStreamer = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&cellConservatives));
+        primitiveGhostStreamer = std::unique_ptr<ValuePiercedStorageBufferStreamer<float>>(new ValuePiercedStorageBufferStreamer<float>(&cellConservatives));
         primitiveCommunicator->addData(primitiveGhostStreamer.get());
 
         // Conservative fields
@@ -310,7 +314,7 @@ void computation(int argc, char *argv[])
         conservativeCommunicator->resetExchangeLists();
         conservativeCommunicator->setRecvsContinuous(true);
 
-        conservativeGhostStreamer = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&cellConservatives));
+        conservativeGhostStreamer = std::unique_ptr<ValuePiercedStorageBufferStreamer<float>>(new ValuePiercedStorageBufferStreamer<float>(&cellConservatives));
         conservativeCommunicator->addData(conservativeGhostStreamer.get());
 
         // Conservative tields tmp
@@ -318,7 +322,7 @@ void computation(int argc, char *argv[])
         conservativeWorkCommunicator->resetExchangeLists();
         conservativeWorkCommunicator->setRecvsContinuous(true);
 
-        conservativeWorkGhostStreamer = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&cellConservativesWork));
+        conservativeWorkGhostStreamer = std::unique_ptr<ValuePiercedStorageBufferStreamer<float>>(new ValuePiercedStorageBufferStreamer<float>(&cellConservativesWork));
         conservativeWorkCommunicator->addData(conservativeWorkGhostStreamer.get());
     }
 #endif
@@ -331,10 +335,10 @@ void computation(int argc, char *argv[])
         const std::size_t cellRawId = solvedCellRawIds[i];
         const long cellId = mesh.getCells().rawFind(cellRawId).getId();
 
-        double *conservatives = cellConservatives.rawData(cellRawId);
+        float *conservatives = cellConservatives.rawData(cellRawId);
         problem::evalCellInitalConservatives(problemType, cellId, computationInfo, conservatives);
 
-        double *primitives = cellPrimitives.rawData(cellRawId);
+        float *primitives = cellPrimitives.rawData(cellRawId);
         ::utils::conservative2primitive(conservatives, primitives);
     }
 
@@ -352,7 +356,7 @@ void computation(int argc, char *argv[])
     log_memory_status();
 
     // Find smallest cell
-    double minCellSize = std::numeric_limits<double>::max();
+    float minCellSize = std::numeric_limits<float>::max();
     for (std::size_t i = 0; i < nSolvedCells; ++i) {
         const std::size_t cellRawId = solvedCellRawIds[i];
 
@@ -361,7 +365,7 @@ void computation(int argc, char *argv[])
 
 #if ENABLE_MPI
     if (mesh.isPartitioned()) {
-        MPI_Allreduce(MPI_IN_PLACE, &minCellSize, 1, MPI_DOUBLE, MPI_MIN, mesh.getCommunicator());
+        MPI_Allreduce(MPI_IN_PLACE, &minCellSize, 1, MPI_FLOAT, MPI_MIN, mesh.getCommunicator());
     }
 #endif
 
@@ -376,13 +380,13 @@ void computation(int argc, char *argv[])
     clock_t computeStart = clock();
 
     int step = 0;
-    double t = tMin;
-    double nextSave = tMin;
+    float t = tMin;
+    float nextSave = tMin;
     while (t < tMax) {
         log::cout() << std::endl;
         log::cout() << "Step n. " << step << std::endl;
 
-        double maxEig;
+        float maxEig;
 
         //
         // FIRST RK STAGE
@@ -398,12 +402,12 @@ void computation(int argc, char *argv[])
 
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
-            MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_DOUBLE, MPI_MAX, mesh.getCommunicator());
+            MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_FLOAT, MPI_MAX, mesh.getCommunicator());
         }
 #endif
 
         // Choose dt
-        double dt = 0.9 * cfl * minCellSize / maxEig;
+        float dt = 0.9 * cfl * minCellSize / maxEig;
         log::cout() << "Ideal dt = " << dt << " (maxEig = " << maxEig << ")" <<std::endl;
         if (t + dt > tMax) {
             dt = tMax - t;
@@ -417,10 +421,10 @@ void computation(int argc, char *argv[])
         for (std::size_t i = 0; i < nSolvedCells; ++i) {
             const std::size_t cellRawId = solvedCellRawIds[i];
 
-            const double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
-            const double *RHS = cellRHS.rawData(cellRawId);
-            const double *conservative = cellConservatives.rawData(cellRawId);
-            double *conservativeTmp = cellConservativesWork.rawData(cellRawId);
+            const float cellVolume = float(computationInfo.rawGetCellVolume(cellRawId));
+            const float *RHS = cellRHS.rawData(cellRawId);
+            const float *conservative = cellConservatives.rawData(cellRawId);
+            float *conservativeTmp = cellConservativesWork.rawData(cellRawId);
             for (int k = 0; k < N_FIELDS; ++k) {
                 conservativeTmp[k] = conservative[k] + dt * RHS[k] / cellVolume;
             }
@@ -441,7 +445,7 @@ void computation(int argc, char *argv[])
         euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservativesWork, &cellRHS, &maxEig);
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
-            MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_DOUBLE, MPI_MAX, mesh.getCommunicator());
+            MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_FLOAT, MPI_MAX, mesh.getCommunicator());
         }
 #endif
 
@@ -453,10 +457,10 @@ void computation(int argc, char *argv[])
         for (std::size_t i = 0; i < nSolvedCells; ++i) {
             const std::size_t cellRawId = solvedCellRawIds[i];
 
-            double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
-            const double *RHS = cellRHS.rawData(cellRawId);
-            const double *conservative = cellConservatives.rawData(cellRawId);
-            double *conservativeTmp = cellConservativesWork.rawData(cellRawId);
+            float cellVolume = float(computationInfo.rawGetCellVolume(cellRawId));
+            const float *RHS = cellRHS.rawData(cellRawId);
+            const float *conservative = cellConservatives.rawData(cellRawId);
+            float *conservativeTmp = cellConservativesWork.rawData(cellRawId);
             for (int k = 0; k < N_FIELDS; ++k) {
                 conservativeTmp[k] = 0.75*conservative[k] + 0.25*(conservativeTmp[k] + dt * RHS[k] / cellVolume);
             }
@@ -477,7 +481,7 @@ void computation(int argc, char *argv[])
         euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservativesWork, &cellRHS, &maxEig);
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
-            MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_DOUBLE, MPI_MAX, mesh.getCommunicator());
+            MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_FLOAT, MPI_MAX, mesh.getCommunicator());
         }
 #endif
 
@@ -489,10 +493,10 @@ void computation(int argc, char *argv[])
         for (std::size_t i = 0; i < nSolvedCells; ++i) {
             const std::size_t cellRawId = solvedCellRawIds[i];
 
-            const double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
-            const double *RHS = cellRHS.rawData(cellRawId);
-            double *conservative = cellConservatives.rawData(cellRawId);
-            const double *conservativeTmp = cellConservativesWork.rawData(cellRawId);
+            const float cellVolume = float(computationInfo.rawGetCellVolume(cellRawId));
+            const float *RHS = cellRHS.rawData(cellRawId);
+            float *conservative = cellConservatives.rawData(cellRawId);
+            const float *conservativeTmp = cellConservativesWork.rawData(cellRawId);
             for (int k = 0; k < N_FIELDS; ++k) {
                 conservative[k] = (1./3)*conservative[k] + (2./3)*(conservativeTmp[k] + dt * RHS[k] / cellVolume);
             }
@@ -514,8 +518,8 @@ void computation(int argc, char *argv[])
             clock_t diskStart = clock();
             for (std::size_t i = 0; i < nSolvedCells; ++i) {
                 const std::size_t cellRawId = solvedCellRawIds[i];
-                const double *conservative = cellConservatives.rawData(cellRawId);
-                double *primitives = cellPrimitives.rawData(cellRawId);
+                const float *conservative = cellConservatives.rawData(cellRawId);
+                float *primitives = cellPrimitives.rawData(cellRawId);
                 ::utils::conservative2primitive(conservative, primitives);
             }
             mesh.write();
@@ -532,36 +536,36 @@ void computation(int argc, char *argv[])
         filename << "final_background_" << nCellsPerDirection;
         for (std::size_t i = 0; i < nSolvedCells; ++i) {
             const std::size_t cellRawId = solvedCellRawIds[i];
-            const double *conservative = cellConservatives.rawData(cellRawId);
-            double *primitives = cellPrimitives.rawData(cellRawId);
+            const float *conservative = cellConservatives.rawData(cellRawId);
+            float *primitives = cellPrimitives.rawData(cellRawId);
             ::utils::conservative2primitive(conservative, primitives);
         }
         mesh.write(filename.str().c_str());
     }
 
     log::cout() << "Computation time (without disk saving time) is "
-                << double(computeEnd - computeStart - diskTime) / CLOCKS_PER_SEC
+                << float(computeEnd - computeStart - diskTime) / CLOCKS_PER_SEC
                 << std::endl;
     log::cout() << "Disk time "
-                << double(diskTime) / CLOCKS_PER_SEC
+                << float(diskTime) / CLOCKS_PER_SEC
                 << std::endl;
 
     // Error check
-    std::array<double, N_FIELDS> evalConservatives;
+    std::array<float, N_FIELDS> evalConservatives;
 
-    double error = 0.;
+    float error = 0.;
     for (std::size_t i = 0; i < nSolvedCells; ++i) {
         const std::size_t cellRawId = solvedCellRawIds[i];
         const Cell &cell = mesh.getCells().rawAt(cellRawId);
 
-        const double *conservatives = cellConservatives.rawData(cellRawId);
+        const float *conservatives = cellConservatives.rawData(cellRawId);
         problem::evalCellExactConservatives(problemType, cell.getId(), computationInfo, tMax, evalConservatives.data());
         error += std::abs(conservatives[FID_P] - evalConservatives[FID_P]) * computationInfo.rawGetCellVolume(cellRawId);
     }
 
 #if ENABLE_MPI
     if (mesh.isPartitioned()) {
-        MPI_Allreduce(MPI_IN_PLACE, &error, 1, MPI_DOUBLE, MPI_SUM, mesh.getCommunicator());
+        MPI_Allreduce(MPI_IN_PLACE, &error, 1, MPI_FLOAT, MPI_SUM, mesh.getCommunicator());
     }
 #endif
 

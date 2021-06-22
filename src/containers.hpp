@@ -64,11 +64,15 @@ protected:
 // Avoid implicit instantiation
 extern template class ValueBaseStorage<bitpit::PiercedStorage<int, long>, int, int>;
 extern template class ValueBaseStorage<bitpit::PiercedStorage<std::size_t, long>, std::size_t, std::size_t>;
+extern template class ValueBaseStorage<bitpit::PiercedStorage<float, long>, float, float>;
+extern template class ValueBaseStorage<bitpit::PiercedStorage<std::array<float, 3>, long>, std::array<float, 3>, float>;
 extern template class ValueBaseStorage<bitpit::PiercedStorage<double, long>, double, double>;
 extern template class ValueBaseStorage<bitpit::PiercedStorage<std::array<double, 3>, long>, std::array<double, 3>, double>;
 
 extern template class ValueBaseStorage<std::vector<int>, int, int>;
 extern template class ValueBaseStorage<std::vector<std::size_t>, std::size_t, std::size_t>;
+extern template class ValueBaseStorage<std::vector<float>, float, float>;
+extern template class ValueBaseStorage<std::vector<std::array<float, 3>>, std::array<float, 3>, float>;
 extern template class ValueBaseStorage<std::vector<double>, double, double>;
 extern template class ValueBaseStorage<std::vector<std::array<double, 3>>, std::array<double, 3>, double>;
 #endif
@@ -100,7 +104,9 @@ using VectorPiercedStorage = ValuePiercedStorage<std::array<value_t, 3>, value_t
 // Avoid implicit instantiation
 extern template class ValuePiercedStorage<int, int>;
 extern template class ValuePiercedStorage<std::size_t, std::size_t>;
-extern template class ValuePiercedStorage<double, double>;
+extern template class ValuePiercedStorage<float, float>;
+extern template class ValuePiercedStorage<std::array<float, 3>, float>;
+extern template class ValuePiercedStorage<double>;
 extern template class ValuePiercedStorage<std::array<double, 3>, double>;
 #endif
 
@@ -144,7 +150,9 @@ using VectorStorage = ValueStorage<std::array<value_t, 3>, value_t>;
 // Avoid implicit instantiation
 extern template class ValueStorage<int, int>;
 extern template class ValueStorage<std::size_t, std::size_t>;
-extern template class ValueStorage<double, double>;
+extern template class ValueStorage<float, float>;
+extern template class ValueStorage<std::array<float, 3>, float>;
+extern template class ValueStorage<double>;
 extern template class ValueStorage<std::array<double, 3>, double>;
 #endif
 

@@ -33,12 +33,12 @@ using namespace bitpit;
 namespace body {
 
 struct BodyBox {
-    double xMin;
-    double yMin;
-    double zMin;
-    double xMax;
-    double yMax;
-    double zMax;
+    float xMin;
+    float yMin;
+    float zMin;
+    float xMax;
+    float yMax;
+    float zMax;
 };
 
 std::vector<BodyBox> body_boxes;
@@ -58,12 +58,12 @@ void initialize()
         if (bodyShape == "box") {
             body_boxes.emplace_back();
             BodyBox &box = body_boxes.back();
-            box.xMin = bodyInfo.get<double>("xMin");
-            box.xMax = bodyInfo.get<double>("xMax");
-            box.yMin = bodyInfo.get<double>("yMin");
-            box.yMax = bodyInfo.get<double>("yMax");
-            box.zMin = bodyInfo.get<double>("zMin");
-            box.zMax = bodyInfo.get<double>("zMax");
+            box.xMin = bodyInfo.get<float>("xMin");
+            box.xMax = bodyInfo.get<float>("xMax");
+            box.yMin = bodyInfo.get<float>("yMin");
+            box.yMax = bodyInfo.get<float>("yMax");
+            box.zMin = bodyInfo.get<float>("zMin");
+            box.zMax = bodyInfo.get<float>("zMax");
         } else {
             throw std::runtime_error("Body shape \"" + bodyShape + "\" is not supported.");
         }
@@ -76,7 +76,7 @@ void initialize()
  * \param point are the coordinates of the point
  * \result Return true if the given point is inside the fluid, false otherwise.
  */
-bool isPointFluid(const std::array<double, 3> &point)
+bool isPointFluid(const std::array<float, 3> &point)
 {
     for (const BodyBox &box : body_boxes) {
         if (point[0] < box.xMin || point[0] > box.xMax) {

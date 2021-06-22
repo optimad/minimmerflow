@@ -40,11 +40,11 @@ namespace reconstruction {
 void initialize();
 
 void computePolynomials(problem::ProblemType problemType, const ComputationInfo &computationInfo,
-                        const ScalarPiercedStorage<double> &conservativeFields, const ScalarStorage<int> &solvedBoundaryInterfaceBCs);
+                        const ScalarPiercedStorage<float> &conservativeFields, const ScalarStorage<int> &solvedBoundaryInterfaceBCs);
 
-void eval(std::size_t cellRawId, const MeshGeometricalInfo &meshInfo, int order, const std::array<double, 3> &point, const double *means, double *values);
+void eval(std::size_t cellRawId, const MeshGeometricalInfo &meshInfo, int order, const std::array<float, 3> &point, const float *means, float *values);
 
-void eval_1(std::size_t cellRawId, const MeshGeometricalInfo &meshInfo, const std::array<double, 3> &point, const double *means, double *values);
+void eval_1(std::size_t cellRawId, const MeshGeometricalInfo &meshInfo, const std::array<float, 3> &point, const float *means, float *values);
 
 }
 

@@ -30,21 +30,29 @@
 // Explicit instantiation
 template class ValueBaseStorage<bitpit::PiercedStorage<int, long>, int, int>;
 template class ValueBaseStorage<bitpit::PiercedStorage<std::size_t, long>, std::size_t, std::size_t>;
+template class ValueBaseStorage<bitpit::PiercedStorage<float, long>, float, float>;
+template class ValueBaseStorage<bitpit::PiercedStorage<std::array<float, 3>, long>, std::array<float, 3>, float>;
 template class ValueBaseStorage<bitpit::PiercedStorage<double, long>, double, double>;
 template class ValueBaseStorage<bitpit::PiercedStorage<std::array<double, 3>, long>, std::array<double, 3>, double>;
 
 template class ValueBaseStorage<std::vector<int>, int, int>;
 template class ValueBaseStorage<std::vector<std::size_t>, std::size_t, std::size_t>;
+template class ValueBaseStorage<std::vector<float>, float, float>;
+template class ValueBaseStorage<std::vector<std::array<float, 3>>, std::array<float, 3>, float>;
 template class ValueBaseStorage<std::vector<double>, double, double>;
 template class ValueBaseStorage<std::vector<std::array<double, 3>>, std::array<double, 3>, double>;
 
 template class ValuePiercedStorage<int>;
 template class ValuePiercedStorage<std::size_t>;
+template class ValuePiercedStorage<float>;
+template class ValuePiercedStorage<std::array<float, 3>, float>;
 template class ValuePiercedStorage<double>;
 template class ValuePiercedStorage<std::array<double, 3>, double>;
 
 template class ValueStorage<int>;
 template class ValueStorage<std::size_t>;
+template class ValueStorage<float>;
+template class ValueStorage<std::array<float, 3>, float>;
 template class ValueStorage<double>;
 template class ValueStorage<std::array<double, 3>, double>;
 

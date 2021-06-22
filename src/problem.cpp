@@ -67,7 +67,7 @@ ProblemType getProblemType()
  * \param[out] origin on output will contain the origin of the domain
  * \param[out] length on output will contain length of the domain
  */
-void getDomainData(ProblemType problemType, int &dimensions, std::array<double, 3> *origin, double *length)
+void getDomainData(ProblemType problemType, int &dimensions, std::array<float, 3> *origin, float *length)
 {
     // Dimensions
     switch (problemType) {
@@ -90,9 +90,9 @@ void getDomainData(ProblemType problemType, int &dimensions, std::array<double, 
     }
 
     if (customOrigin) {
-        (*origin)[0] = config::root["problem"]["domain"]["origin"].get<double>("x", 0.);
-        (*origin)[1] = config::root["problem"]["domain"]["origin"].get<double>("y", 0.);
-        (*origin)[2] = config::root["problem"]["domain"]["origin"].get<double>("z", 0.);
+        (*origin)[0] = config::root["problem"]["domain"]["origin"].get<float>("x", 0.);
+        (*origin)[1] = config::root["problem"]["domain"]["origin"].get<float>("y", 0.);
+        (*origin)[2] = config::root["problem"]["domain"]["origin"].get<float>("z", 0.);
     } else {
         switch (problemType) {
 
@@ -121,7 +121,7 @@ void getDomainData(ProblemType problemType, int &dimensions, std::array<double, 
     }
 
     if (customLength) {
-        (*length) = config::root["problem"]["domain"].get<double>("length");
+        (*length) = config::root["problem"]["domain"].get<float>("length");
     } else {
         switch (problemType) {
 
@@ -156,7 +156,7 @@ void getDomainData(ProblemType problemType, int &dimensions, std::array<double, 
  * problem
  * \result The start time of the simulation.
  */
-double getStartTime(ProblemType problemType, int dimensions)
+float getStartTime(ProblemType problemType, int dimensions)
 {
     BITPIT_UNUSED(problemType);
     BITPIT_UNUSED(dimensions);
@@ -172,7 +172,7 @@ double getStartTime(ProblemType problemType, int dimensions)
  * problem
  * \result The end time of the simulation.
  */
-double getEndTime(ProblemType problemType, int dimensions)
+float getEndTime(ProblemType problemType, int dimensions)
 {
     bool customTime = false;
     if (config::root["problem"].hasSection("time")) {
@@ -180,7 +180,7 @@ double getEndTime(ProblemType problemType, int dimensions)
     }
 
     if (customTime) {
-        return config::root["problem"]["time"].get<double>("end");
+        return config::root["problem"]["time"].get<float>("end");
     } else {
         switch (problemType) {
 
@@ -217,7 +217,7 @@ double getEndTime(ProblemType problemType, int dimensions)
  * \param cellId is the id of the cell
  * \param[out] conservatives are the initial values for the specified cell
  */
-void evalCellInitalConservatives(ProblemType problemType, long cellId, const MeshGeometricalInfo &meshInfo, double *conservatives)
+void evalCellInitalConservatives(ProblemType problemType, long cellId, const MeshGeometricalInfo &meshInfo, float *conservatives)
 {
     evalCellExactConservatives(problemType, cellId, meshInfo, 0.0, conservatives);
 }
@@ -231,7 +231,7 @@ void evalCellInitalConservatives(ProblemType problemType, long cellId, const Mes
  * \param[out] conservatives are the exact solution values for the specified
  * cell
  */
-void evalCellExactConservatives(ProblemType problemType, long cellId, const MeshGeometricalInfo &meshInfo, double t, double *conservatives)
+void evalCellExactConservatives(ProblemType problemType, long cellId, const MeshGeometricalInfo &meshInfo, float t, float *conservatives)
 {
     problem::evalExactConservatives(problemType, meshInfo.getDimension(), meshInfo.getCellCentroid(cellId), t, conservatives);
 }
@@ -244,9 +244,9 @@ void evalCellExactConservatives(ProblemType problemType, long cellId, const Mesh
  * \param t is the time at which the solution is requested
  * \param[out] conservatives are the exact solution values for the specified cell
  */
-void evalExactConservatives(ProblemType problemType, int dimensions, std::array<double, 3> point, double t, double *conservatives)
+void evalExactConservatives(ProblemType problemType, int dimensions, std::array<float, 3> point, float t, float *conservatives)
 {
-    std::array<double, N_FIELDS> primitives;
+    std::array<float, N_FIELDS> primitives;
     switch (problemType){
 
         case PROBLEM_VORTEX_XY:
@@ -254,12 +254,12 @@ void evalExactConservatives(ProblemType problemType, int dimensions, std::array<
         case PROBLEM_VORTEX_YZ:
         {
             // Vortex data
-            const double VORTEX_BETA  = 5.0;
-            const double VORTEX_P_INF = 1.0;
-            const double VORTEX_T_INF = 1.0;
-            double VORTEX_U_INF = 1.0;
-            double VORTEX_V_INF = 1.0;
-            double VORTEX_W_INF = 1.0;
+            const float VORTEX_BETA  = 5.0;
+            const float VORTEX_P_INF = 1.0;
+            const float VORTEX_T_INF = 1.0;
+            float VORTEX_U_INF = 1.0;
+            float VORTEX_V_INF = 1.0;
+            float VORTEX_W_INF = 1.0;
 
             if (problemType == PROBLEM_VORTEX_XY) {
                 VORTEX_W_INF = 0.;
@@ -275,8 +275,8 @@ void evalExactConservatives(ProblemType problemType, int dimensions, std::array<
             point[2] -= t * VORTEX_W_INF;
 
             // Coordinates used to evaluate vortex data
-            double csi = 0.;
-            double eta = 0.;
+            float csi = 0.;
+            float eta = 0.;
             if (problemType == PROBLEM_VORTEX_XY) {
                 csi = point[0];
                 eta = point[1];
@@ -289,12 +289,12 @@ void evalExactConservatives(ProblemType problemType, int dimensions, std::array<
             }
 
             // Vortex data
-            double r     = std::sqrt(csi * csi + eta * eta);
-            double shape = VORTEX_BETA / (2 * M_PI) * std::exp(0.5 * (1 - r * r));
+            float r     = std::sqrt(csi * csi + eta * eta);
+            float shape = VORTEX_BETA / (2 * M_PI) * std::exp(0.5 * (1 - r * r));
 
-            double du = 0.;
-            double dv = 0.;
-            double dw = 0.;
+            float du = 0.;
+            float dv = 0.;
+            float dw = 0.;
             if (problemType == PROBLEM_VORTEX_XY) {
                 du = - eta * shape;
                 dv =   csi * shape;
@@ -309,9 +309,9 @@ void evalExactConservatives(ProblemType problemType, int dimensions, std::array<
                 du = 0.;
             }
 
-            const double dT = - (GAMMA - 1.0) / (2 * GAMMA) * shape * shape;
+            const float dT = - (GAMMA - 1.0) / (2 * GAMMA) * shape * shape;
 
-            const double dp = std::pow(VORTEX_T_INF + dT, GAMMA / (GAMMA - 1.0)) - 1.0;
+            const float dp = std::pow(VORTEX_T_INF + dT, GAMMA / (GAMMA - 1.0)) - 1.0;
 
             primitives[FID_P] = VORTEX_P_INF + dp;
             primitives[FID_U] = VORTEX_U_INF + du;
@@ -328,7 +328,7 @@ void evalExactConservatives(ProblemType problemType, int dimensions, std::array<
 
         case PROBLEM_RADSOD:
         {
-            double r = sqrt(point[0] * point[0] + point[1] * point[1] + point[2] * point[2]);
+            float r = sqrt(point[0] * point[0] + point[1] * point[1] + point[2] * point[2]);
 
             primitives[FID_U] = 0.0;
             primitives[FID_V] = 0.0;
@@ -352,7 +352,7 @@ void evalExactConservatives(ProblemType problemType, int dimensions, std::array<
             primitives[FID_V] = 0.0;
             primitives[FID_W] = 0.0;
 
-            double r;
+            float r;
             switch (problemType){
 
                 case PROBLEM_SOD_X:
@@ -421,7 +421,7 @@ int getBorderBCType(ProblemType problemType, long id, const MeshGeometricalInfo 
 
     case (PROBLEM_FFSTEP):
     {
-        std::array<double, 3> faceCentroid = meshInfo.getInterfaceCentroid(id);
+        std::array<float, 3> faceCentroid = meshInfo.getInterfaceCentroid(id);
         if (faceCentroid[0] < 1e-10) {
             return BC_DIRICHLET;
         } else if (faceCentroid[0] > 3.2 - 1e-10) {
@@ -447,8 +447,8 @@ int getBorderBCType(ProblemType problemType, long id, const MeshGeometricalInfo 
  * \param normal is the normal needed for evaluating the boundary condition
  * \param[out] info on output will contain the needed information
  */
-void getBorderBCInfo(ProblemType problemType, int BCType, const std::array<double, 3> &point,
-                     const std::array<double, 3> &normal, std::array<double, BC_INFO_SIZE> &info)
+void getBorderBCInfo(ProblemType problemType, int BCType, const std::array<float, 3> &point,
+                     const std::array<float, 3> &normal, std::array<float, BC_INFO_SIZE> &info)
 {
     BITPIT_UNUSED(point);
     BITPIT_UNUSED(normal);
