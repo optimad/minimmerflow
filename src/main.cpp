@@ -232,6 +232,11 @@ void computation(int argc, char *argv[])
     cellPrimitives.cuda_allocateDevice();
 #endif
 
+    // Set host storage pointers for OpenACC
+    double *cellPrimitivesHostStorage = cellPrimitives.data();
+    double *cellConservativesHostStorage = cellConservatives.data();
+    const std::size_t *solvedCellRawIdsHostStorage = solvedCellRawIds.data();
+
     log_memory_status();
 
     // Initialize reconstruction
@@ -345,26 +350,10 @@ void computation(int argc, char *argv[])
     // UPdate conservative on gpu
     cellConservatives.cuda_updateDevice();
 
-
-//    double *primitiveHostPtr = nullptr;
-//    double *primitiveDevPtr = cellPrimitives.cuda_deviceData();
-//    double *conservativeHostPtr = nullptr;
-//    double *conservativeDevPtr = cellConservatives.cuda_deviceData();
-//    std::size_t *solvedCellRawIdsHostPtr = nullptr;
-//    const std::size_t *solvedCellRawIdsDevPtr = solvedCellRawIds.cuda_deviceData();
-//
-//    acc_map_data(primitiveHostPtr, primitiveDevPtr, nSolvedCells*N_FIELDS*sizeof(double));
-//    acc_map_data(conservativeHostPtr, conservativeDevPtr, nSolvedCells*N_FIELDS*sizeof(double));
-//    acc_map_data(solvedCellRawIdsHostPtr, const_cast<std::size_t*>(solvedCellRawIdsDevPtr), nSolvedCells*sizeof(std::size_t));
-
-      double *cellPrimitivesHostPtr = cellPrimitives.data();
-      double *cellConservativesHostPtr = cellConservatives.data();
-      const std::size_t *solvedCellRawIdsHostPtr = solvedCellRawIds.data();
-
-#pragma acc parallel loop present(cellPrimitivesHostPtr, cellConservativesHostPtr, solvedCellRawIdsHostPtr)
+#pragma acc parallel loop present(cellPrimitivesHostStorage, cellConservativesHostStorage, solvedCellRawIdsHostStorage)
      for (long i = 0; i < nSolvedCells; ++i) {
-         double *primitives = &cellPrimitivesHostPtr[solvedCellRawIdsHostPtr[i]*N_FIELDS];
-         const double *conservatives = &cellConservativesHostPtr[solvedCellRawIdsHostPtr[i]*N_FIELDS];
+         double *primitives = &cellPrimitivesHostStorage[solvedCellRawIdsHostStorage[i]*N_FIELDS];
+         const double *conservatives = &cellConservativesHostStorage[solvedCellRawIdsHostStorage[i]*N_FIELDS];
          ::utils::conservative2primitive(conservatives, primitives);
      }
 
