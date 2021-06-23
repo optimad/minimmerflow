@@ -26,6 +26,7 @@
 #include "problem.hcu"
 #include "reconstruction.hcu"
 #include "utils_cuda.hpp"
+#include <nvtx3/nvToolsExt.h>
 
 #define uint64  unsigned long long
 
@@ -569,18 +570,22 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     int uniformSharedMemorySize = UNIFORM_BLOCK_SIZE * sizeof(double);
 
     // Evaluate interface values
+    nvtxRangePushA("InterfaceReconstructions");
     dev_evalInterfaceValues<<<nUniformBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds, devInterfaceCentroids,
                                                                                              devUniformOwnerRawIds, devCellConservatives, order, devLeftReconstructions);
 
     dev_evalInterfaceValues<<<nUniformBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds, devInterfaceCentroids,
                                                                                              devUniformNeighRawIds, devCellConservatives, order, devRightReconstructions);
+    nvtxRangePop();
 
     // Evaluate fluxes
+    nvtxRangePushA("UniformUpdateRHS");
     dev_uniformUpdateRHS<<<nUniformBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds,
                                                                                           devInterfaceNormals, devInterfaceAreas,
                                                                                           devUniformOwnerRawIds, devUniformNeighRawIds,
                                                                                           devLeftReconstructions, devRightReconstructions,
                                                                                           devCellsRHS, devMaxEig);
+    nvtxRangePop();
 
     //
     // Process boundary interfaces
@@ -601,6 +606,7 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     int boundarySharedMemorySize = BOUNDARY_BLOCK_SIZE * sizeof(double);
 
     // Evaluate interface values
+    nvtxRangePushA("BNDInterfaceReconstructions");
     dev_evalInterfaceValues<<<nBoundaryBlocks, BOUNDARY_BLOCK_SIZE, boundarySharedMemorySize>>>(nBoundaryInterfaces, devBoundaryInterfaceRawIds, devInterfaceCentroids,
                                                                                                 devBoundaryFluidRawIds, devCellConservatives,  order, devLeftReconstructions);
 
@@ -609,12 +615,16 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
                                                                                              devBoundaryFluidRawIds, devCellConservatives,
                                                                                              devProblemType, order, devRightReconstructions);
 
+    nvtxRangePop();
+
     // Evaluate fluxes
+    nvtxRangePushA("BoundaryUpdateRHS");
     dev_boundaryUpdateRHS<<<nBoundaryBlocks, BOUNDARY_BLOCK_SIZE, boundarySharedMemorySize>>>(nBoundaryInterfaces, devBoundaryInterfaceRawIds,
                                                                                               devInterfaceNormals, devInterfaceAreas,
                                                                                               devBoundaryFluidRawIds, devBoundaryInterfaceSigns,
                                                                                               devLeftReconstructions, devRightReconstructions,
                                                                                               devCellsRHS, devMaxEig);
+    nvtxRangePop();
 
     //
     // Update host memory

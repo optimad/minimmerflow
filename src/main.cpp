@@ -431,13 +431,22 @@ void computation(int argc, char *argv[])
         // FIRST RK STAGE
         //
 
+        nvtxRangePushA("RK1");
+
         // Compute the residuals
 #if ENABLE_CUDA
-	cellConservatives.cuda_updateDevice();
+        nvtxRangePushA("UpdateDevConservatives");
+        cellConservatives.cuda_updateDevice();
+        nvtxRangePop();
 #endif
 
+        nvtxRangePushA("CPUReconstructions");
         reconstruction::computePolynomials(problemType, computationInfo, cellConservatives, solvedBoundaryInterfaceBCs);
+        nvtxRangePop();
+
+        nvtxRangePushA("computeRHS");
         euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservatives, &cellRHS, &maxEig);
+        nvtxRangePop();
 
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
@@ -453,10 +462,15 @@ void computation(int argc, char *argv[])
         }
         log::cout() << "Using dt= " << dt <<std::endl;
         log::cout() << "Current time= " << (t + dt) << std::endl;
+        nvtxRangePop();
+
 
         //
         // SECOND RK STAGE
         //
+        nvtxRangePushA("RK2");
+
+        nvtxRangePushA("OpenACC_RK2_updateSolution");
 #pragma acc parallel loop present(cellVolumeHostStorage, cellConservativesHostStorage, solvedCellRawIdsHostStorage, cellRHSHostStorage, cellConservativesWorkHostStorage)
         for (std::size_t i = 0; i < nSolvedCells; ++i) {
             const std::size_t cellRawId = solvedCellRawIdsHostStorage[i];
@@ -469,6 +483,7 @@ void computation(int argc, char *argv[])
                 conservativeTmp[k] = conservative[k] + dt * RHS[k] / cellVolume;
             }
         }
+        nvtxRangePop();
 
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
@@ -477,8 +492,15 @@ void computation(int argc, char *argv[])
         }
 #endif
 
+
+        nvtxRangePushA("CPUReconstructions");
         reconstruction::computePolynomials(problemType, computationInfo, cellConservativesWork, solvedBoundaryInterfaceBCs);
+        nvtxRangePop();
+
+        nvtxRangePushA("computeRHS");
         euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservativesWork, &cellRHS, &maxEig);
+        nvtxRangePop();
+
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
             MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_DOUBLE, MPI_MAX, mesh.getCommunicator());
@@ -486,10 +508,14 @@ void computation(int argc, char *argv[])
 #endif
 
         log::cout() << "(maxEig after second stage = " << maxEig << ")" << std::endl;
+        nvtxRangePop();
 
         //
         // THIRD RK STAGE
         //
+        nvtxRangePushA("RK3");
+
+        nvtxRangePushA("OpenACC_RK3_updateSolution");
 #pragma acc parallel loop present(cellVolumeHostStorage, cellConservativesHostStorage, solvedCellRawIdsHostStorage, cellRHSHostStorage, cellConservativesWorkHostStorage)
         for (std::size_t i = 0; i < nSolvedCells; ++i) {
             const std::size_t cellRawId = solvedCellRawIdsHostStorage[i];
@@ -502,6 +528,7 @@ void computation(int argc, char *argv[])
                 conservativeTmp[k] = 0.75*conservative[k] + 0.25*(conservativeTmp[k] + dt * RHS[k] / cellVolume);
             }
         }
+        nvtxRangePop();
 
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
@@ -515,11 +542,19 @@ void computation(int argc, char *argv[])
 #endif
 
 #if ENABLE_CUDA
+        nvtxRangePushA("UpdateHostConsWork");
         cellConservativesWork.cuda_updateHost();
+        nvtxRangePop();
 #endif
 
+        nvtxRangePushA("CPUReconstructions");
         reconstruction::computePolynomials(problemType, computationInfo, cellConservativesWork, solvedBoundaryInterfaceBCs);
+        nvtxRangePop();
+
+        nvtxRangePushA("computeRHS");
         euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservativesWork, &cellRHS, &maxEig);
+        nvtxRangePop();
+
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
             MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_DOUBLE, MPI_MAX, mesh.getCommunicator());
@@ -527,10 +562,13 @@ void computation(int argc, char *argv[])
 #endif
 
         log::cout() << "(maxEig after third stage = " << maxEig << ")" << std::endl;
+        nvtxRangePop();
 
         //
         // CLOSE RK STEP
         //
+        nvtxRangePushA("RKFinal");
+        nvtxRangePushA("OpenACC_RK3_updateSolution");
 #pragma acc parallel loop present(cellVolumeHostStorage, cellConservativesHostStorage, solvedCellRawIdsHostStorage, cellRHSHostStorage, cellConservativesWorkHostStorage)
         for (std::size_t i = 0; i < nSolvedCells; ++i) {
             const std::size_t cellRawId = solvedCellRawIdsHostStorage[i];
@@ -543,6 +581,7 @@ void computation(int argc, char *argv[])
                 conservative[k] = (1./3)*conservative[k] + (2./3)*(conservativeTmp[k] + dt * RHS[k] / cellVolume);
             }
         }
+        nvtxRangePop();
 
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
@@ -552,7 +591,9 @@ void computation(int argc, char *argv[])
 #endif
 
 #if ENABLE_CUDA
+        nvtxRangePushA("UpdateHostConservatives");
         cellConservatives.cuda_updateHost();
+        nvtxRangePop();
 #endif
         // Update timestep information
         t +=dt;
@@ -573,6 +614,7 @@ void computation(int argc, char *argv[])
             nextSave += (tMax - tMin) / nSaves;
         }
       
+        nvtxRangePop();
         nvtxRangePop();
 
     }
