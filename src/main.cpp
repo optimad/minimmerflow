@@ -231,11 +231,15 @@ void computation(int argc, char *argv[])
     cellConservatives.cuda_allocateDevice();
     cellConservativesWork.cuda_allocateDevice();
     cellPrimitives.cuda_allocateDevice();
+    cellConservativesWork.cuda_allocateDevice();
 #endif
 
     // Set host storage pointers for OpenACC
     double *cellPrimitivesHostStorage = cellPrimitives.data();
     double *cellConservativesHostStorage = cellConservatives.data();
+    double *cellConservativesWorkHostStorage = cellConservativesWork.data();
+    double *cellRHSHostStorage = cellRHS.data();
+    double *cellVolumeHostStorage = computationInfo.getCellVolumes().data();
     const std::size_t *solvedCellRawIdsHostStorage = solvedCellRawIds.data();
 
     log_memory_status();
@@ -450,13 +454,14 @@ void computation(int argc, char *argv[])
         //
         // SECOND RK STAGE
         //
+#pragma acc parallel loop present(cellVolumeHostStorage, cellConservativesHostStorage, solvedCellRawIdsHostStorage, cellRHSHostStorage, cellConservativesWorkHostStorage)
         for (std::size_t i = 0; i < nSolvedCells; ++i) {
-            const std::size_t cellRawId = solvedCellRawIds[i];
-
-            const double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
-            const double *RHS = cellRHS.rawData(cellRawId);
-            const double *conservative = cellConservatives.rawData(cellRawId);
-            double *conservativeTmp = cellConservativesWork.rawData(cellRawId);
+            const std::size_t cellRawId = solvedCellRawIdsHostStorage[i];
+            const double cellVolume = cellVolumeHostStorage[cellRawId];
+            const double *RHS = &cellRHSHostStorage[cellRawId * N_FIELDS];
+            const double *conservative = &cellConservativesHostStorage[cellRawId * N_FIELDS];
+            double *conservativeTmp = &cellConservativesWorkHostStorage[cellRawId * N_FIELDS];
+#pragma acc loop seq
             for (int k = 0; k < N_FIELDS; ++k) {
                 conservativeTmp[k] = conservative[k] + dt * RHS[k] / cellVolume;
             }
@@ -467,10 +472,6 @@ void computation(int argc, char *argv[])
             conservativeWorkCommunicator->startAllExchanges();
             conservativeWorkCommunicator->completeAllExchanges();
         }
-#endif
-
-#if ENABLE_CUDA
-	cellConservativesWork.cuda_updateDevice();
 #endif
 
         reconstruction::computePolynomials(problemType, computationInfo, cellConservativesWork, solvedBoundaryInterfaceBCs);
@@ -486,13 +487,14 @@ void computation(int argc, char *argv[])
         //
         // THIRD RK STAGE
         //
+#pragma acc parallel loop present(cellVolumeHostStorage, cellConservativesHostStorage, solvedCellRawIdsHostStorage, cellRHSHostStorage, cellConservativesWorkHostStorage)
         for (std::size_t i = 0; i < nSolvedCells; ++i) {
-            const std::size_t cellRawId = solvedCellRawIds[i];
-
-            double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
-            const double *RHS = cellRHS.rawData(cellRawId);
-            const double *conservative = cellConservatives.rawData(cellRawId);
-            double *conservativeTmp = cellConservativesWork.rawData(cellRawId);
+            const std::size_t cellRawId = solvedCellRawIdsHostStorage[i];
+            const double cellVolume = cellVolumeHostStorage[cellRawId];
+            const double *RHS = &cellRHSHostStorage[cellRawId * N_FIELDS];
+            const double *conservative = &cellConservativesHostStorage[cellRawId * N_FIELDS];
+            double *conservativeTmp = &cellConservativesWorkHostStorage[cellRawId * N_FIELDS];
+#pragma acc loop seq
             for (int k = 0; k < N_FIELDS; ++k) {
                 conservativeTmp[k] = 0.75*conservative[k] + 0.25*(conservativeTmp[k] + dt * RHS[k] / cellVolume);
             }
@@ -509,6 +511,10 @@ void computation(int argc, char *argv[])
 	cellConservativesWork.cuda_updateDevice();
 #endif
 
+#if ENABLE_CUDA
+        cellConservativesWork.cuda_updateHost();
+#endif
+
         reconstruction::computePolynomials(problemType, computationInfo, cellConservativesWork, solvedBoundaryInterfaceBCs);
         euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservativesWork, &cellRHS, &maxEig);
 #if ENABLE_MPI
@@ -522,13 +528,14 @@ void computation(int argc, char *argv[])
         //
         // CLOSE RK STEP
         //
+#pragma acc parallel loop present(cellVolumeHostStorage, cellConservativesHostStorage, solvedCellRawIdsHostStorage, cellRHSHostStorage, cellConservativesWorkHostStorage)
         for (std::size_t i = 0; i < nSolvedCells; ++i) {
-            const std::size_t cellRawId = solvedCellRawIds[i];
-
-            const double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
-            const double *RHS = cellRHS.rawData(cellRawId);
-            double *conservative = cellConservatives.rawData(cellRawId);
-            const double *conservativeTmp = cellConservativesWork.rawData(cellRawId);
+            const std::size_t cellRawId = solvedCellRawIdsHostStorage[i];
+            const double cellVolume = cellVolumeHostStorage[cellRawId];
+            const double *RHS = &cellRHSHostStorage[cellRawId * N_FIELDS];
+            double *conservative = &cellConservativesHostStorage[cellRawId * N_FIELDS];
+            const double *conservativeTmp = &cellConservativesWorkHostStorage[cellRawId * N_FIELDS];
+#pragma acc loop seq
             for (int k = 0; k < N_FIELDS; ++k) {
                 conservative[k] = (1./3)*conservative[k] + (2./3)*(conservativeTmp[k] + dt * RHS[k] / cellVolume);
             }
@@ -541,6 +548,9 @@ void computation(int argc, char *argv[])
         }
 #endif
 
+#if ENABLE_CUDA
+        cellConservatives.cuda_updateHost();
+#endif
         // Update timestep information
         t +=dt;
         step++;
