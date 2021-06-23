@@ -319,13 +319,6 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     double *devRightReconstructions = computationInfo.getSolvedInterfaceRightReconstructions().cuda_deviceData();
 
     //
-    // Initialize residual
-    //
-
-    // Reset the residuals
-    cuda_resetRHS(cellsRHS);
-
-    //
     // Process uniform interfaces
     //
     const ScalarStorage<std::size_t> &solvedUniformInterfaceOwnerRawIds = computationInfo.getSolvedUniformInterfaceOwnerRawIds();
