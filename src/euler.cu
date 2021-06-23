@@ -26,6 +26,7 @@
 #include "problem.hcu"
 #include "reconstruction.hcu"
 #include "utils_cuda.hpp"
+#include <nvtx3/nvToolsExt.h>
 
 #define uint64  unsigned long long
 
