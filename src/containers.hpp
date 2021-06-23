@@ -36,12 +36,16 @@
 #include <vector>
 #include <array>
 
-#if ENABLE_CUDA
 template<typename container_t, typename value_t, typename dev_value_t>
 class ValueBaseStorage : public container_t
 {
 
 public:
+    typedef container_t container_type;
+    typedef value_t value_type;
+    typedef dev_value_t dev_value_type;
+
+#if ENABLE_CUDA
     void cuda_allocateDevice();
     void cuda_freeDevice();
 
@@ -53,11 +57,14 @@ public:
     virtual std::size_t cuda_deviceDataSize() const = 0;
 
     void cuda_fillDevice(const dev_value_t &value);
+#endif
 
 protected:
     using container_t::container_t;
 
+#if ENABLE_CUDA
     dev_value_t *m_deviceData;
+#endif
 
 };
 
@@ -71,9 +78,7 @@ extern template class ValueBaseStorage<std::vector<int>, int, int>;
 extern template class ValueBaseStorage<std::vector<std::size_t>, std::size_t, std::size_t>;
 extern template class ValueBaseStorage<std::vector<double>, double, double>;
 extern template class ValueBaseStorage<std::vector<std::array<double, 3>>, std::array<double, 3>, double>;
-#endif
 
-#if ENABLE_CUDA
 template<typename value_t, typename dev_value_t = value_t>
 class ValuePiercedStorage : public ValueBaseStorage<bitpit::PiercedStorage<value_t, long>, value_t, dev_value_t>
 {
@@ -81,14 +86,11 @@ class ValuePiercedStorage : public ValueBaseStorage<bitpit::PiercedStorage<value
 public:
     using ValueBaseStorage<bitpit::PiercedStorage<value_t, long>, value_t, dev_value_t>::ValueBaseStorage;
 
+#if ENABLE_CUDA
     std::size_t cuda_deviceDataSize() const override;
-
+#endif
 
 };
-#else
-template<typename value_t, typename dev_value_t = value_t>
-using ValuePiercedStorage = bitpit::PiercedStorage<value_t, long>;
-#endif
 
 template<typename value_t>
 using ScalarPiercedStorage = ValuePiercedStorage<value_t>;
@@ -109,7 +111,6 @@ template<typename value_t>
 using ValuePiercedStorageBufferStreamer = PiercedStorageBufferStreamer<value_t>;
 #endif
 
-#if ENABLE_CUDA
 template<typename value_t, typename dev_value_t = value_t>
 class ValueStorage : public ValueBaseStorage<std::vector<value_t>, value_t, dev_value_t>
 {
@@ -117,6 +118,7 @@ class ValueStorage : public ValueBaseStorage<std::vector<value_t>, value_t, dev_
 public:
     using ValueBaseStorage<std::vector<value_t>, value_t, dev_value_t>::ValueBaseStorage;
 
+#if ENABLE_CUDA
     void cuda_updateHost(std::size_t count, std::size_t offset = 0);
     using ValueBaseStorage<std::vector<value_t>, value_t, dev_value_t>::cuda_updateHost;
 
@@ -124,15 +126,14 @@ public:
     using ValueBaseStorage<std::vector<value_t>, value_t, dev_value_t>::cuda_updateDevice;
 
     std::size_t cuda_deviceDataSize() const override;
+#endif
 
 protected:
+#if ENABLE_CUDA
     std::size_t cuda_deviceDataSize(std::size_t count) const;
+#endif
 
 };
-#else
-template<typename value_t, typename dev_value_t = value_t>
-using ValueStorage = std::vector<value_t>;
-#endif
 
 template<typename value_t>
 using ScalarStorage = ValueStorage<value_t>;
@@ -147,5 +148,71 @@ extern template class ValueStorage<std::size_t, std::size_t>;
 extern template class ValueStorage<double, double>;
 extern template class ValueStorage<std::array<double, 3>, double>;
 #endif
+
+template<typename storage_t>
+class BaseStorageCollection
+{
+
+public:
+    typedef storage_t storage_type;
+    typedef typename storage_t::dev_value_type dev_value_type;
+
+    const storage_t & operator[](std::size_t field) const;
+    storage_t & operator[](std::size_t field);
+
+#if ENABLE_CUDA
+    void cuda_allocateDevice();
+    void cuda_freeDevice();
+
+    void cuda_updateHost();
+    void cuda_updateDevice();
+
+    std::vector<dev_value_type *> cuda_deviceData();
+    std::vector<const dev_value_type *> cuda_deviceData() const;
+
+    void cuda_fillDevice(const dev_value_type &value);
+#endif
+
+protected:
+    template<typename... Args>
+    BaseStorageCollection(std::size_t nStorages, Args&&... args);
+
+private:
+    std::vector<storage_t> m_storages;
+
+};
+
+template<typename value_t, typename dev_value_t = value_t, typename id_t = long>
+class PiercedStorageCollection : public BaseStorageCollection<ValuePiercedStorage<value_t, dev_value_t>>
+{
+
+public:
+    PiercedStorageCollection(std::size_t nStorages, bitpit::PiercedKernel<id_t> *kernel);
+
+};
+
+template<typename value_t>
+using ScalarPiercedStorageCollection = PiercedStorageCollection<value_t>;
+
+template<typename value_t>
+using VectorPiercedStorageCollection = PiercedStorageCollection<std::array<value_t, 3>, value_t>;
+
+template<typename value_t, typename dev_value_t = value_t>
+class StorageCollection : public BaseStorageCollection<ValueStorage<value_t, dev_value_t>>
+{
+
+public:
+    StorageCollection(std::size_t nStorages);
+
+};
+
+template<typename value_t>
+using ScalarStorageCollection = StorageCollection<value_t>;
+
+template<typename value_t>
+using VectorStorageCollection = StorageCollection<std::array<value_t, 3>, value_t>;
+
+// Include template definitions
+#include "containers.tpp"
 
 #endif
