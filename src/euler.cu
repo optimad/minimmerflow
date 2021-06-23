@@ -298,7 +298,7 @@ void cuda_finalize()
 void cuda_resetRHS(ScalarPiercedStorage<double> *cellsRHS)
 {
     cellsRHS->cuda_fillDevice(0.);
-    cellsRHS->cuda_updateHost();
+    //cellsRHS->cuda_updateHost();
 }
 
 /*!
@@ -343,7 +343,7 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     //
 
     // Reset the residuals
-    cuda_resetRHS(cellsRHS);
+    //cuda_resetRHS(cellsRHS);
 
     //
     // Process uniform interfaces
@@ -442,7 +442,7 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     // Update host memory
     //
 
-    cellsRHS->cuda_updateHost();
+    //cellsRHS->cuda_updateHost();
 }
 
 }
