@@ -279,7 +279,6 @@ void cuda_finalize()
 void cuda_resetRHS(ScalarPiercedStorage<double> *cellsRHS)
 {
     cellsRHS->cuda_fillDevice(0.);
-    cellsRHS->cuda_updateHost();
 }
 
 /*!
