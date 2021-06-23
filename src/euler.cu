@@ -25,6 +25,7 @@
 #include "euler.hcu"
 #include "reconstruction.hpp"
 #include "utils_cuda.hpp"
+#include <nvtx3/nvToolsExt.h>
 
 #define uint64  unsigned long long
 
@@ -352,6 +353,7 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     const ScalarStorage<std::size_t> &solvedUniformInterfaceNeighRawIds = computationInfo.getSolvedUniformInterfaceNeighRawIds();
 
     // Reconstruct interface values
+    nvtxRangePushA("InterfaceReconstructions");
     for (std::size_t i = 0; i < nSolvedUniformInterfaces; ++i) {
         // Info about the interface
         const std::size_t interfaceRawId = solvedUniformInterfaceRawIds[i];
@@ -373,9 +375,11 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
         reconstruction::eval(neighRawId, computationInfo, order, interfaceCentroid, neighMean, neighReconstruction);
     }
 
+    nvtxRangePop();
+    nvtxRangePushA("UpdateInterfaceReconDev");
     leftReconstructions->cuda_updateDevice(N_FIELDS * nSolvedUniformInterfaces);
     rightReconstructions->cuda_updateDevice(N_FIELDS * nSolvedUniformInterfaces);
-
+    nvtxRangePop();
     // Evaluate fluxes
     const std::size_t *devSolvedUniformInterfaceRawIds = solvedUniformInterfaceRawIds.cuda_deviceData();
 
@@ -397,6 +401,7 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     const ScalarStorage<std::size_t> &solvedBoundaryInterfaceFluidRawIds = computationInfo.getSolvedBoundaryInterfaceFluidRawIds();
 
     // Reconstruct interface values
+    nvtxRangePushA("BNDInterfaceReconstructions");
     for (std::size_t i = 0; i < nSolvedBoundaryInterfaces; ++i) {
         // Info about the interface
         const std::size_t interfaceRawId = solvedBoundaryInterfaceRawIds[i];
@@ -416,8 +421,11 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
         evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, interfaceNormal, fluidReconstruction, virtualReconstruction);
     }
 
+    nvtxRangePop();
+    nvtxRangePushA("BNDUpdateInterfaceReconDev");
     leftReconstructions->cuda_updateDevice(N_FIELDS * nSolvedBoundaryInterfaces);
     rightReconstructions->cuda_updateDevice(N_FIELDS * nSolvedBoundaryInterfaces);
+    nvtxRangePop();
 
     // Evaluate fluxes
     const std::size_t *devSolvedBoundaryInterfaceRawIds = solvedBoundaryInterfaceRawIds.cuda_deviceData();
