@@ -352,7 +352,9 @@ void computation(int argc, char *argv[])
     }
 
     // UPdate conservative on gpu
+#if ENABLE_CUDA
     cellConservatives.cuda_updateDevice();
+#endif
 
 #pragma acc parallel loop present(cellPrimitivesHostStorage, cellConservativesHostStorage, solvedCellRawIdsHostStorage)
      for (long i = 0; i < nSolvedCells; ++i) {
@@ -363,8 +365,9 @@ void computation(int argc, char *argv[])
 
      log::cout() << std::endl;
      log::cout() << "Update primitives on host..."  << std::endl;
+#if ENABLE_CUDA
      cellPrimitives.cuda_updateHost();
-
+#endif
 
 
 #if ENABLE_MPI
