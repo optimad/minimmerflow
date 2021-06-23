@@ -379,7 +379,7 @@ void computation(int argc, char *argv[])
     }
 #endif
 
-    mesh.write();
+    //mesh.write();
 
     log_memory_status();
 
@@ -409,8 +409,8 @@ void computation(int argc, char *argv[])
 
     int step = 0;
     double t = tMin;
-    double nextSave = tMin;
-    while (t < tMax) {
+//    double nextSave = tMin;
+    while (t < tMax && step < 8) {
         log::cout() << std::endl;
         log::cout() << "Step n. " << step << std::endl;
 
@@ -592,20 +592,20 @@ void computation(int argc, char *argv[])
         t +=dt;
         step++;
 
-        // Write the solution
-        if (t > nextSave){
-            clock_t diskStart = clock();
-            for (std::size_t i = 0; i < nSolvedCells; ++i) {
-                const std::size_t cellRawId = solvedCellRawIds[i];
-                const double *conservative = cellConservatives.rawData(cellRawId);
-                double *primitives = cellPrimitives.rawData(cellRawId);
-                ::utils::conservative2primitive(conservative, primitives);
-            }
-            mesh.write();
-
-            diskTime += clock() - diskStart;
-            nextSave += (tMax - tMin) / nSaves;
-        }
+//        // Write the solution
+//        if (t > nextSave){
+//            clock_t diskStart = clock();
+//            for (std::size_t i = 0; i < nSolvedCells; ++i) {
+//                const std::size_t cellRawId = solvedCellRawIds[i];
+//                const double *conservative = cellConservatives.rawData(cellRawId);
+//                double *primitives = cellPrimitives.rawData(cellRawId);
+//                ::utils::conservative2primitive(conservative, primitives);
+//            }
+//            //mesh.write();
+//
+//            diskTime += clock() - diskStart;
+//            nextSave += (tMax - tMin) / nSaves;
+//        }
       
         nvtxRangePop();
         nvtxRangePop();
@@ -613,18 +613,18 @@ void computation(int argc, char *argv[])
     }
     clock_t computeEnd = clock();
 
-    // Save final data
-    {
-        std::stringstream filename;
-        filename << "final_background_" << nCellsPerDirection;
-        for (std::size_t i = 0; i < nSolvedCells; ++i) {
-            const std::size_t cellRawId = solvedCellRawIds[i];
-            const double *conservative = cellConservatives.rawData(cellRawId);
-            double *primitives = cellPrimitives.rawData(cellRawId);
-            ::utils::conservative2primitive(conservative, primitives);
-        }
-        mesh.write(filename.str().c_str());
-    }
+//    // Save final data
+//    {
+//        std::stringstream filename;
+//        filename << "final_background_" << nCellsPerDirection;
+//        for (std::size_t i = 0; i < nSolvedCells; ++i) {
+//            const std::size_t cellRawId = solvedCellRawIds[i];
+//            const double *conservative = cellConservatives.rawData(cellRawId);
+//            double *primitives = cellPrimitives.rawData(cellRawId);
+//            ::utils::conservative2primitive(conservative, primitives);
+//        }
+//        mesh.write(filename.str().c_str());
+//    }
 
     log::cout() << "Computation time (without disk saving time) is "
                 << double(computeEnd - computeStart - diskTime) / CLOCKS_PER_SEC
