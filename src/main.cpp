@@ -29,6 +29,7 @@
 #include "problem.hpp"
 #include "reconstruction.hpp"
 #include "solver_writer.hpp"
+#include "storage.hpp"
 #include "utils.hpp"
 #include "memory.hpp"
 
@@ -218,14 +219,13 @@ void computation(int argc, char *argv[])
     log::cout() << std::endl;
     log::cout() << "Storage initialization..."  << std::endl;
 
-    ScalarPiercedStorage<double> cellPrimitives(N_FIELDS, &mesh.getCells());
-    ScalarPiercedStorage<double> cellConservatives(N_FIELDS, &mesh.getCells());
-    ScalarPiercedStorage<double> cellConservativesWork(N_FIELDS, &mesh.getCells());
-    ScalarPiercedStorage<double> cellRHS(N_FIELDS, &mesh.getCells());
+    ScalarPiercedStorageCollection<double> cellPrimitives(N_FIELDS, &(mesh.getCells()));
+    ScalarPiercedStorageCollection<double> cellConservatives(N_FIELDS, &(mesh.getCells()));
+    ScalarPiercedStorageCollection<double> cellConservativesWork(N_FIELDS, &(mesh.getCells()));
+    ScalarPiercedStorageCollection<double> cellRHS(N_FIELDS, &(mesh.getCells()));
 
 #if ENABLE_CUDA
     cellRHS.cuda_allocateDevice();
-    cellConservatives.cuda_allocateDevice();
 #endif
 
     log_memory_status();
@@ -293,33 +293,39 @@ void computation(int argc, char *argv[])
     std::unique_ptr<GhostCommunicator> conservativeCommunicator;
     std::unique_ptr<GhostCommunicator> conservativeWorkCommunicator;
 
-    std::unique_ptr<ValuePiercedStorageBufferStreamer<double>> primitiveGhostStreamer;
-    std::unique_ptr<ValuePiercedStorageBufferStreamer<double>> conservativeGhostStreamer;
-    std::unique_ptr<ValuePiercedStorageBufferStreamer<double>> conservativeWorkGhostStreamer;
+    std::vector<std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>> primitiveGhostStreamers(N_FIELDS);
+    std::vector<std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>> conservativeGhostStreamers(N_FIELDS);
+    std::vector<std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>> conservativeWorkGhostStreamers(N_FIELDS);
     if (mesh.isPartitioned()) {
         // Primitive fields
         primitiveCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh));
         primitiveCommunicator->resetExchangeLists();
         primitiveCommunicator->setRecvsContinuous(true);
 
-        primitiveGhostStreamer = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&cellConservatives));
-        primitiveCommunicator->addData(primitiveGhostStreamer.get());
+        for (int k = 0; k < N_FIELDS; ++k) {
+            primitiveGhostStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellPrimitives[k])));
+            primitiveCommunicator->addData(primitiveGhostStreamers[k].get());
+        }
 
         // Conservative fields
         conservativeCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh));
         conservativeCommunicator->resetExchangeLists();
         conservativeCommunicator->setRecvsContinuous(true);
 
-        conservativeGhostStreamer = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&cellConservatives));
-        conservativeCommunicator->addData(conservativeGhostStreamer.get());
+        for (int k = 0; k < N_FIELDS; ++k) {
+            conservativeGhostStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellConservatives[k])));
+            conservativeCommunicator->addData(conservativeGhostStreamers[k].get());
+        }
 
         // Conservative tields tmp
         conservativeWorkCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh));
         conservativeWorkCommunicator->resetExchangeLists();
         conservativeWorkCommunicator->setRecvsContinuous(true);
 
-        conservativeWorkGhostStreamer = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&cellConservativesWork));
-        conservativeWorkCommunicator->addData(conservativeWorkGhostStreamer.get());
+        for (int k = 0; k < N_FIELDS; ++k) {
+            conservativeWorkGhostStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellConservativesWork[k])));
+            conservativeWorkCommunicator->addData(conservativeWorkGhostStreamers[k].get());
+        }
     }
 #endif
 
@@ -331,11 +337,17 @@ void computation(int argc, char *argv[])
         const std::size_t cellRawId = solvedCellRawIds[i];
         const long cellId = mesh.getCells().rawFind(cellRawId).getId();
 
-        double *conservatives = cellConservatives.rawData(cellRawId);
-        problem::evalCellInitalConservatives(problemType, cellId, computationInfo, conservatives);
+        std::array<double, N_FIELDS> conservatives;
+        problem::evalCellInitalConservatives(problemType, cellId, computationInfo, conservatives.data());
+        for (int k = 0; k < N_FIELDS; ++k) {
+            cellConservatives[k].rawAt(cellRawId) = conservatives[k];
+        }
 
-        double *primitives = cellPrimitives.rawData(cellRawId);
-        ::utils::conservative2primitive(conservatives, primitives);
+        std::array<double, N_FIELDS> primitives;
+        ::utils::conservative2primitive(conservatives.data(), primitives.data());
+        for (int k = 0; k < N_FIELDS; ++k) {
+            cellPrimitives[k].rawAt(cellRawId) = primitives[k];
+        }
     }
 
 #if ENABLE_MPI
@@ -410,15 +422,18 @@ void computation(int argc, char *argv[])
         //
         // SECOND RK STAGE
         //
-        for (std::size_t i = 0; i < nSolvedCells; ++i) {
-            const std::size_t cellRawId = solvedCellRawIds[i];
+        for (int k = 0; k < N_FIELDS; ++k) {
+            const ValuePiercedStorage<double, double> &fieldRHS = cellRHS[k];
+            const ValuePiercedStorage<double, double> &fieldConservatives = cellConservatives[k];
+            ValuePiercedStorage<double, double> *fieldConservativesWork = &(cellConservativesWork[k]);
+            for (std::size_t i = 0; i < nSolvedCells; ++i) {
+                const std::size_t cellRawId = solvedCellRawIds[i];
 
-            const double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
-            const double *RHS = cellRHS.rawData(cellRawId);
-            const double *conservative = cellConservatives.rawData(cellRawId);
-            double *conservativeTmp = cellConservativesWork.rawData(cellRawId);
-            for (int k = 0; k < N_FIELDS; ++k) {
-                conservativeTmp[k] = conservative[k] + dt * RHS[k] / cellVolume;
+                const double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
+                const double RHS = fieldRHS.rawAt(cellRawId);
+                const double conservative = fieldConservatives.rawAt(cellRawId);
+                double *conservativeWork = fieldConservativesWork->rawData(cellRawId);
+                *conservativeWork = conservative + dt * RHS / cellVolume;
             }
         }
 
@@ -442,15 +457,18 @@ void computation(int argc, char *argv[])
         //
         // THIRD RK STAGE
         //
-        for (std::size_t i = 0; i < nSolvedCells; ++i) {
-            const std::size_t cellRawId = solvedCellRawIds[i];
+        for (int k = 0; k < N_FIELDS; ++k) {
+            const ValuePiercedStorage<double, double> &fieldRHS = cellRHS[k];
+            const ValuePiercedStorage<double, double> &fieldConservatives = cellConservatives[k];
+            ValuePiercedStorage<double, double> *fieldConservativesWork = &(cellConservativesWork[k]);
+            for (std::size_t i = 0; i < nSolvedCells; ++i) {
+                const std::size_t cellRawId = solvedCellRawIds[i];
 
-            double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
-            const double *RHS = cellRHS.rawData(cellRawId);
-            const double *conservative = cellConservatives.rawData(cellRawId);
-            double *conservativeTmp = cellConservativesWork.rawData(cellRawId);
-            for (int k = 0; k < N_FIELDS; ++k) {
-                conservativeTmp[k] = 0.75*conservative[k] + 0.25*(conservativeTmp[k] + dt * RHS[k] / cellVolume);
+                const double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
+                const double RHS = fieldRHS.rawAt(cellRawId);
+                const double conservative = fieldConservatives.rawAt(cellRawId);
+                double *conservativeWork = fieldConservativesWork->rawData(cellRawId);
+                *conservativeWork = 0.75 * conservative + 0.25 * ((*conservativeWork) + dt * RHS / cellVolume);
             }
         }
 
@@ -474,15 +492,18 @@ void computation(int argc, char *argv[])
         //
         // CLOSE RK STEP
         //
-        for (std::size_t i = 0; i < nSolvedCells; ++i) {
-            const std::size_t cellRawId = solvedCellRawIds[i];
+        for (int k = 0; k < N_FIELDS; ++k) {
+            const ValuePiercedStorage<double, double> &fieldRHS = cellRHS[k];
+            ValuePiercedStorage<double, double> &fieldConservatives = cellConservatives[k];
+            const ValuePiercedStorage<double, double> *fieldConservativesWork = &(cellConservativesWork[k]);
+            for (std::size_t i = 0; i < nSolvedCells; ++i) {
+                const std::size_t cellRawId = solvedCellRawIds[i];
 
-            const double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
-            const double *RHS = cellRHS.rawData(cellRawId);
-            double *conservative = cellConservatives.rawData(cellRawId);
-            const double *conservativeTmp = cellConservativesWork.rawData(cellRawId);
-            for (int k = 0; k < N_FIELDS; ++k) {
-                conservative[k] = (1./3)*conservative[k] + (2./3)*(conservativeTmp[k] + dt * RHS[k] / cellVolume);
+                const double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
+                const double RHS = fieldRHS.rawAt(cellRawId);
+                double *conservative = fieldConservatives.rawData(cellRawId);
+                const double conservativeWork = fieldConservativesWork->rawAt(cellRawId);
+                *conservative = (1. / 3) * (*conservative) + (2. / 3) * (conservativeWork + dt * RHS / cellVolume);
             }
         }
 
@@ -500,11 +521,22 @@ void computation(int argc, char *argv[])
         // Write the solution
         if (t > nextSave){
             clock_t diskStart = clock();
+
+            std::array<double, N_FIELDS> conservatives;
+            std::array<double, N_FIELDS> primitives;
+
             for (std::size_t i = 0; i < nSolvedCells; ++i) {
                 const std::size_t cellRawId = solvedCellRawIds[i];
-                const double *conservative = cellConservatives.rawData(cellRawId);
-                double *primitives = cellPrimitives.rawData(cellRawId);
-                ::utils::conservative2primitive(conservative, primitives);
+
+                for (int k = 0; k < N_FIELDS; ++k) {
+                    conservatives[k] = cellConservatives[k].rawAt(cellRawId);
+                }
+
+                ::utils::conservative2primitive(conservatives.data(), primitives.data());
+
+                for (int k = 0; k < N_FIELDS; ++k) {
+                    cellPrimitives[k].rawAt(cellRawId) = primitives[k];
+                }
             }
             mesh.write();
 
@@ -516,13 +548,23 @@ void computation(int argc, char *argv[])
 
     // Save final data
     {
+        std::array<double, N_FIELDS> conservatives;
+        std::array<double, N_FIELDS> primitives;
+
         std::stringstream filename;
         filename << "final_background_" << nCellsPerDirection;
         for (std::size_t i = 0; i < nSolvedCells; ++i) {
             const std::size_t cellRawId = solvedCellRawIds[i];
-            const double *conservative = cellConservatives.rawData(cellRawId);
-            double *primitives = cellPrimitives.rawData(cellRawId);
-            ::utils::conservative2primitive(conservative, primitives);
+
+            for (int k = 0; k < N_FIELDS; ++k) {
+                conservatives[k] = cellConservatives[k].rawAt(cellRawId);
+            }
+
+            ::utils::conservative2primitive(conservatives.data(), primitives.data());
+
+            for (int k = 0; k < N_FIELDS; ++k) {
+                cellPrimitives[k].rawAt(cellRawId) = primitives[k];
+            }
         }
         mesh.write(filename.str().c_str());
     }
@@ -542,7 +584,11 @@ void computation(int argc, char *argv[])
         const std::size_t cellRawId = solvedCellRawIds[i];
         const Cell &cell = mesh.getCells().rawAt(cellRawId);
 
-        const double *conservatives = cellConservatives.rawData(cellRawId);
+        std::array<double, N_FIELDS> conservatives;
+        for (int k = 0; k < N_FIELDS; ++k) {
+            conservatives[k] = cellConservatives[k].rawAt(cellRawId);
+        }
+
         problem::evalCellExactConservatives(problemType, cell.getId(), computationInfo, tMax, evalConservatives.data());
         error += std::abs(conservatives[FID_P] - evalConservatives[FID_P]) * computationInfo.rawGetCellVolume(cellRawId);
     }

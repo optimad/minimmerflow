@@ -45,7 +45,7 @@ void initialize()
  * conditions of the solved boundary cells
  */
 void computePolynomials(problem::ProblemType problemType, const ComputationInfo &computationInfo,
-                       const ScalarPiercedStorage<double> &conservativeFields, const ScalarStorage<int> &solvedBoundaryInterfaceBCs)
+                       const ScalarPiercedStorageCollection<double> &conservativeFields, const ScalarStorage<int> &solvedBoundaryInterfaceBCs)
 {
     BITPIT_UNUSED(problemType);
     BITPIT_UNUSED(computationInfo);

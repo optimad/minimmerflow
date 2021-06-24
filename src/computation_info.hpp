@@ -68,14 +68,10 @@ public:
     const std::size_t * cuda_getSolvedBoundaryInterfaceFluidRawIdDevData() const;
 #endif
 
-    ScalarStorage<double> & getSolvedInterfaceLeftReconstructions();
-    const ScalarStorage<double> & getSolvedInterfaceLeftReconstructions() const;
-    ScalarStorage<double> & getSolvedInterfaceRightReconstructions();
-    const ScalarStorage<double> & getSolvedInterfaceRightReconstructions() const;
-#if ENABLE_CUDA
-    const double * cuda_getSolvedInterfaceLeftReconstructionsDevData() const;
-    const double * cuda_getSolvedInterfaceRightReconstructionsDevData() const;
-#endif
+    ScalarStorageCollection<double> & getSolvedInterfaceLeftReconstructions();
+    const ScalarStorageCollection<double> & getSolvedInterfaceLeftReconstructions() const;
+    ScalarStorageCollection<double> & getSolvedInterfaceRightReconstructions();
+    const ScalarStorageCollection<double> & getSolvedInterfaceRightReconstructions() const;
 
 #if ENABLE_CUDA
     void cuda_initialize() override;
@@ -97,8 +93,8 @@ protected:
     ScalarStorage<std::size_t> m_solvedBoundaryInterfaceSigns;
     ScalarStorage<std::size_t> m_solvedBoundaryInterfaceFluidRawIds;
 
-    ScalarStorage<double> m_solvedInterfaceLeftReconstructions;
-    ScalarStorage<double> m_solvedInterfaceRightReconstructions;
+    ScalarStorageCollection<double> m_solvedInterfaceLeftReconstructions;
+    ScalarStorageCollection<double> m_solvedInterfaceRightReconstructions;
 
     void _init() override;
     void _reset() override;

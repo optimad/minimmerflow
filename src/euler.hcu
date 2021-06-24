@@ -43,14 +43,14 @@ __device__ void dev_evalSplitting(const double *conservativeL, const double *con
 __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t *interfaceRawIds,
                                      const double *interfaceNormals, const double *interfaceAreas,
                                      const std::size_t *leftCellRawIds, const std::size_t *rightCellRawIds,
-                                     const double *leftReconstructions, const double *rightReconstructions,
-                                     double *cellRHS, double *maxEig);
+                                     const double **leftReconstructions, const double **rightReconstructions,
+                                     double **cellRHS, double *maxEig);
 
 __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, const std::size_t *interfaceRawIds,
                                       const double *interfaceNormals, const double *interfaceAreas,
                                       const std::size_t *fluidCellRawIds, const std::size_t *boundarySigns,
-                                      const double *fluidReconstructions, const double *virtualReconstructions,
-                                      double *cellRHS, double *maxEig);
+                                      const double **fluidReconstructions, const double **virtualReconstructions,
+                                      double **cellRHS, double *maxEig);
 
 }
 
