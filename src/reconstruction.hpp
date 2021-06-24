@@ -40,7 +40,7 @@ namespace reconstruction {
 void initialize();
 
 void computePolynomials(problem::ProblemType problemType, const ComputationInfo &computationInfo,
-                        const ScalarPiercedStorage<double> &conservativeFields, const ScalarStorage<int> &solvedBoundaryInterfaceBCs);
+                        const ScalarPiercedStorageCollection<double> &conservativeFields, const ScalarStorage<int> &solvedBoundaryInterfaceBCs);
 
 void eval(int order, const std::array<double, 3> &point, const double *means, double *values);
 

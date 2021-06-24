@@ -35,8 +35,8 @@ class SolverWriter: public bitpit::VTKBaseStreamer {
 
 public:
     SolverWriter(const bitpit::VolumeKernel *mesh, const ScalarPiercedStorage<int> *solveMethods,
-                 const ScalarPiercedStorage<double> *primitives, const ScalarPiercedStorage<double> *conservatives,
-                 const ScalarPiercedStorage<double> *RHS);
+                 const ScalarPiercedStorageCollection<double> *primitives, const ScalarPiercedStorageCollection<double> *conservatives,
+                 const ScalarPiercedStorageCollection<double> *RHS);
 
     void flushData(std::fstream &stream, const std::string &name, bitpit::VTKFormat codex) override;
 
@@ -49,9 +49,9 @@ private:
     const bitpit::VolumeKernel *m_mesh;
 
     const ScalarPiercedStorage<int> *m_solveMethods;
-    const ScalarPiercedStorage<double> *m_primitives;
-    const ScalarPiercedStorage<double> *m_conservatives;
-    const ScalarPiercedStorage<double> *m_RHS;
+    const ScalarPiercedStorageCollection<double> *m_primitives;
+    const ScalarPiercedStorageCollection<double> *m_conservatives;
+    const ScalarPiercedStorageCollection<double> *m_RHS;
 
 };
 

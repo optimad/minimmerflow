@@ -41,25 +41,25 @@ void evalFluxes(const double *conservative, const double *primitive, const doubl
 
 void computeRHS(problem::ProblemType problemType, ComputationInfo &computationInfo,
                 const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-                const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig);
+                const ScalarPiercedStorageCollection<double> &cellConservatives, ScalarPiercedStorageCollection<double> *cellsRHS, double *maxEig);
 
 #if ENABLE_CUDA
 void cuda_initialize();
 void cuda_finalize();
 #endif
 
-void resetRHS(ScalarPiercedStorage<double> *cellsRHS);
+void resetRHS(ScalarPiercedStorageCollection<double> *cellsRHS);
 #if ENABLE_CUDA
-void cuda_resetRHS(ScalarPiercedStorage<double> *cellsRHS);
+void cuda_resetRHS(ScalarPiercedStorageCollection<double> *cellsRHS);
 #endif
 
 void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInfo,
                const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-               const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig);
+               const ScalarPiercedStorageCollection<double> &cellConservatives, ScalarPiercedStorageCollection<double> *cellsRHS, double *maxEig);
 #if ENABLE_CUDA
 void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computationInfo,
                     const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-                    const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig);
+                    const ScalarPiercedStorageCollection<double> &cellConservatives, ScalarPiercedStorageCollection<double> *cellsRHS, double *maxEig);
 #endif
 
 void evalInterfaceBCValues(const std::array<double, 3> &point, const std::array<double, 3> &normal,

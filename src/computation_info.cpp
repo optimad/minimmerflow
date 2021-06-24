@@ -39,7 +39,9 @@ using namespace bitpit;
  * \param patch is patch from which the informations will be extracted
  */
 ComputationInfo::ComputationInfo(VolumeKernel *patch)
-    : MeshGeometricalInfo(patch, false)
+    : MeshGeometricalInfo(patch, false),
+      m_solvedInterfaceLeftReconstructions(N_FIELDS),
+      m_solvedInterfaceRightReconstructions(N_FIELDS)
 {
     ComputationInfo::_init();
 
@@ -180,8 +182,10 @@ void ComputationInfo::_extract()
     }
 
     // Initialize storage for reconstructions
-    m_solvedInterfaceLeftReconstructions.resize(N_FIELDS * std::max(nSolvedUniformInterfaces, nSolvedBoundaryInterfaces));
-    m_solvedInterfaceRightReconstructions.resize(N_FIELDS * std::max(nSolvedUniformInterfaces, nSolvedBoundaryInterfaces));
+    for (int k = 0; k < N_FIELDS; ++k) {
+        m_solvedInterfaceLeftReconstructions[k].resize(std::max(nSolvedUniformInterfaces, nSolvedBoundaryInterfaces));
+        m_solvedInterfaceRightReconstructions[k].resize(std::max(nSolvedUniformInterfaces, nSolvedBoundaryInterfaces));
+    }
 }
 
 /*!
@@ -303,7 +307,7 @@ const ScalarStorage<int> & ComputationInfo::getSolvedBoundaryInterfaceSigns() co
  *
  * \result A reference to the left interface reconstructions storage.
  */
-ScalarStorage<double> & ComputationInfo::getSolvedInterfaceLeftReconstructions()
+ScalarStorageCollection<double> & ComputationInfo::getSolvedInterfaceLeftReconstructions()
 {
     return m_solvedInterfaceLeftReconstructions;
 }
@@ -313,7 +317,7 @@ ScalarStorage<double> & ComputationInfo::getSolvedInterfaceLeftReconstructions()
  *
  * \result A constant reference to the left interface reconstructions storage.
  */
-const ScalarStorage<double> & ComputationInfo::getSolvedInterfaceLeftReconstructions() const
+const ScalarStorageCollection<double> & ComputationInfo::getSolvedInterfaceLeftReconstructions() const
 {
     return m_solvedInterfaceLeftReconstructions;
 }
@@ -323,7 +327,7 @@ const ScalarStorage<double> & ComputationInfo::getSolvedInterfaceLeftReconstruct
  *
  * \result A reference to the right interface reconstructions storage.
  */
-ScalarStorage<double> & ComputationInfo::getSolvedInterfaceRightReconstructions()
+ScalarStorageCollection<double> & ComputationInfo::getSolvedInterfaceRightReconstructions()
 {
     return m_solvedInterfaceRightReconstructions;
 }
@@ -333,7 +337,7 @@ ScalarStorage<double> & ComputationInfo::getSolvedInterfaceRightReconstructions(
  *
  * \result A constant reference to the right interface reconstructions storage.
  */
-const ScalarStorage<double> & ComputationInfo::getSolvedInterfaceRightReconstructions() const
+const ScalarStorageCollection<double> & ComputationInfo::getSolvedInterfaceRightReconstructions() const
 {
     return m_solvedInterfaceRightReconstructions;
 }

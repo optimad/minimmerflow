@@ -61,25 +61,25 @@ __device__ void dev_evalDirichletBCValues(const double *point, const double *nor
                                           double *boundaryValues);
 
 __global__ void dev_evalInterfaceValues(std::size_t nInterfaces, const std::size_t *interfaceRawIds, const double *interfaceCentroids,
-                                        const std::size_t *cellRawIds, const double *cellValues,
-                                        int order, double *interfaceValues);
+                                        const std::size_t *cellRawIds, const double * const *cellValues,
+                                        int order, double **interfaceValues);
 
 __global__ void dev_evalInterfaceBCs(std::size_t nInterfaces, const std::size_t *interfaceRawIds, const int *interfaceBCs,
                                      const double *interfaceNormals, const double *interfaceCentroids, 
-                                     const std::size_t *cellRawIds, const double *cellValues,
-                                     int problemType, int order, double *interfaceValues);
+                                     const std::size_t *cellRawIds, const double * const *cellValues,
+                                     int problemType, int order, double **interfaceValues);
 
 __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t *interfaceRawIds,
                                      const double *interfaceNormals, const double *interfaceAreas,
                                      const std::size_t *leftCellRawIds, const std::size_t *rightCellRawIds,
-                                     const double *leftReconstructions, const double *rightReconstructions,
-                                     double *cellRHS, double *maxEig);
+                                     const double * const *leftReconstructions, const double * const *rightReconstructions,
+                                     double **cellRHS, double *maxEig);
 
 __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, const std::size_t *interfaceRawIds,
                                       const double *interfaceNormals, const double *interfaceAreas,
-                                      const std::size_t *fluidCellRawIds, const std::size_t *boundarySigns,
-                                      const double *fluidReconstructions, const double *virtualReconstructions,
-                                      double *cellRHS, double *maxEig);
+                                      const std::size_t *fluidCellRawIds, const int *boundarySigns,
+                                      const double * const *fluidReconstructions, const double * const *virtualReconstructions,
+                                      double **cellRHS, double *maxEig);
 
 }
 

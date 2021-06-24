@@ -126,7 +126,7 @@ void evalFluxes(const double *conservative, const double *primitive, const doubl
  */
 void computeRHS(problem::ProblemType problemType, ComputationInfo &computationInfo,
                 const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-                const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
+                const ScalarPiercedStorageCollection<double> &cellConservatives, ScalarPiercedStorageCollection<double> *cellsRHS, double *maxEig)
 {
     // Reset residuals
 #if ENABLE_CUDA
@@ -150,9 +150,11 @@ void computeRHS(problem::ProblemType problemType, ComputationInfo &computationIn
  *
  * \param[in,out] rhs is the RHS that will be reset
  */
-void resetRHS(ScalarPiercedStorage<double> *cellsRHS)
+void resetRHS(ScalarPiercedStorageCollection<double> *cellsRHS)
 {
-    cellsRHS->fill(0.);
+    for (int k = 0; k < N_FIELDS; ++k) {
+        (*cellsRHS)[k].fill(0.);
+    }
 }
 
 /*!
@@ -168,7 +170,7 @@ void resetRHS(ScalarPiercedStorage<double> *cellsRHS)
  */
 void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInfo,
                const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-               const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
+               const ScalarPiercedStorageCollection<double> &cellConservatives, ScalarPiercedStorageCollection<double> *cellsRHS, double *maxEig)
 {
     // Get mesh information
     const ScalarStorage<std::size_t> &solvedUniformInterfaceRawIds = computationInfo.getSolvedUniformInterfaceRawIds();
@@ -194,20 +196,26 @@ void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInf
 
         // Info about the interface owner
         std::size_t ownerRawId = solvedUniformInterfaceOwnerRawIds[i];
-        const double *ownerMean = cellConservatives.rawData(ownerRawId);
-        double *ownerRHS = cellsRHS->rawData(ownerRawId);
+
+        std::array<double, N_FIELDS> ownerMean;
+        for (int k = 0; k < N_FIELDS; ++k) {
+            ownerMean[k] = cellConservatives[k].rawAt(ownerRawId);
+        }
 
         // Info about the interface neighbour
         std::size_t neighRawId = solvedUniformInterfaceNeighRawIds[i];
-        const double *neighMean = cellConservatives.rawData(neighRawId);
-        double *neighRHS = cellsRHS->rawData(neighRawId);
+
+        std::array<double, N_FIELDS> neighMean;
+        for (int k = 0; k < N_FIELDS; ++k) {
+            neighMean[k] = cellConservatives[k].rawAt(neighRawId);
+        }
 
         // Evaluate interface reconstructions
         std::array<double, N_FIELDS> ownerReconstruction;
         std::array<double, N_FIELDS> neighReconstruction;
 
-        reconstruction::eval(order, interfaceCentroid, ownerMean, ownerReconstruction.data());
-        reconstruction::eval(order, interfaceCentroid, neighMean, neighReconstruction.data());
+        reconstruction::eval(order, interfaceCentroid, ownerMean.data(), ownerReconstruction.data());
+        reconstruction::eval(order, interfaceCentroid, neighMean.data(), neighReconstruction.data());
 
         // Evaluate the conservative fluxes
         FluxData fluxes;
@@ -220,8 +228,8 @@ void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInf
 
         // Sum the fluxes
         for (int k = 0; k < N_FIELDS; ++k) {
-            ownerRHS[k] -= interfaceArea * fluxes[k];
-            neighRHS[k] += interfaceArea * fluxes[k];
+            (*cellsRHS)[k].rawAt(ownerRawId) -= interfaceArea * fluxes[k];
+            (*cellsRHS)[k].rawAt(neighRawId) += interfaceArea * fluxes[k];
         }
     }
 
@@ -237,14 +245,17 @@ void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInf
 
         // Info about the interface fluid cell
         std::size_t fluidRawId = solvedBoundaryInterfaceFluidRawIds[i];
-        const double *fluidMean = cellConservatives.rawData(fluidRawId);
-        double *fluidRHS = cellsRHS->rawData(fluidRawId);
+
+        std::array<double, N_FIELDS> fluidMean;
+        for (int k = 0; k < N_FIELDS; ++k) {
+            fluidMean[k] = cellConservatives[k].rawAt(fluidRawId);
+        }
 
         // Evaluate interface reconstructions
         std::array<double, N_FIELDS> fluidReconstruction;
         std::array<double, N_FIELDS> virtualReconstruction;
 
-        reconstruction::eval(order, interfaceCentroid, fluidMean, fluidReconstruction.data());
+        reconstruction::eval(order, interfaceCentroid, fluidMean.data(), fluidReconstruction.data());
         evalInterfaceBCValues(interfaceCentroid, interfaceNormal, problemType, interfaceBC, fluidReconstruction.data(), virtualReconstruction.data());
 
         // Evaluate the conservative fluxes
@@ -258,7 +269,7 @@ void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInf
 
         // Sum the fluxes
         for (int k = 0; k < N_FIELDS; ++k) {
-            fluidRHS[k] -= interfaceSign * interfaceArea * fluxes[k];
+            (*cellsRHS)[k].rawAt(fluidRawId) -= interfaceSign * interfaceArea * fluxes[k];
         }
     }
 }
