@@ -25,26 +25,6 @@
 #ifndef __MINIMMERFLOW_CONTAINERS_TCU__
 #define __MINIMMERFLOW_CONTAINERS_TCU__
 
-namespace containers {
-
-/*!
- * Set all storage elements to the specified value.
- *
- * \param count are the number of elements that will be set
- * \param data is a pointer to the first element
- * \param is the value that will be set
- */
-template<typename dev_value_t>
-__global__ void dev_setValue(std::size_t nElements, dev_value_t value, dev_value_t *data)
-{
-    unsigned int i = (blockIdx.x * blockDim.x) + threadIdx.x;
-    for(; i < nElements; i += gridDim.x*blockDim.x) {
-        data[i] = value;
-    }
-}
-
-}
-
 /*!
  * Allocate cuda memory.
  */
@@ -119,13 +99,7 @@ const dev_value_t * ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_de
 template<typename container_t, typename value_t, typename dev_value_t>
 void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_fillDevice(const dev_value_t &value)
 {
-    if (value == 0) {
-        CUDA_ERROR_CHECK(cudaMemset(this->m_deviceData, value, this->cuda_deviceDataSize() * sizeof(dev_value_t)));
-    } else {
-        const int BLOCK_SIZE = 512;
-        const int N_BLOCKS   = 8;
-        containers::dev_setValue<<<BLOCK_SIZE, N_BLOCKS>>>(this->cuda_deviceDataSize(), value, this->m_deviceData);
-    }
+    CUDA_ERROR_CHECK(cudaMemset(this->m_deviceData, value, this->cuda_deviceDataSize() * sizeof(dev_value_t)));
 }
 
 /*!
