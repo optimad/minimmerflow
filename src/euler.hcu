@@ -38,17 +38,13 @@ __device__ void dev_evalFluxes(const double *conservative, const double *primiti
 
 __device__ void dev_evalSplitting(const double *conservativeL, const double *conservativeR, const double *n, double *fluxes, double *lambda);
 
-__global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t *interfaceRawIds,
-                                     const double *interfaceNormals, const double *interfaceAreas,
-                                     const std::size_t *leftCellRawIds, const std::size_t *rightCellRawIds,
-                                     const double *leftReconstructions, const double *rightReconstructions,
-                                     double *cellRHS, double *maxEig);
+__global__ void dev_computeInterfaceFluxes(std::size_t nSolvedInterfaces, const std::size_t *solvedInterfaceRawIds, const double *interfaceNormals,
+                                           const double *ownerReconstructions, const double *neighReconstructions,
+                                           double *interfacesFluxes, double *maxEig);
 
-__global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, const std::size_t *interfaceRawIds,
-                                      const double *interfaceNormals, const double *interfaceAreas,
-                                      const std::size_t *fluidCellRawIds, const std::size_t *boundarySigns,
-                                      const double *fluidReconstructions, const double *virtualReconstructions,
-                                      double *cellRHS, double *maxEig);
+__host__ void cuda_computeInterfaceFluxes(const ComputationInfo &computationInfo, const ScalarStorage<std::size_t> &interfaceRawIds,
+                                          const ScalarStorage<double> &leftReconstructions, const ScalarStorage<double> &rightReconstructions,
+                                          ScalarStorage<double> *interfacesFluxes, double *maxEig);
 
 }
 
