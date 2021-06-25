@@ -39,7 +39,7 @@ namespace euler {
  * \param[out] fluxes on output will contain the conservative fluxes
  * \param[out] lambda on output will contain the maximum eigenvalue
  */
-void evalSplitting(const double *conservativeL, const double *conservativeR, const double *n, double *fluxes, double *lambda)
+void evalSplitting(const double *conservativeL, const double *conservativeR, const std::array<double, 3> &n, FluxData *fluxes, double *lambda)
 {
     // Primitive variables
     std::array<double, N_FIELDS> primitiveL;
@@ -50,17 +50,17 @@ void evalSplitting(const double *conservativeL, const double *conservativeR, con
 
     // Fluxes
     FluxData fL;
-    evalFluxes(conservativeL, primitiveL.data(), n, fL.data());
+    evalFluxes(conservativeL, primitiveL.data(), n, &fL);
 
     FluxData fR;
-    evalFluxes(conservativeR, primitiveR.data(), n, fR.data());
+    evalFluxes(conservativeR, primitiveR.data(), n, &fR);
 
     // Eigenvalues
-    double unL     = ::utils::normalVelocity(primitiveL.data(), n);
+    double unL     = ::utils::normalVelocity(primitiveL.data(), n.data());
     double aL      = std::sqrt(GAMMA * primitiveL[FID_T]);
     double lambdaL = std::abs(unL) + aL;
 
-    double unR     = ::utils::normalVelocity(primitiveR.data(), n);
+    double unR     = ::utils::normalVelocity(primitiveR.data(), n.data());
     double aR      = std::sqrt(GAMMA * primitiveR[FID_T]);
     double lambdaR = std::abs(unR) + aR;
 
@@ -68,7 +68,7 @@ void evalSplitting(const double *conservativeL, const double *conservativeR, con
 
     // Splitting
     for (int k = 0; k < N_FIELDS; ++k) {
-        fluxes[k] = 0.5 * ((fR[k] + fL[k]) - (*lambda) * (conservativeR[k] - conservativeL[k]));
+        (*fluxes)[k] = 0.5 * ((fR[k] + fL[k]) - (*lambda) * (conservativeR[k] - conservativeL[k]));
     }
 }
 
@@ -80,7 +80,7 @@ void evalSplitting(const double *conservativeL, const double *conservativeR, con
  * \param n is the normal direction
  * \param[out] fluxes on output will contain the conservative fluxes
  */
-void evalFluxes(const double *conservative, const double *primitive, const double *n, double *fluxes)
+void evalFluxes(const double *conservative, const double *primitive, const std::array<double, 3> &n, FluxData *fluxes)
 {
     // Compute variables
     double u = primitive[FID_U];
@@ -88,7 +88,7 @@ void evalFluxes(const double *conservative, const double *primitive, const doubl
     double w = primitive[FID_W];
 
     double vel2 = u * u + v * v + w * w;
-    double un   = ::utils::normalVelocity(primitive, n);
+    double un   = ::utils::normalVelocity(primitive, n.data());
 
     double p = primitive[FID_P];
     if (p < 0.) {
@@ -105,11 +105,11 @@ void evalFluxes(const double *conservative, const double *primitive, const doubl
     // Compute fluxes
     double massFlux = rho * un;
 
-    fluxes[FID_EQ_C]   = massFlux;
-    fluxes[FID_EQ_M_X] = massFlux * u + p * n[0];
-    fluxes[FID_EQ_M_Y] = massFlux * v + p * n[1];
-    fluxes[FID_EQ_M_Z] = massFlux * w + p * n[2];
-    fluxes[FID_EQ_E]   = un * (eto + p);
+    (*fluxes)[FID_EQ_C]   = massFlux;
+    (*fluxes)[FID_EQ_M_X] = massFlux * u + p * n[0];
+    (*fluxes)[FID_EQ_M_Y] = massFlux * v + p * n[1];
+    (*fluxes)[FID_EQ_M_Z] = massFlux * w + p * n[2];
+    (*fluxes)[FID_EQ_E]   = un * (eto + p);
 }
 
 /*!
@@ -185,7 +185,7 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
         // Info about the interface
         int interfaceBCType = interfaceBCs.rawAt(interfaceRawId);
         const double interfaceArea = meshInfo.rawGetInterfaceArea(interfaceRawId);
-        const double *interfaceNormal = meshInfo.rawGetInterfaceNormal(interfaceRawId).data();
+        const std::array<double, 3> &interfaceNormal = meshInfo.rawGetInterfaceNormal(interfaceRawId);
         const std::array<double, 3> &interfaceCentroid = meshInfo.rawGetInterfaceCentroid(interfaceRawId);
 
         // Evaluate the conservative fluxes
@@ -229,7 +229,7 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
         fluxes.fill(0.);
 
         double faceMaxEig;
-        euler::evalSplitting(ownerReconstruction.data(), neighReconstruction.data(), interfaceNormal, fluxes.data(), &faceMaxEig);
+        euler::evalSplitting(ownerReconstruction.data(), neighReconstruction.data(), interfaceNormal, &fluxes, &faceMaxEig);
 
         *maxEig = std::max(faceMaxEig, *maxEig);
 
