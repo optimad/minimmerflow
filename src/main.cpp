@@ -606,10 +606,11 @@ void computation(int argc, char *argv[])
     for (std::size_t i = 0; i < nInternalCells; ++i) {
         const std::size_t cellRawId = internalCellRawIds[i];
         const Cell &cell = mesh.getCells().rawAt(cellRawId);
+        const long cellId = cell.getId();
 
-        const double *conservatives = cellConservatives.rawData(cellRawId);
+        const double *conservatives = cellConservatives.data(cellId);
         problem::evalCellExactConservatives(problemType, cell.getId(), meshInfo, tMax, evalConservatives.data());
-        error += std::abs(conservatives[FID_P] - evalConservatives[FID_P]) * meshInfo.rawGetCellVolume(cellRawId);
+        error += std::abs(conservatives[FID_P] - evalConservatives[FID_P]) * meshInfo.getCellVolume(cellId);
     }
 
 #if ENABLE_MPI
