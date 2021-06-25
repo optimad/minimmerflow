@@ -105,14 +105,14 @@ void MeshGeometricalInfo::_extract()
     // Evaluate interface data
     m_interfaceRawIds.reserve(m_patch->getInterfaceCount());
     for (VolumeKernel::InterfaceConstIterator interfaceItr = m_patch->interfaceConstBegin(); interfaceItr != m_patch->interfaceConstEnd(); ++interfaceItr) {
-        long interfaceId = interfaceItr.getId();
+        long cellId = interfaceItr.getId();
         std::size_t interfaceRawId = interfaceItr.getRawIndex();
 
         m_interfaceRawIds.push_back(interfaceRawId);
 
-        m_interfaceAreas.rawSet(interfaceRawId, m_volumePatch->evalInterfaceArea(interfaceId));
-        m_interfaceCentroids.rawSet(interfaceRawId, m_volumePatch->evalInterfaceCentroid(interfaceId));
-        m_interfaceNormals.rawSet(interfaceRawId, m_volumePatch->evalInterfaceNormal(interfaceId));
+        m_interfaceAreas.rawSet(interfaceRawId, m_volumePatch->evalInterfaceArea(cellId));
+        m_interfaceCentroids.rawSet(interfaceRawId, m_volumePatch->evalInterfaceCentroid(cellId));
+        m_interfaceNormals.rawSet(interfaceRawId, m_volumePatch->evalInterfaceNormal(cellId));
         m_interfaceTangents.rawSet(interfaceRawId, {{1., 0, 0}});
     }
 }
