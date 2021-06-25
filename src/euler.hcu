@@ -32,7 +32,7 @@
 
 namespace euler {
 
-__device__ void dev_atomicMax(const double value, double * const maxValue);
+__device__ void atomicMax(double * const address, const double value);
 
 __device__ void dev_evalFluxes(const double *conservative, const double *n, double *fluxes, double *lambda);
 
