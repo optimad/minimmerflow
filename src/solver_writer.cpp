@@ -39,7 +39,7 @@ using namespace bitpit;
  */
 SolverWriter::SolverWriter(VolumeKernel *mesh,
                            ScalarPiercedStorage<double> *primitives, ScalarPiercedStorage<double> *conservatives,
-                           ScalarPiercedStorage<double> *RHS, ScalarPiercedStorage<int> *solved)
+                           ScalarPiercedStorage<double> *RHS, ScalarPiercedStorage<bool> *solved)
     : m_mesh(mesh),
       m_primitives(primitives), m_conservatives(conservatives), m_RHS(RHS),
       m_solved(solved)
