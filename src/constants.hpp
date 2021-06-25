@@ -63,12 +63,4 @@ const int SOLVE_UNDEFINED   =  0;
 const int SOLVE_FLUID       =  1;
 const int SOLVE_FLUID_GHOST =  2;
 
-#if ENABLE_CUDA
-namespace constants {
-
-    void cuda_initialize();
-
-}
-#endif
-
 #endif
