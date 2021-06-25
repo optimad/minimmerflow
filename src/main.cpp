@@ -626,9 +626,13 @@ void computation(int argc, char *argv[])
     log::cout() << " Final error:  " << std::setprecision(12) << std::scientific << error << std::endl;
     log::cout() << std::endl;
 
-    // Clean-up
 #if ENABLE_CUDA
+    // Storage finalization
     cellRHS.cuda_free();
+
+    interfaceSolvedFlag.cuda_free();
+
+    // Cuda finalization
     meshInfo.cuda_finalize();
 #endif
 }
