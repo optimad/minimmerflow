@@ -26,7 +26,7 @@
 #define __MINIMMERFLOW_CONSTANTS_HPP__
 
 // Constants
-#define N_FIELDS 5
+const int N_FIELDS = 5;
 
 const int FID_P = 0;
 const int FID_U = 1;
