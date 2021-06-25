@@ -214,26 +214,26 @@ double getEndTime(ProblemType problemType, int dimensions)
  * Computes initial values for the specified cell.
  *
  * \param problemType is the type of problem to solve
- * \param cellId is the id of the cell
+ * \param cell is the cell
  * \param[out] conservatives are the initial values for the specified cell
  */
-void evalCellInitalConservatives(ProblemType problemType, long cellId, const MeshGeometricalInfo &meshInfo, double *conservatives)
+void evalCellInitalConservatives(ProblemType problemType, const bitpit::Cell &cell, const MeshGeometricalInfo &meshInfo, double *conservatives)
 {
-    evalCellExactConservatives(problemType, cellId, meshInfo, 0.0, conservatives);
+    evalCellExactConservatives(problemType, cell, meshInfo, 0.0, conservatives);
 }
 
 /*!
  * Computes the exact solution for the specified cell at the specified time.
  *
  * \param problemType is the type of problem to solve
- * \param cellId is the id of the cell
+ * \param cell is the cell
  * \param t is the time at which the solution is requested
  * \param[out] conservatives are the exact solution values for the specified
  * cell
  */
-void evalCellExactConservatives(ProblemType problemType, long cellId, const MeshGeometricalInfo &meshInfo, double t, double *conservatives)
+void evalCellExactConservatives(ProblemType problemType, const bitpit::Cell &cell, const MeshGeometricalInfo &meshInfo, double t, double *conservatives)
 {
-    problem::evalExactConservatives(problemType, meshInfo.getDimension(), meshInfo.getCellCentroid(cellId), t, conservatives);
+    problem::evalExactConservatives(problemType, meshInfo.getDimension(), meshInfo.getCellCentroid(cell.getId()), t, conservatives);
 }
 
 /*!
