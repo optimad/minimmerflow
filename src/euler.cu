@@ -25,7 +25,7 @@
 #include "euler.hcu"
 #include "reconstruction.hpp"
 
-#define uint64  unsigned long long
+#define uint64					unsigned long long
 
 namespace euler {
 
@@ -43,14 +43,14 @@ __device__ void atomicMax(double * const address, const double value)
 
     uint64 * const address_as_i = (uint64 *)address;
     uint64 old = * address_as_i;
-
+   
     uint64 assumed;
     do {
         assumed = old;
         if (__longlong_as_double(assumed) >= value) {
             break;
         }
-
+		
         old = atomicCAS(address_as_i, assumed, __double_as_longlong(value));
     } while (assumed != old);
 }
