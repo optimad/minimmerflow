@@ -39,6 +39,15 @@ public:
 
     int getDimension() const;
 
+    const ScalarStorage<std::size_t> & getCellRawIds() const;
+#if ENABLE_CUDA
+    const std::size_t * cuda_getCellRawIdDevData() const;
+#endif
+    const ScalarStorage<std::size_t> & getInternalCellRawIds() const;
+#if ENABLE_CUDA
+    const std::size_t * cuda_getInternalCellRawIdDevData() const;
+#endif
+
     double getCellVolume(long id) const;
     double rawGetCellVolume(size_t pos) const;
     const bitpit::PiercedStorage<double, long> & getCellVolumes() const;
@@ -64,6 +73,19 @@ public:
 #if ENABLE_CUDA
     double * cuda_getCellCentroidDevData();
     const double * cuda_getCellCentroidDevData() const;
+#endif
+
+    const ScalarStorage<std::size_t> & getInterfaceRawIds() const;
+#if ENABLE_CUDA
+    const std::size_t * cuda_getInterfaceRawIdDevData() const;
+#endif
+    const ScalarStorage<std::size_t> & getInterfaceOwnerRawIds() const;
+#if ENABLE_CUDA
+    const std::size_t * cuda_getInterfaceOwnerRawIdDevData() const;
+#endif
+    const ScalarStorage<std::size_t> & getInterfaceNeighRawIds() const;
+#if ENABLE_CUDA
+    const std::size_t * cuda_getInterfaceNeighRawIdDevData() const;
 #endif
 
     double getInterfaceArea(long id) const;
@@ -103,20 +125,27 @@ public:
 #endif
 
 #if ENABLE_CUDA
-    virtual void cuda_initialize();
-    virtual void cuda_finalize();
+    void cuda_initialize();
+    void cuda_finalize();
 #endif
 
 protected:
     const bitpit::VolumeKernel *m_volumePatch;
 
+    ScalarStorage<std::size_t> m_cellRawIds;
+    ScalarStorage<std::size_t> m_internalCellRawIds;
+
+    ScalarStorage<std::size_t> m_interfaceRawIds;
+    ScalarStorage<std::size_t> m_interfaceOwnerRawIds;
+    ScalarStorage<std::size_t> m_interfaceNeighRawIds;
+
     MeshGeometricalInfo(bitpit::VolumeKernel *patch, bool extractInfo);
 
     using bitpit::PatchInfo::setPatch;
 
-    void _init() override;
-    void _reset() override;
-    void _extract() override;
+    virtual void _init();
+    virtual void _reset();
+    virtual void _extract();
 
 private:
     ScalarPiercedStorage<double> m_cellVolumes;

@@ -99,9 +99,16 @@ void MeshGeometricalInfo::_reset()
 void MeshGeometricalInfo::_extract()
 {
     // Evaluate cell data
+    m_cellRawIds.reserve(m_patch->getCellCount());
+    m_internalCellRawIds.reserve(m_patch->getInternalCellCount());
     for (VolumeKernel::CellConstIterator cellItr = m_patch->cellConstBegin(); cellItr != m_patch->cellConstEnd(); ++cellItr) {
         long cellId = cellItr.getId();
         std::size_t cellRawId = cellItr.getRawIndex();
+
+        m_cellRawIds.push_back(cellRawId);
+        if (cellItr->isInterior()) {
+            m_internalCellRawIds.push_back(cellRawId);
+        }
 
         m_cellVolumes.rawSet(cellRawId, m_volumePatch->evalCellVolume(cellId));
         m_cellSizes.rawSet(cellRawId, m_volumePatch->evalCellSize(cellId));
@@ -109,9 +116,28 @@ void MeshGeometricalInfo::_extract()
     }
 
     // Evaluate interface data
+    m_interfaceRawIds.reserve(m_patch->getInterfaceCount());
+    m_interfaceOwnerRawIds.reserve(m_patch->getInterfaceCount());
+    m_interfaceNeighRawIds.reserve(m_patch->getInterfaceCount());
     for (VolumeKernel::InterfaceConstIterator interfaceItr = m_patch->interfaceConstBegin(); interfaceItr != m_patch->interfaceConstEnd(); ++interfaceItr) {
         long interfaceId = interfaceItr.getId();
         std::size_t interfaceRawId = interfaceItr.getRawIndex();
+        const Interface &interface = *interfaceItr;
+
+        long ownerId = interface.getOwner();
+        VolumeKernel::CellConstIterator ownerItr = m_patch->getCellConstIterator(ownerId);
+        std::size_t ownerRawId = ownerItr.getRawIndex();
+
+        long neighId = interface.getNeigh();
+        std::size_t neighRawId = 0;
+        if (neighId >= 0) {
+            VolumeKernel::CellConstIterator neighItr = m_patch->getCellConstIterator(neighId);
+            neighRawId = neighItr.getRawIndex();
+        }
+
+        m_interfaceRawIds.push_back(interfaceRawId);
+        m_interfaceOwnerRawIds.push_back(ownerRawId);
+        m_interfaceNeighRawIds.push_back(neighRawId);
 
         m_interfaceAreas.rawSet(interfaceRawId, m_volumePatch->evalInterfaceArea(interfaceId));
         m_interfaceCentroids.rawSet(interfaceRawId, m_volumePatch->evalInterfaceCentroid(interfaceId));
@@ -128,6 +154,26 @@ void MeshGeometricalInfo::_extract()
 int MeshGeometricalInfo::getDimension() const
 {
     return m_patch->getDimension();
+}
+
+/*!
+ * Gets the list of cells raw ids.
+ *
+ * \result The list of cells raw ids.
+ */
+const ScalarStorage<std::size_t> & MeshGeometricalInfo::getCellRawIds() const
+{
+    return m_cellRawIds;
+}
+
+/*!
+ * Gets the list of internal cells raw ids.
+ *
+ * \result The list of internal cells raw ids.
+ */
+const ScalarStorage<std::size_t> & MeshGeometricalInfo::getInternalCellRawIds() const
+{
+    return m_internalCellRawIds;
 }
 
 /*!
@@ -254,6 +300,36 @@ const PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getCell
 PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getCellCentroids()
 {
     return m_cellCentroids;
+}
+
+/*!
+ * Gets the list of interfaces raw ids.
+ *
+ * \result The list of interfaces raw ids.
+ */
+const ScalarStorage<std::size_t> & MeshGeometricalInfo::getInterfaceRawIds() const
+{
+    return m_interfaceRawIds;
+}
+
+/*!
+ * Gets the list of interfaces owner raw ids.
+ *
+ * \result The list of interfaces owner raw ids.
+ */
+const ScalarStorage<std::size_t> & MeshGeometricalInfo::getInterfaceOwnerRawIds() const
+{
+    return m_interfaceOwnerRawIds;
+}
+
+/*!
+ * Gets the list of interfaces neigh raw ids.
+ *
+ * \result The list of interfaces neigh raw ids.
+ */
+const ScalarStorage<std::size_t> & MeshGeometricalInfo::getInterfaceNeighRawIds() const
+{
+    return m_interfaceNeighRawIds;
 }
 
 /*!

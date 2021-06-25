@@ -38,13 +38,13 @@ __device__ void dev_evalFluxes(const double *conservative, const double *primiti
 
 __device__ void dev_evalSplitting(const double *conservativeL, const double *conservativeR, const double *n, double *fluxes, double *lambda);
 
-__global__ void dev_computeInterfaceFluxes(std::size_t nSolvedInterfaces, const std::size_t *solvedInterfaceRawIds, const double *interfaceNormals,
+__global__ void dev_computeInterfaceFluxes(std::size_t nInterfaces, const std::size_t *interfaceRawIds, const int *interfaceSolvedFlag, const double *interfaceNormals,
                                            const double *ownerReconstructions, const double *neighReconstructions,
                                            double *interfacesFluxes, double *maxEig);
 
-__host__ void cuda_computeInterfaceFluxes(const ComputationInfo &computationInfo, const ScalarStorage<std::size_t> &interfaceRawIds,
-                                          const ScalarStorage<double> &leftReconstructions, const ScalarStorage<double> &rightReconstructions,
-                                          ScalarStorage<double> *interfacesFluxes, double *maxEig);
+__host__ void cuda_computeInterfaceFluxes(const MeshGeometricalInfo &meshInfo, const ScalarPiercedStorage<int> &interfaceSolvedFlag,
+                                          const ScalarPiercedStorage<double> &ownerReconstructions, const ScalarPiercedStorage<double> &neighReconstructions,
+                                          ScalarPiercedStorage<double> *interfacesFluxes, double *maxEig);
 
 }
 

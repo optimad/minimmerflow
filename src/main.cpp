@@ -23,9 +23,9 @@
 \*---------------------------------------------------------------------------*/
 
 #include "body.hpp"
-#include "computation_info.hpp"
 #include "constants.hpp"
 #include "euler.hpp"
+#include "mesh_info.hpp"
 #include "problem.hpp"
 #include "reconstruction.hpp"
 #include "solver_writer.hpp"
@@ -195,22 +195,23 @@ void computation(int argc, char *argv[])
     // Initialize body info
     body::initialize();
 
-    // Initialize computation data
+    // Initialize mesh data
     log::cout() << std::endl;
-    log::cout() << "Computation data initialization..."  << std::endl;
+    log::cout() << "Mesh data initialization..."  << std::endl;
 
-    ComputationInfo computationInfo(&mesh);
+    MeshGeometricalInfo meshInfo(&mesh);
 #if ENABLE_CUDA
-    computationInfo.cuda_initialize();
+    meshInfo.cuda_initialize();
 #endif
 
-    const ScalarPiercedStorage<int> &cellSolveMethods = computationInfo.getCellSolveMethods();
+    const ScalarStorage<std::size_t> &cellRawIds = meshInfo.getCellRawIds();
+    const std::size_t nCells = cellRawIds.size();
 
-    const ScalarStorage<std::size_t> &solvedCellRawIds = computationInfo.getSolvedCellRawIds();
-    const std::size_t nSolvedCells = solvedCellRawIds.size();
+    const ScalarStorage<std::size_t> &internalCellRawIds = meshInfo.getInternalCellRawIds();
+    const std::size_t nInternalCells = internalCellRawIds.size();
 
-    const ScalarStorage<std::size_t> &solvedBoundaryInterfaceRawIds = computationInfo.getSolvedBoundaryInterfaceRawIds();
-    const std::size_t nSolvedBoundaryInterfaces = solvedBoundaryInterfaceRawIds.size();
+    const ScalarStorage<std::size_t> &interfaceRawIds = meshInfo.getInterfaceRawIds();
+    const std::size_t nInterfaces = interfaceRawIds.size();
 
     log_memory_status();
 
@@ -218,14 +219,61 @@ void computation(int argc, char *argv[])
     log::cout() << std::endl;
     log::cout() << "Storage initialization..."  << std::endl;
 
+    ScalarPiercedStorage<int> cellSolvedFlag(1, &mesh.getCells());
+    ScalarPiercedStorage<int> cellFluidFlag(1, &mesh.getCells());
     ScalarPiercedStorage<double> cellPrimitives(N_FIELDS, &mesh.getCells());
     ScalarPiercedStorage<double> cellConservatives(N_FIELDS, &mesh.getCells());
     ScalarPiercedStorage<double> cellConservativesWork(N_FIELDS, &mesh.getCells());
     ScalarPiercedStorage<double> cellRHS(N_FIELDS, &mesh.getCells());
 
+    ScalarPiercedStorage<int> interfaceSolvedFlag(1, &mesh.getInterfaces());
+
 #if ENABLE_CUDA
     cellRHS.cuda_allocate();
     cellConservatives.cuda_allocate();
+
+    interfaceSolvedFlag.cuda_allocate();
+#endif
+
+    // Initialize fluid and solved flag
+    for (std::size_t i = 0; i < nCells; ++i) {
+        const std::size_t cellRawId = cellRawIds[i];
+        const Cell &cell = mesh.getCells().rawAt(cellRawId);
+        const std::array<double, 3> &cellCentroid = meshInfo.rawGetCellCentroid(cellRawId);
+
+        bool isFluid = body::isPointFluid(cellCentroid);
+        cellFluidFlag.rawSet(cellRawId, (isFluid ? 1 : 0));
+
+        bool isSolved = isFluid;
+#if ENABLE_MPI
+        if (isSolved) {
+            isSolved = cell.isInterior();
+        }
+#endif
+        cellSolvedFlag.rawSet(cellRawId, (isSolved ? 1 : 0));
+    }
+
+    for (std::size_t i = 0; i < nInterfaces; ++i) {
+        const std::size_t interfaceRawId = interfaceRawIds[i];
+        const Interface &interface = mesh.getInterfaces().rawAt(interfaceRawId);
+
+        // Info about the interface owner
+        long ownerId = interface.getOwner();
+        bool ownerSolved = cellSolvedFlag.at(ownerId);
+
+        // Info about the interface neighbour
+        long neighId = interface.getNeigh();
+        bool neighSolved = false;
+        if (neighId >= 0) {
+            neighSolved = cellSolvedFlag.at(neighId);
+        }
+
+        // Check if the interface needs to be solved
+        interfaceSolvedFlag.rawAt(interfaceRawId) = (ownerSolved || neighSolved);
+    }
+
+#if ENABLE_CUDA
+    interfaceSolvedFlag.cuda_updateDevice();
 #endif
 
     log_memory_status();
@@ -241,18 +289,31 @@ void computation(int argc, char *argv[])
     log::cout() << std::endl;
     log::cout() << "Boundary conditions initialization..."  << std::endl;
 
-    ScalarStorage<int> solvedBoundaryInterfaceBCs(nSolvedBoundaryInterfaces);
-
-    for (std::size_t i = 0; i < nSolvedBoundaryInterfaces; ++i) {
-        const std::size_t interfaceRawId = solvedBoundaryInterfaceRawIds[i];
+    ScalarPiercedStorage<int> interfaceBCs(1, &mesh.getInterfaces());
+    for (std::size_t i = 0; i < nInterfaces; ++i) {
+        const std::size_t interfaceRawId = interfaceRawIds[i];
         const Interface &interface = mesh.getInterfaces().rawAt(interfaceRawId);
+        long interfaceId = interface.getId();
 
         bool isIntrBorder = interface.isBorder();
         if (isIntrBorder) {
-            long interfaceId = interface.getId();
-            solvedBoundaryInterfaceBCs[i] = problem::getBorderBCType(problemType, interfaceId, computationInfo);
+            interfaceBCs[interfaceId] = problem::getBorderBCType(problemType, interfaceId, meshInfo);
         } else {
-            solvedBoundaryInterfaceBCs[i] = BC_WALL;
+            const long ownerId = interface.getOwner();
+            VolumeKernel::CellConstIterator ownerItr = mesh.getCellConstIterator(ownerId);
+            const std::size_t ownerRawId = ownerItr.getRawIndex();
+            const bool ownerIsFluid = cellFluidFlag.rawAt(ownerRawId);
+
+            const long neighId = interface.getNeigh();
+            VolumeKernel::CellConstIterator neighItr = mesh.getCellConstIterator(neighId);
+            const std::size_t neighRawId = neighItr.getRawIndex();
+            const bool neighIsFluid = cellFluidFlag.rawAt(neighRawId);
+
+            if (ownerIsFluid ^ neighIsFluid) {
+                interfaceBCs[interfaceId] = BC_WALL;
+            } else {
+                interfaceBCs[interfaceId] = BC_NONE;
+            }
         }
     }
     log_memory_status();
@@ -261,12 +322,12 @@ void computation(int argc, char *argv[])
     log::cout() << std::endl;
     log::cout() << "Output initialization..."  << std::endl;
 
-    SolverWriter solverStreamer(&mesh, &cellSolveMethods, &cellPrimitives, &cellConservatives, &cellRHS);
+    SolverWriter solverStreamer(&mesh, &cellSolvedFlag, &cellPrimitives, &cellConservatives, &cellRHS);
 
     VTKUnstructuredGrid &vtk = mesh.getVTK();
     vtk.setCounter(0);
 
-    vtk.addData<int>("solveMethod"   , VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
+    vtk.addData<int>("solved"        , VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
     vtk.addData<double>("velocity"   , VTKFieldType::VECTOR, VTKLocation::CELL, &solverStreamer);
     vtk.addData<double>("pressure"   , VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
     vtk.addData<double>("temperature", VTKFieldType::SCALAR, VTKLocation::CELL, &solverStreamer);
@@ -284,22 +345,12 @@ void computation(int argc, char *argv[])
     log::cout() << std::endl;
     log::cout() << " * Inizializing ghost communications for exchanging ghost data" << std::endl;
 
-    std::unique_ptr<GhostCommunicator> primitiveCommunicator;
     std::unique_ptr<GhostCommunicator> conservativeCommunicator;
     std::unique_ptr<GhostCommunicator> conservativeWorkCommunicator;
 
-    std::unique_ptr<ValuePiercedStorageBufferStreamer<double>> primitiveGhostStreamer;
     std::unique_ptr<ValuePiercedStorageBufferStreamer<double>> conservativeGhostStreamer;
     std::unique_ptr<ValuePiercedStorageBufferStreamer<double>> conservativeWorkGhostStreamer;
     if (mesh.isPartitioned()) {
-        // Primitive fields
-        primitiveCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh));
-        primitiveCommunicator->resetExchangeLists();
-        primitiveCommunicator->setRecvsContinuous(true);
-
-        primitiveGhostStreamer = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&cellConservatives));
-        primitiveCommunicator->addData(primitiveGhostStreamer.get());
-
         // Conservative fields
         conservativeCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh));
         conservativeCommunicator->resetExchangeLists();
@@ -322,25 +373,16 @@ void computation(int argc, char *argv[])
     log::cout() << std::endl;
     log::cout() << "Initial conditions evaluation..."  << std::endl;
 
-    for (std::size_t i = 0; i < nSolvedCells; ++i) {
-        const std::size_t cellRawId = solvedCellRawIds[i];
+    for (std::size_t i = 0; i < nCells; ++i) {
+        const std::size_t cellRawId = cellRawIds[i];
         const long cellId = mesh.getCells().rawFind(cellRawId).getId();
 
         double *conservatives = cellConservatives.rawData(cellRawId);
-        problem::evalCellInitalConservatives(problemType, cellId, computationInfo, conservatives);
+        problem::evalCellInitalConservatives(problemType, cellId, meshInfo, conservatives);
 
         double *primitives = cellPrimitives.rawData(cellRawId);
         ::utils::conservative2primitive(conservatives, primitives);
     }
-
-#if ENABLE_MPI
-    if (mesh.isPartitioned()) {
-        conservativeCommunicator->startAllExchanges();
-        primitiveCommunicator->startAllExchanges();
-        conservativeCommunicator->completeAllExchanges();
-        primitiveCommunicator->completeAllExchanges();
-    }
-#endif
 
     mesh.write();
 
@@ -348,10 +390,10 @@ void computation(int argc, char *argv[])
 
     // Find smallest cell
     double minCellSize = std::numeric_limits<double>::max();
-    for (std::size_t i = 0; i < nSolvedCells; ++i) {
-        const std::size_t cellRawId = solvedCellRawIds[i];
+    for (std::size_t i = 0; i < nInternalCells; ++i) {
+        const std::size_t cellRawId = internalCellRawIds[i];
 
-        minCellSize = std::min(computationInfo.rawGetCellSize(cellRawId), minCellSize);
+        minCellSize = std::min(meshInfo.rawGetCellSize(cellRawId), minCellSize);
     }
 
 #if ENABLE_MPI
@@ -388,8 +430,8 @@ void computation(int argc, char *argv[])
         cellConservatives.cuda_updateDevice();
 #endif
 
-        reconstruction::computePolynomials(problemType, computationInfo, cellConservatives, solvedBoundaryInterfaceBCs);
-        euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservatives, &cellRHS, &maxEig);
+        reconstruction::computePolynomials(problemType, meshInfo, cellSolvedFlag, cellConservatives, interfaceBCs);
+        euler::computeRHS(problemType, meshInfo, cellSolvedFlag, interfaceSolvedFlag, order, cellConservatives, interfaceBCs, &cellRHS, &maxEig);
 
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
@@ -409,10 +451,14 @@ void computation(int argc, char *argv[])
         //
         // SECOND RK STAGE
         //
-        for (std::size_t i = 0; i < nSolvedCells; ++i) {
-            const std::size_t cellRawId = solvedCellRawIds[i];
+        for (std::size_t i = 0; i < nInternalCells; ++i) {
+            const std::size_t cellRawId = internalCellRawIds[i];
+            bool isCellSolved = cellSolvedFlag.rawAt(cellRawId);
+            if (!isCellSolved) {
+                continue;
+            }
 
-            const double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
+            const double cellVolume = meshInfo.rawGetCellVolume(cellRawId);
             const double *RHS = cellRHS.rawData(cellRawId);
             const double *conservative = cellConservatives.rawData(cellRawId);
             double *conservativeTmp = cellConservativesWork.rawData(cellRawId);
@@ -432,8 +478,8 @@ void computation(int argc, char *argv[])
         cellConservatives.cuda_updateDevice();
 #endif
 
-        reconstruction::computePolynomials(problemType, computationInfo, cellConservativesWork, solvedBoundaryInterfaceBCs);
-        euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservativesWork, &cellRHS, &maxEig);
+        reconstruction::computePolynomials(problemType, meshInfo, cellSolvedFlag, cellConservativesWork, interfaceBCs);
+        euler::computeRHS(problemType, meshInfo, cellSolvedFlag, interfaceSolvedFlag, order, cellConservativesWork, interfaceBCs, &cellRHS, &maxEig);
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
             MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_DOUBLE, MPI_MAX, mesh.getCommunicator());
@@ -445,10 +491,14 @@ void computation(int argc, char *argv[])
         //
         // THIRD RK STAGE
         //
-        for (std::size_t i = 0; i < nSolvedCells; ++i) {
-            const std::size_t cellRawId = solvedCellRawIds[i];
+        for (std::size_t i = 0; i < nInternalCells; ++i) {
+            const std::size_t cellRawId = internalCellRawIds[i];
+            bool isCellSolved = cellSolvedFlag.rawAt(cellRawId);
+            if (!isCellSolved) {
+                continue;
+            }
 
-            double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
+            double cellVolume = meshInfo.rawGetCellVolume(cellRawId);
             const double *RHS = cellRHS.rawData(cellRawId);
             const double *conservative = cellConservatives.rawData(cellRawId);
             double *conservativeTmp = cellConservativesWork.rawData(cellRawId);
@@ -468,8 +518,8 @@ void computation(int argc, char *argv[])
         cellConservatives.cuda_updateDevice();
 #endif
 
-        reconstruction::computePolynomials(problemType, computationInfo, cellConservativesWork, solvedBoundaryInterfaceBCs);
-        euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservativesWork, &cellRHS, &maxEig);
+        reconstruction::computePolynomials(problemType, meshInfo, cellSolvedFlag, cellConservativesWork, interfaceBCs);
+        euler::computeRHS(problemType, meshInfo, cellSolvedFlag, interfaceSolvedFlag, order, cellConservativesWork, interfaceBCs, &cellRHS, &maxEig);
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
             MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_DOUBLE, MPI_MAX, mesh.getCommunicator());
@@ -481,10 +531,14 @@ void computation(int argc, char *argv[])
         //
         // CLOSE RK STEP
         //
-        for (std::size_t i = 0; i < nSolvedCells; ++i) {
-            const std::size_t cellRawId = solvedCellRawIds[i];
+        for (std::size_t i = 0; i < nInternalCells; ++i) {
+            const std::size_t cellRawId = internalCellRawIds[i];
+            bool isCellSolved = cellSolvedFlag.rawAt(cellRawId);
+            if (!isCellSolved) {
+                continue;
+            }
 
-            const double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
+            const double cellVolume = meshInfo.rawGetCellVolume(cellRawId);
             const double *RHS = cellRHS.rawData(cellRawId);
             double *conservative = cellConservatives.rawData(cellRawId);
             const double *conservativeTmp = cellConservativesWork.rawData(cellRawId);
@@ -507,11 +561,14 @@ void computation(int argc, char *argv[])
         // Write the solution
         if (t > nextSave){
             clock_t diskStart = clock();
-            for (std::size_t i = 0; i < nSolvedCells; ++i) {
-                const std::size_t cellRawId = solvedCellRawIds[i];
-                const double *conservative = cellConservatives.rawData(cellRawId);
-                double *primitives = cellPrimitives.rawData(cellRawId);
-                ::utils::conservative2primitive(conservative, primitives);
+            for (VolumeKernel::CellConstIterator cellItr = mesh.cellConstBegin(); cellItr != mesh.cellConstEnd(); ++cellItr) {
+                std::size_t cellRawId = cellItr.getRawIndex();
+                bool isCellSolved = cellSolvedFlag.rawAt(cellRawId);
+                if (isCellSolved) {
+                    const double *conservative = cellConservatives.rawData(cellRawId);
+                    double *primitives = cellPrimitives.rawData(cellRawId);
+                    ::utils::conservative2primitive(conservative, primitives);
+                }
             }
             mesh.write();
 
@@ -525,11 +582,14 @@ void computation(int argc, char *argv[])
     {
         std::stringstream filename;
         filename << "final_background_" << nCellsPerDirection;
-        for (std::size_t i = 0; i < nSolvedCells; ++i) {
-            const std::size_t cellRawId = solvedCellRawIds[i];
-            const double *conservative = cellConservatives.rawData(cellRawId);
-            double *primitives = cellPrimitives.rawData(cellRawId);
-            ::utils::conservative2primitive(conservative, primitives);
+        for (VolumeKernel::CellConstIterator cellItr = mesh.cellConstBegin(); cellItr != mesh.cellConstEnd(); ++cellItr) {
+            std::size_t cellRawId = cellItr.getRawIndex();
+            bool isCellSolved = cellSolvedFlag.rawAt(cellRawId);
+            if (isCellSolved) {
+                const double *conservative = cellConservatives.rawData(cellRawId);
+                double *primitives = cellPrimitives.rawData(cellRawId);
+                ::utils::conservative2primitive(conservative, primitives);
+            }
         }
         mesh.write(filename.str().c_str());
     }
@@ -545,13 +605,13 @@ void computation(int argc, char *argv[])
     std::array<double, N_FIELDS> evalConservatives;
 
     double error = 0.;
-    for (std::size_t i = 0; i < nSolvedCells; ++i) {
-        const std::size_t cellRawId = solvedCellRawIds[i];
+    for (std::size_t i = 0; i < nInternalCells; ++i) {
+        const std::size_t cellRawId = internalCellRawIds[i];
         const Cell &cell = mesh.getCells().rawAt(cellRawId);
 
         const double *conservatives = cellConservatives.rawData(cellRawId);
-        problem::evalCellExactConservatives(problemType, cell.getId(), computationInfo, tMax, evalConservatives.data());
-        error += std::abs(conservatives[FID_P] - evalConservatives[FID_P]) * computationInfo.rawGetCellVolume(cellRawId);
+        problem::evalCellExactConservatives(problemType, cell.getId(), meshInfo, tMax, evalConservatives.data());
+        error += std::abs(conservatives[FID_P] - evalConservatives[FID_P]) * meshInfo.rawGetCellVolume(cellRawId);
     }
 
 #if ENABLE_MPI
@@ -569,7 +629,7 @@ void computation(int argc, char *argv[])
     // Clean-up
 #if ENABLE_CUDA
     cellRHS.cuda_free();
-    computationInfo.cuda_finalize();
+    meshInfo.cuda_finalize();
 #endif
 }
 

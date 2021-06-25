@@ -26,7 +26,6 @@
 #define __MINIMMERFLOW_RECONSTRUCTION_HPP__
 
 #include "constants.hpp"
-#include "computation_info.hpp"
 #include "mesh_info.hpp"
 #include "problem.hpp"
 #include "storage.hpp"
@@ -39,8 +38,8 @@ namespace reconstruction {
 
 void initialize();
 
-void computePolynomials(problem::ProblemType problemType, const ComputationInfo &computationInfo,
-                        const ScalarPiercedStorage<double> &conservativeFields, const ScalarStorage<int> &solvedBoundaryInterfaceBCs);
+void computePolynomials(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo, const ScalarPiercedStorage<int> &cellSolved,
+                        const ScalarPiercedStorage<double> &conservativeFields, const ScalarPiercedStorage<int> &interfaceBCs);
 
 void eval(std::size_t cellRawId, const MeshGeometricalInfo &meshInfo, int order, const std::array<double, 3> &point, const double *means, double *values);
 

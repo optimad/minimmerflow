@@ -34,7 +34,7 @@
 class SolverWriter: public bitpit::VTKBaseStreamer {
 
 public:
-    SolverWriter(const bitpit::VolumeKernel *mesh, const ScalarPiercedStorage<int> *solveMethods,
+    SolverWriter(const bitpit::VolumeKernel *mesh, const ScalarPiercedStorage<int> *solved,
                  const ScalarPiercedStorage<double> *primitives, const ScalarPiercedStorage<double> *conservatives,
                  const ScalarPiercedStorage<double> *RHS);
 
@@ -44,11 +44,11 @@ private:
     static const int SOURCE_PRIMITIVE    = 0;
     static const int SOURCE_CONSERVATIVE = 1;
     static const int SOURCE_RHS          = 2;
-    static const int SOURCE_SOLVE_METHOD = 3;
+    static const int SOURCE_SOLVED       = 3;
 
     const bitpit::VolumeKernel *m_mesh;
 
-    const ScalarPiercedStorage<int> *m_solveMethods;
+    const ScalarPiercedStorage<int> *m_solved;
     const ScalarPiercedStorage<double> *m_primitives;
     const ScalarPiercedStorage<double> *m_conservatives;
     const ScalarPiercedStorage<double> *m_RHS;

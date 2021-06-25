@@ -116,17 +116,19 @@ void evalFluxes(const double *conservative, const double *primitive, const doubl
  * Computes cell RHS.
  *
  * \param problemType is the problem type
- * \param computationInfo are the computation information
+ * \param meshInfo are the geometrical information
+ * \param cellSolvedFlag is the storage for the cell solved flag
+ * \param interfaceSolvedFlag is the storage for the interface solved flag
  * \param order is the order
- * \param solvedBoundaryInterfaceBCs is the storage for the interface boundary
- * conditions of the solved boundary cells
  * \param cellConservatives are the cell conservative values
+ * \param interfaceBCs is the boundary conditions storage
  * \param[out] cellsRHS on output will containt the RHS
  * \param[out] maxEig on putput will containt the maximum eigenvalue
  */
-void computeRHS(problem::ProblemType problemType, const ComputationInfo &computationInfo,
-                const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-                const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
+void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo,
+                const ScalarPiercedStorage<int> &cellSolvedFlag, const ScalarPiercedStorage<int> &interfaceSolvedFlag,
+                const int order, const ScalarPiercedStorage<double> &cellConservatives,
+                const ScalarPiercedStorage<int> &interfaceBCs, ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
 {
     // Reset residuals
 #if ENABLE_CUDA
@@ -137,11 +139,11 @@ void computeRHS(problem::ProblemType problemType, const ComputationInfo &computa
 
     // Update residuals
 #if ENABLE_CUDA
-    cuda_updateRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservatives,
-                   cellsRHS, maxEig);
+    cuda_updateRHS(problemType, meshInfo, cellSolvedFlag, interfaceSolvedFlag, order, cellConservatives,
+                   interfaceBCs, cellsRHS, maxEig);
 #else
-    updateRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservatives,
-              cellsRHS, maxEig);
+    updateRHS(problemType, meshInfo, cellSolvedFlag, interfaceSolvedFlag, order, cellConservatives,
+              interfaceBCs, cellsRHS, maxEig);
 #endif
 }
 
@@ -159,106 +161,121 @@ void resetRHS(ScalarPiercedStorage<double> *cellsRHS)
  * Update cell RHS.
  *
  * \param problemType is the problem type
- * \param computationInfo are the computation information
+ * \param meshInfo are the geometrical information
+ * \param cellSolvedFlag is the storage for the cell solved flag
+ * \param interfaceSolvedFlag is the storage for the interface solved flag
  * \param order is the order
- * \param interfaceBCs is the boundary conditions storage
  * \param cellConservatives are the cell conservative values
+ * \param interfaceBCs is the boundary conditions storage
  * \param[out] cellsRHS on output will containt the RHS
  * \param[out] maxEig on putput will containt the maximum eigenvalue
  */
-void updateRHS(problem::ProblemType problemType, const ComputationInfo &computationInfo,
-               const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-               const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
+void updateRHS(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo,
+                const ScalarPiercedStorage<int> &cellSolvedFlag, const ScalarPiercedStorage<int> &interfaceSolvedFlag,
+                const int order, const ScalarPiercedStorage<double> &cellConservatives,
+                const ScalarPiercedStorage<int> &interfaceBCs, ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
 {
     // Get mesh information
-    const ScalarStorage<std::size_t> &solvedUniformInterfaceRawIds = computationInfo.getSolvedUniformInterfaceRawIds();
-    const ScalarStorage<std::size_t> &solvedUniformInterfaceOwnerRawIds = computationInfo.getSolvedUniformInterfaceOwnerRawIds();
-    const ScalarStorage<std::size_t> &solvedUniformInterfaceNeighRawIds = computationInfo.getSolvedUniformInterfaceNeighRawIds();
-    const std::size_t nSolvedUniformInterfaces = solvedUniformInterfaceRawIds.size();
+    const VolumeKernel &mesh = meshInfo.getPatch();
 
-    const ScalarStorage<std::size_t> &solvedBoundaryInterfaceRawIds = computationInfo.getSolvedBoundaryInterfaceRawIds();
-    const ScalarStorage<std::size_t> &solvedBoundaryInterfaceSigns = computationInfo.getSolvedBoundaryInterfaceSigns();
-    const ScalarStorage<std::size_t> &solvedBoundaryInterfaceFluidRawIds = computationInfo.getSolvedBoundaryInterfaceFluidRawIds();
-    const std::size_t nSolvedBoundaryInterfaces = solvedBoundaryInterfaceRawIds.size();
+    const ScalarStorage<std::size_t> &interfaceRawIds = meshInfo.getInterfaceRawIds();
+    const std::size_t nInterfaces = interfaceRawIds.size();
 
     // Update the residuals
     *maxEig = 0.0;
 
-    // Process uniform interfaces
-    for (std::size_t i = 0; i < nSolvedUniformInterfaces; ++i) {
+    for (std::size_t i = 0; i < nInterfaces; ++i) {
+        const std::size_t interfaceRawId = interfaceRawIds[i];
+        if (!interfaceSolvedFlag.rawAt(interfaceRawId)) {
+            continue;
+        }
+
         // Info about the interface
-        const std::size_t interfaceRawId = solvedUniformInterfaceRawIds[i];
-        const double interfaceArea = computationInfo.rawGetInterfaceArea(interfaceRawId);
-        const std::array<double, 3> &interfaceNormal = computationInfo.rawGetInterfaceNormal(interfaceRawId);
-        const std::array<double, 3> &interfaceCentroid = computationInfo.rawGetInterfaceCentroid(interfaceRawId);
+        const Interface &interface = mesh.getInterfaces().rawAt(interfaceRawId);
+        int interfaceBCType = interfaceBCs.rawAt(interfaceRawId);
+        const double interfaceArea = meshInfo.rawGetInterfaceArea(interfaceRawId);
+        const double *interfaceNormal = meshInfo.rawGetInterfaceNormal(interfaceRawId).data();
+        const std::array<double, 3> &interfaceCentroid = meshInfo.rawGetInterfaceCentroid(interfaceRawId);
 
         // Info about the interface owner
-        std::size_t ownerRawId = solvedUniformInterfaceOwnerRawIds[i];
+        long ownerId = interface.getOwner();
+        VolumeKernel::CellConstIterator ownerItr = mesh.getCellConstIterator(ownerId);
+        std::size_t ownerRawId = ownerItr.getRawIndex();
         const double *ownerMean = cellConservatives.rawData(ownerRawId);
         double *ownerRHS = cellsRHS->rawData(ownerRawId);
+        bool ownerSolved = cellSolvedFlag.rawAt(ownerRawId);
 
         // Info about the interface neighbour
-        std::size_t neighRawId = solvedUniformInterfaceNeighRawIds[i];
-        const double *neighMean = cellConservatives.rawData(neighRawId);
-        double *neighRHS = cellsRHS->rawData(neighRawId);
+        long neighId = interface.getNeigh();
+        std::size_t neighRawId = std::numeric_limits<std::size_t>::max();
+        const double *neighMean = nullptr;
+        double *neighRHS = nullptr;
+        bool neighSolved = false;
+        if (neighId >= 0) {
+            VolumeKernel::CellConstIterator neighItr = mesh.getCellConstIterator(neighId);
 
-        // Evaluate interface reconstructions
+            neighRawId  = neighItr.getRawIndex();
+            neighMean   = cellConservatives.rawData(neighRawId);
+            neighRHS    = cellsRHS->rawData(neighRawId);
+            neighSolved = cellSolvedFlag.rawAt(neighRawId);
+        }
+
+        // Evaluate the conservative fluxes
         std::array<double, N_FIELDS> ownerReconstruction;
         std::array<double, N_FIELDS> neighReconstruction;
+        if (interfaceBCType == BC_NONE)  {
+            reconstruction::eval(ownerRawId, meshInfo, order, interfaceCentroid, ownerMean, ownerReconstruction.data());
+            reconstruction::eval(neighRawId, meshInfo, order, interfaceCentroid, neighMean, neighReconstruction.data());
+        } else {
+            long fluidRawId;
+            bool flipNormal;
+            const double *fluidMean;
+            double *fluidReconstruction;
+            double *virtualReconstruction;
+            if (ownerSolved) {
+                flipNormal            = false;
+                fluidRawId            = ownerRawId;
+                fluidMean             = ownerMean;
+                fluidReconstruction   = ownerReconstruction.data();
+                virtualReconstruction = neighReconstruction.data();
+            } else {
+                flipNormal            = true;
+                fluidRawId            = neighRawId;
+                fluidMean             = neighMean;
+                fluidReconstruction   = neighReconstruction.data();
+                virtualReconstruction = ownerReconstruction.data();
+            }
 
-        reconstruction::eval(ownerRawId, computationInfo, order, interfaceCentroid, ownerMean, ownerReconstruction.data());
-        reconstruction::eval(neighRawId, computationInfo, order, interfaceCentroid, neighMean, neighReconstruction.data());
+            int interfaceBC = interfaceBCs.rawAt(interfaceRawId);
 
-        // Evaluate the conservative fluxes
-        FluxData fluxes;
-        fluxes.fill(0.);
+            std::array<double, 3> boundaryNormal = meshInfo.rawGetInterfaceNormal(interfaceRawId);
+            if (flipNormal) {
+                boundaryNormal = -1. * boundaryNormal;
+            }
 
-        double faceMaxEig;
-        euler::evalSplitting(ownerReconstruction.data(), neighReconstruction.data(), interfaceNormal.data(), fluxes.data(), &faceMaxEig);
-
-        *maxEig = std::max(faceMaxEig, *maxEig);
-
-        // Sum the fluxes
-        for (int k = 0; k < N_FIELDS; ++k) {
-            ownerRHS[k] -= interfaceArea * fluxes[k];
-            neighRHS[k] += interfaceArea * fluxes[k];
+            reconstruction::eval(fluidRawId, meshInfo, order, interfaceCentroid, fluidMean, fluidReconstruction);
+            evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, boundaryNormal, fluidReconstruction, virtualReconstruction);
         }
-    }
 
-    // Process boundary interfaces
-    for (std::size_t i = 0; i < nSolvedBoundaryInterfaces; ++i) {
-        // Info about the interface
-        const std::size_t interfaceRawId = solvedBoundaryInterfaceRawIds[i];
-        const double interfaceArea = computationInfo.rawGetInterfaceArea(interfaceRawId);
-        const int interfaceSign = solvedBoundaryInterfaceSigns[i];
-        const std::array<double, 3> &interfaceNormal = computationInfo.rawGetInterfaceNormal(interfaceRawId);
-        const std::array<double, 3> &interfaceCentroid = computationInfo.rawGetInterfaceCentroid(interfaceRawId);
-        int interfaceBC = solvedBoundaryInterfaceBCs[i];
-
-        // Info about the interface fluid cell
-        std::size_t fluidRawId = solvedBoundaryInterfaceFluidRawIds[i];
-        const double *fluidMean = cellConservatives.rawData(fluidRawId);
-        double *fluidRHS = cellsRHS->rawData(fluidRawId);
-
-        // Evaluate interface reconstructions
-        std::array<double, N_FIELDS> fluidReconstruction;
-        std::array<double, N_FIELDS> virtualReconstruction;
-
-        reconstruction::eval(fluidRawId, computationInfo, order, interfaceCentroid, fluidMean, fluidReconstruction.data());
-        evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, interfaceNormal, fluidReconstruction.data(), virtualReconstruction.data());
-
-        // Evaluate the conservative fluxes
         FluxData fluxes;
         fluxes.fill(0.);
 
         double faceMaxEig;
-        euler::evalSplitting(fluidReconstruction.data(), virtualReconstruction.data(), interfaceNormal.data(), fluxes.data(), &faceMaxEig);
+        euler::evalSplitting(ownerReconstruction.data(), neighReconstruction.data(), interfaceNormal, fluxes.data(), &faceMaxEig);
 
         *maxEig = std::max(faceMaxEig, *maxEig);
 
         // Sum the fluxes
-        for (int k = 0; k < N_FIELDS; ++k) {
-            fluidRHS[k] -= interfaceSign * interfaceArea * fluxes[k];
+        if (ownerSolved)  {
+            for (int k = 0; k < N_FIELDS; ++k) {
+                ownerRHS[k] -= interfaceArea * fluxes[k];
+            }
+        }
+
+        if (neighSolved)  {
+            for (int k = 0; k < N_FIELDS; ++k) {
+                neighRHS[k] += interfaceArea * fluxes[k];
+            }
         }
     }
 }

@@ -140,16 +140,17 @@ __device__ void dev_evalSplitting(const double *conservativeL, const double *con
 /*!
  * Compute interface fluxes.
  *
- * \param nInterfaces is the number of solved interfaces
- * \param interfaceRawIds are the raw ids of the solved interfaces
+ * \param nInterfaces is the number of interfaces
+ * \param interfaceRawIds are the raw ids of the interfaces
+ * \param interfaceSolvedFlag are the solved flags of the interfaces
  * \param interfaceNormals are the normals of the interfaces
- * \param leftReconstructions are the left reconstructions
- * \param rightReconstructions are the right reconstructions
+ * \param ownerReconstructions are the owner reconstructions
+ * \param neighReconstructions are the neighbour reconstructions
  * \param[out] interfacesFluxes on output will containt the interface fluxes
  * \param[out] maxEig on output will containt the maximum eigenvalue
  */
-__global__ void dev_computeInterfaceFluxes(std::size_t nInterfaces, const std::size_t *interfaceRawIds, const double *interfaceNormals,
-                                           const double *leftReconstructions, const double *rightReconstructions,
+__global__ void dev_computeInterfaceFluxes(std::size_t nInterfaces, const std::size_t *interfaceRawIds, const int *interfaceSolvedFlag, const double *interfaceNormals,
+                                           const double *ownerReconstructions, const double *neighReconstructions,
                                            double *interfacesFluxes, double *maxEig)
 {
     // Get interface information
@@ -160,21 +161,26 @@ __global__ void dev_computeInterfaceFluxes(std::size_t nInterfaces, const std::s
 
     const std::size_t interfaceRawId = interfaceRawIds[i];
 
+    // Check if the interface needs to be solved
+    if (!interfaceSolvedFlag[interfaceRawId]) {
+        return;
+    }
+
     // Info about the interface
     const double *interfaceNormal = interfaceNormals + 3 * interfaceRawId;
 
     // Evaluate the conservative fluxes
-    const double *leftReconstruction  = leftReconstructions  + N_FIELDS * i;
-    const double *rightReconstruction = rightReconstructions + N_FIELDS * i;
+    const double *ownerReconstruction = ownerReconstructions + N_FIELDS * interfaceRawId;
+    const double *neighReconstruction = neighReconstructions + N_FIELDS * interfaceRawId;
 
-    double *interfaceFluxes = interfacesFluxes + N_FIELDS * i;
+    double *interfaceFluxes = interfacesFluxes + N_FIELDS * interfaceRawId;
     for (int k = 0; k < N_FIELDS; ++k) {
         interfaceFluxes[k] = 0.;
     }
 
     double interfaceMaxEig;
 
-    dev_evalSplitting(leftReconstruction, rightReconstruction, interfaceNormal, interfaceFluxes, &interfaceMaxEig);
+    dev_evalSplitting(ownerReconstruction, neighReconstruction, interfaceNormal, interfaceFluxes, &interfaceMaxEig);
 
     atomicMax(maxEig, interfaceMaxEig);
 }
@@ -182,26 +188,31 @@ __global__ void dev_computeInterfaceFluxes(std::size_t nInterfaces, const std::s
 /*!
  * Compute interface fluxes.
  *
- * \param computationInfo are the computation information
- * \param &interfaceRawIds are the raw ids of the interfaces that will be processed
- * \param leftReconstructions is the storage for the left reconstructions
- * \param rightReconstructions is the storage for the right reconstructions
+ * \param meshInfo are the geometrical information
+ * \param interfaceSolvedFlag is the storage for the interface solved flag
+ * \param ownerReconstructions is the storage fot the owner reconstructions
+ * \param neighReconstructions is the storage fot the neighbour reconstructions
+ * \param interfaceSolvedFlag is the storage for the interface solved flag
  * \param[out] interfacesFluxes on output will containt the interface fluxes
  * \param[out] maxEig on output will containt the maximum eigenvalue
  */
-void cuda_computeInterfaceFluxes(const ComputationInfo &computationInfo, const ScalarStorage<std::size_t> &interfaceRawIds,
-                                 const ScalarStorage<double> &leftReconstructions, const ScalarStorage<double> &rightReconstructions,
-                                 ScalarStorage<double> *interfacesFluxes, double *maxEig)
+void cuda_computeInterfaceFluxes(const MeshGeometricalInfo &meshInfo, const ScalarPiercedStorage<int> &interfaceSolvedFlag,
+                                 const ScalarPiercedStorage<double> &ownerReconstructions, const ScalarPiercedStorage<double> &neighReconstructions,
+                                 ScalarPiercedStorage<double> *interfacesFluxes, double *maxEig)
 {
+    // Get mesh information
+    const bitpit::VolumeKernel &mesh = meshInfo.getPatch();
+
+    const ScalarStorage<std::size_t> &interfaceRawIds = meshInfo.getInterfaceRawIds();
     const std::size_t nInterfaces = interfaceRawIds.size();
 
     // Evaluate fluxes
-    const std::size_t *devInterfaceRawIds = interfaceRawIds.cuda_devData();
+    const int *devInterfaceSolvedFlag = interfaceSolvedFlag.cuda_devData();
+    const std::size_t *devInterfaceRawIds = meshInfo.cuda_getInterfaceRawIdDevData();
+    const double *devInterfaceNormals = meshInfo.cuda_getInterfaceNormalDevData();
 
-    const double *devInterfaceNormals = computationInfo.cuda_getInterfaceNormalDevData();
-
-    const double *devLeftReconstructions  = leftReconstructions.cuda_devData();
-    const double *devRightReconstructions = rightReconstructions.cuda_devData();
+    const double *devOwnerReconstructions = ownerReconstructions.cuda_devData();
+    const double *devNeighReconstructions = neighReconstructions.cuda_devData();
 
     double *devInterfacesFluxes = interfacesFluxes->cuda_devData();
 
@@ -211,8 +222,8 @@ void cuda_computeInterfaceFluxes(const ComputationInfo &computationInfo, const S
 
     int blockSize = 256;
     int numBlocks = (nInterfaces + blockSize - 1) / blockSize;
-    dev_computeInterfaceFluxes<<<numBlocks, blockSize>>>(nInterfaces, devInterfaceRawIds, devInterfaceNormals,
-                                                         devLeftReconstructions, devRightReconstructions,
+    dev_computeInterfaceFluxes<<<numBlocks, blockSize>>>(nInterfaces, devInterfaceRawIds, devInterfaceSolvedFlag, devInterfaceNormals,
+                                                         devOwnerReconstructions, devNeighReconstructions,
                                                          devInterfacesFluxes, devMaxEig);
 
     // Update host data
@@ -238,166 +249,156 @@ void cuda_resetRHS(ScalarPiercedStorage<double> *cellsRHS)
  * Update cell RHS.
  *
  * \param problemType is the problem type
- * \param computationInfo are the computation information
+ * \param meshInfo are the geometrical information
+ * \param cellSolvedFlag is the storage for the cell solved flag
+ * \param interfaceSolvedFlag is the storage for the interface solved flag
  * \param order is the order
- * \param interfaceBCs is the boundary conditions storage
  * \param cellConservatives are the cell conservative values
+ * \param interfaceBCs is the boundary conditions storage
  * \param[out] cellsRHS on output will containt the RHS
  * \param[out] maxEig on putput will containt the maximum eigenvalue
  */
-void cuda_updateRHS(problem::ProblemType problemType, const ComputationInfo &computationInfo,
-                    const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-                    const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
+void cuda_updateRHS(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo,
+                    const ScalarPiercedStorage<int> &cellSolvedFlag, const ScalarPiercedStorage<int> &interfaceSolvedFlag,
+                    const int order, const ScalarPiercedStorage<double> &cellConservatives,
+                    const ScalarPiercedStorage<int> &interfaceBCs, ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
 {
-    //
-    // Initialize residual
-    //
+    // Get mesh information
+    const bitpit::VolumeKernel &mesh = meshInfo.getPatch();
+
+    const ScalarStorage<std::size_t> &interfaceRawIds = meshInfo.getInterfaceRawIds();
+    const std::size_t nInterfaces = interfaceRawIds.size();
+
+    // Evaluate interface reconstructions
+    ScalarPiercedStorage<double> ownerReconstructions(N_FIELDS, &mesh.getInterfaces());
+    ScalarPiercedStorage<double> neighReconstructions(N_FIELDS, &mesh.getInterfaces());
+    ownerReconstructions.cuda_allocate();
+    neighReconstructions.cuda_allocate();
+
+    for (std::size_t i = 0; i < nInterfaces; ++i) {
+        const std::size_t interfaceRawId = interfaceRawIds[i];
+        if (!interfaceSolvedFlag.rawAt(interfaceRawId)) {
+            continue;
+        }
+
+        // Info about the interface
+        const bitpit::Interface &interface = mesh.getInterfaces().rawAt(interfaceRawId);
+        int interfaceBCType = interfaceBCs.rawAt(interfaceRawId);
+        const std::array<double, 3> &interfaceCentroid = meshInfo.rawGetInterfaceCentroid(interfaceRawId);
+
+        // Info about the interface owner
+        long ownerId = interface.getOwner();
+        bitpit::VolumeKernel::CellConstIterator ownerItr = mesh.getCellConstIterator(ownerId);
+        std::size_t ownerRawId = ownerItr.getRawIndex();
+        const double *ownerMean = cellConservatives.rawData(ownerRawId);
+        bool ownerSolved = cellSolvedFlag.rawAt(ownerRawId);
+
+        // Info about the interface neighbour
+        long neighId = interface.getNeigh();
+        std::size_t neighRawId = std::numeric_limits<std::size_t>::max();
+        const double *neighMean = nullptr;
+        if (neighId >= 0) {
+            bitpit::VolumeKernel::CellConstIterator neighItr = mesh.getCellConstIterator(neighId);
+
+            neighRawId  = neighItr.getRawIndex();
+            neighMean   = cellConservatives.rawData(neighRawId);
+        }
+
+        // Evaluate reconstructions
+        double *ownerReconstruction = ownerReconstructions.rawData(interfaceRawId);
+        double *neighReconstruction = neighReconstructions.rawData(interfaceRawId);
+
+        if (interfaceBCType == BC_NONE)  {
+            reconstruction::eval(ownerRawId, meshInfo, order, interfaceCentroid, ownerMean, ownerReconstruction);
+            reconstruction::eval(neighRawId, meshInfo, order, interfaceCentroid, neighMean, neighReconstruction);
+        } else {
+            long fluidRawId;
+            bool flipNormal;
+            const double *fluidMean;
+            double *fluidReconstruction;
+            double *virtualReconstruction;
+            if (ownerSolved) {
+                flipNormal            = false;
+                fluidRawId            = ownerRawId;
+                fluidMean             = ownerMean;
+                fluidReconstruction   = ownerReconstruction;
+                virtualReconstruction = neighReconstruction;
+            } else {
+                flipNormal            = true;
+                fluidRawId            = neighRawId;
+                fluidMean             = neighMean;
+                fluidReconstruction   = neighReconstruction;
+                virtualReconstruction = ownerReconstruction;
+            }
+
+            int interfaceBC = interfaceBCs.rawAt(interfaceRawId);
+
+            std::array<double, 3> boundaryNormal = meshInfo.rawGetInterfaceNormal(interfaceRawId);
+            if (flipNormal) {
+                boundaryNormal = -1. * boundaryNormal;
+            }
+
+            reconstruction::eval(fluidRawId, meshInfo, order, interfaceCentroid, fluidMean, fluidReconstruction);
+            evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, boundaryNormal, fluidReconstruction, virtualReconstruction);
+        }
+    }
+
+    ownerReconstructions.cuda_updateDevice();
+    neighReconstructions.cuda_updateDevice();
+
+    // Evaluate fluxes
+    ScalarPiercedStorage<double> interfacesFluxes(N_FIELDS, &mesh.getInterfaces());
+    interfacesFluxes.cuda_allocate();
+
+    cuda_computeInterfaceFluxes(meshInfo, interfaceSolvedFlag, ownerReconstructions, neighReconstructions, &interfacesFluxes, maxEig);
 
     // Reset the residuals
     cuda_resetRHS(cellsRHS);
 
-    //
-    // Process uniform interfaces
-    //
-    const ScalarStorage<std::size_t> &solvedUniformInterfaceRawIds = computationInfo.getSolvedUniformInterfaceRawIds();
-    const ScalarStorage<std::size_t> &solvedUniformInterfaceOwnerRawIds = computationInfo.getSolvedUniformInterfaceOwnerRawIds();
-    const ScalarStorage<std::size_t> &solvedUniformInterfaceNeighRawIds = computationInfo.getSolvedUniformInterfaceNeighRawIds();
-    const std::size_t nSolvedUniformInterfaces = solvedUniformInterfaceRawIds.size();
-
-    // Evaluate interface reconstructions
-    ScalarStorage<double> uniformOwnerReconstructions(N_FIELDS * nSolvedUniformInterfaces);
-    ScalarStorage<double> uniformNeighReconstructions(N_FIELDS * nSolvedUniformInterfaces);
-    uniformOwnerReconstructions.cuda_allocate();
-    uniformNeighReconstructions.cuda_allocate();
-
-    // Reconstruct interface values
-    for (std::size_t i = 0; i < nSolvedUniformInterfaces; ++i) {
-        // Info about the interface
-        const std::size_t interfaceRawId = solvedUniformInterfaceRawIds[i];
-        const std::array<double, 3> &interfaceCentroid = computationInfo.rawGetInterfaceCentroid(interfaceRawId);
-
-        // Info about the interface owner
-        std::size_t ownerRawId = solvedUniformInterfaceOwnerRawIds[i];
-        const double *ownerMean = cellConservatives.rawData(ownerRawId);
-
-        // Info about the interface neighbour
-        std::size_t neighRawId = solvedUniformInterfaceNeighRawIds[i];
-        const double *neighMean = cellConservatives.rawData(neighRawId);
-
-        // Evaluate interface reconstructions
-        double *ownerReconstruction = uniformOwnerReconstructions.data() + N_FIELDS * i;
-        double *neighReconstruction = uniformNeighReconstructions.data() + N_FIELDS * i;
-
-        reconstruction::eval(ownerRawId, computationInfo, order, interfaceCentroid, ownerMean, ownerReconstruction);
-        reconstruction::eval(neighRawId, computationInfo, order, interfaceCentroid, neighMean, neighReconstruction);
-    }
-
-    uniformOwnerReconstructions.cuda_updateDevice();
-    uniformNeighReconstructions.cuda_updateDevice();
-
-    // Evaluate fluxes
-    ScalarStorage<double> uniformInterfacesFluxes(N_FIELDS * nSolvedUniformInterfaces);
-    uniformInterfacesFluxes.cuda_allocate();
-
-    double uniformMaxEig;
-    cuda_computeInterfaceFluxes(computationInfo, solvedUniformInterfaceRawIds, uniformOwnerReconstructions, uniformNeighReconstructions, &uniformInterfacesFluxes, &uniformMaxEig);
-
     // Update the residuals
-    for (std::size_t i = 0; i < nSolvedUniformInterfaces; ++i) {
+    for (std::size_t i = 0; i < nInterfaces; ++i) {
+        const std::size_t interfaceRawId = interfaceRawIds[i];
+        if (!interfaceSolvedFlag.rawAt(interfaceRawId)) {
+            continue;
+        }
+
         // Info about the interface
-        const std::size_t interfaceRawId = solvedUniformInterfaceRawIds[i];
-        const double interfaceArea = computationInfo.rawGetInterfaceArea(interfaceRawId);
-        const double *interfaceFluxes = uniformInterfacesFluxes.data() + N_FIELDS * i;
+        const bitpit::Interface &interface = mesh.getInterfaces().rawAt(interfaceRawId);
+        const double interfaceArea = meshInfo.rawGetInterfaceArea(interfaceRawId);
+        const double *interfaceFluxes = interfacesFluxes.rawData(interfaceRawId);
 
         // Sum owner fluxes
-        std::size_t ownerRawId = solvedUniformInterfaceOwnerRawIds[i];
+        long ownerId = interface.getOwner();
+        bitpit::VolumeKernel::CellConstIterator ownerItr = mesh.getCellConstIterator(ownerId);
+        std::size_t ownerRawId = ownerItr.getRawIndex();
         double *ownerRHS = cellsRHS->rawData(ownerRawId);
-        for (int k = 0; k < N_FIELDS; ++k) {
-            ownerRHS[k] -= interfaceArea * interfaceFluxes[k];
+        bool ownerSolved = cellSolvedFlag.rawAt(ownerRawId);
+        if (ownerSolved)  {
+            for (int k = 0; k < N_FIELDS; ++k) {
+                ownerRHS[k] -= interfaceArea * interfaceFluxes[k];
+            }
         }
 
         // Sum neighbour fluxes
-        std::size_t neighRawId = solvedUniformInterfaceNeighRawIds[i];
-        double *neighRHS = cellsRHS->rawData(neighRawId);
-        for (int k = 0; k < N_FIELDS; ++k) {
-            neighRHS[k] += interfaceArea * interfaceFluxes[k];
+        long neighId = interface.getNeigh();
+        if (neighId >= 0) {
+            bitpit::VolumeKernel::CellConstIterator neighItr = mesh.getCellConstIterator(neighId);
+            std::size_t neighRawId = neighItr.getRawIndex();
+            bool neighSolved = cellSolvedFlag.rawAt(neighRawId);
+            if (neighSolved)  {
+                double *neighRHS = cellsRHS->rawData(neighRawId);
+                for (int k = 0; k < N_FIELDS; ++k) {
+                    neighRHS[k] += interfaceArea * interfaceFluxes[k];
+                }
+            }
         }
     }
 
     // Clean-up
-    uniformInterfacesFluxes.cuda_free();
+    interfacesFluxes.cuda_free();
 
-    uniformOwnerReconstructions.cuda_free();
-    uniformNeighReconstructions.cuda_free();
-
-    //
-    // Process boundary interfaces
-    //
-    const ScalarStorage<std::size_t> &solvedBoundaryInterfaceRawIds = computationInfo.getSolvedBoundaryInterfaceRawIds();
-    const ScalarStorage<std::size_t> &solvedBoundaryInterfaceSigns = computationInfo.getSolvedBoundaryInterfaceSigns();
-    const ScalarStorage<std::size_t> &solvedBoundaryInterfaceFluidRawIds = computationInfo.getSolvedBoundaryInterfaceFluidRawIds();
-    const std::size_t nSolvedBoundaryInterfaces = solvedBoundaryInterfaceRawIds.size();
-
-    // Evaluate interface reconstructions
-    ScalarStorage<double> boundaryFluidReconstructions(N_FIELDS * nSolvedBoundaryInterfaces);
-    ScalarStorage<double> boundaryVirtualReconstructions(N_FIELDS * nSolvedBoundaryInterfaces);
-    boundaryFluidReconstructions.cuda_allocate();
-    boundaryVirtualReconstructions.cuda_allocate();
-
-    // Reconstruct interface values
-    for (std::size_t i = 0; i < nSolvedBoundaryInterfaces; ++i) {
-        // Info about the interface
-        const std::size_t interfaceRawId = solvedBoundaryInterfaceRawIds[i];
-        const std::array<double, 3> &interfaceNormal = computationInfo.rawGetInterfaceNormal(interfaceRawId);
-        const std::array<double, 3> &interfaceCentroid = computationInfo.rawGetInterfaceCentroid(interfaceRawId);
-        int interfaceBC = solvedBoundaryInterfaceBCs[i];
-
-        // Info about the interface fluid cell
-        std::size_t fluidRawId = solvedBoundaryInterfaceFluidRawIds[i];
-        const double *fluidMean = cellConservatives.rawData(fluidRawId);
-
-        // Evaluate interface reconstructions
-        double *fluidReconstruction   = boundaryFluidReconstructions.data()   + N_FIELDS * i;
-        double *virtualReconstruction = boundaryVirtualReconstructions.data() + N_FIELDS * i;
-
-        reconstruction::eval(fluidRawId, computationInfo, order, interfaceCentroid, fluidMean, fluidReconstruction);
-        evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, interfaceNormal, fluidReconstruction, virtualReconstruction);
-    }
-
-    boundaryFluidReconstructions.cuda_updateDevice();
-    boundaryVirtualReconstructions.cuda_updateDevice();
-
-    // Evaluate fluxes
-    ScalarStorage<double> boundaryInterfacesFluxes(N_FIELDS * nSolvedBoundaryInterfaces);
-    boundaryInterfacesFluxes.cuda_allocate();
-
-    double boundaryMaxEig;
-    cuda_computeInterfaceFluxes(computationInfo, solvedBoundaryInterfaceRawIds, boundaryFluidReconstructions, boundaryVirtualReconstructions, &boundaryInterfacesFluxes, &boundaryMaxEig);
-
-    // Update the residuals
-    for (std::size_t i = 0; i < nSolvedBoundaryInterfaces; ++i) {
-        // Info about the interface
-        const std::size_t interfaceRawId = solvedBoundaryInterfaceRawIds[i];
-        const double interfaceArea = computationInfo.rawGetInterfaceArea(interfaceRawId);
-        const int interfaceSign = solvedBoundaryInterfaceSigns[i];
-        const double *interfaceFluxes = boundaryInterfacesFluxes.data() + N_FIELDS * i;
-
-        // Sum fluid fluxes
-        std::size_t fluidRawId = solvedBoundaryInterfaceFluidRawIds[i];
-        double *fluidRHS = cellsRHS->rawData(fluidRawId);
-        for (int k = 0; k < N_FIELDS; ++k) {
-            fluidRHS[k] -= interfaceSign * interfaceArea * interfaceFluxes[k];
-        }
-    }
-
-    // Clean-up
-    boundaryInterfacesFluxes.cuda_free();
-
-    boundaryFluidReconstructions.cuda_free();
-    boundaryVirtualReconstructions.cuda_free();
-
-    // Evaluate maximum eigenvalue
-    *maxEig = std::max(uniformMaxEig, boundaryMaxEig);
+    ownerReconstructions.cuda_free();
+    neighReconstructions.cuda_free();
 }
 
 }
