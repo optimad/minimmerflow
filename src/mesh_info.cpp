@@ -132,7 +132,7 @@ int MeshGeometricalInfo::getDimension() const
  *
  * \result The list of cells raw ids.
  */
-const ScalarStorage<std::size_t> & MeshGeometricalInfo::getCellRawIds() const
+const std::vector<std::size_t> & MeshGeometricalInfo::getCellRawIds() const
 {
     return m_cellRawIds;
 }
@@ -142,7 +142,7 @@ const ScalarStorage<std::size_t> & MeshGeometricalInfo::getCellRawIds() const
  *
  * \result The list of internal cells raw ids.
  */
-const ScalarStorage<std::size_t> & MeshGeometricalInfo::getInternalCellRawIds() const
+const std::vector<std::size_t> & MeshGeometricalInfo::getInternalCellRawIds() const
 {
     return m_internalCellRawIds;
 }
@@ -278,7 +278,7 @@ PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getCellCentro
  *
  * \result The list of interfaces raw ids.
  */
-const ScalarStorage<std::size_t> & MeshGeometricalInfo::getInterfaceRawIds() const
+const std::vector<std::size_t> & MeshGeometricalInfo::getInterfaceRawIds() const
 {
     return m_interfaceRawIds;
 }

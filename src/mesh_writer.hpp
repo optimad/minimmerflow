@@ -27,13 +27,12 @@
 
 #include <bitpit_patchkernel.hpp>
 
-#include "constants.hpp"
-#include "containers.hpp"
+#include "storage.hpp"
 
 class MeshWriter: public bitpit::VTKBaseStreamer {
 
 public:
-    MeshWriter(bitpit::VolumeKernel *mesh, ScalarPiercedStorage<double> *primitives, ScalarPiercedStorage<double> *conservatives, ScalarPiercedStorage<double> *RHS);
+    MeshWriter(bitpit::VolumeKernel *mesh, CellStorageDouble *primitives, CellStorageDouble *conservatives, CellStorageDouble *RHS);
 
     void flushData(std::fstream &stream, const std::string &name, bitpit::VTKFormat format) override;
 
@@ -43,9 +42,9 @@ private:
     static const int SOURCE_RHS          = 2;
 
     bitpit::VolumeKernel *m_mesh;
-    ScalarPiercedStorage<double> *m_primitives;
-    ScalarPiercedStorage<double> *m_conservatives;
-    ScalarPiercedStorage<double> *m_RHS;
+    CellStorageDouble *m_primitives;
+    CellStorageDouble *m_conservatives;
+    CellStorageDouble *m_RHS;
 
 };
 

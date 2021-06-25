@@ -25,9 +25,18 @@
 #ifndef __MINIMMERFLOW_STORAGE_HPP__
 #define __MINIMMERFLOW_STORAGE_HPP__
 
-#include "constants.hpp"
+#include <constants.hpp>
+#include <communications.hpp>
 
-#include <array>
+typedef bitpit::PiercedStorage<bool, long> CellStorageBool;
+typedef bitpit::PiercedStorage<double, long> CellStorageDouble;
+
+typedef bitpit::PiercedStorage<int, long> InterfaceStorageInt;
+typedef bitpit::PiercedStorage<double, long> InterfaceStorageDouble;
+
+#if ENABLE_MPI
+typedef PiercedStorageBufferStreamer<double> CellBufferStreamer;
+#endif
 
 typedef std::array<double, N_FIELDS> FluxData;
 

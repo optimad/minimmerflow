@@ -196,13 +196,13 @@ void computation(int argc, char *argv[])
 
     MeshGeometricalInfo meshInfo(&mesh);
 
-    const ScalarStorage<std::size_t> &cellRawIds = meshInfo.getCellRawIds();
+    const std::vector<std::size_t> &cellRawIds = meshInfo.getCellRawIds();
     const std::size_t nCells = cellRawIds.size();
 
-    const ScalarStorage<std::size_t> &internalCellRawIds = meshInfo.getInternalCellRawIds();
+    const std::vector<std::size_t> &internalCellRawIds = meshInfo.getInternalCellRawIds();
     const std::size_t nInternalCells = internalCellRawIds.size();
 
-    const ScalarStorage<std::size_t> &interfaceRawIds = meshInfo.getInterfaceRawIds();
+    const std::vector<std::size_t> &interfaceRawIds = meshInfo.getInterfaceRawIds();
     const std::size_t nInterfaces = interfaceRawIds.size();
 
     log_memory_status();
@@ -211,12 +211,12 @@ void computation(int argc, char *argv[])
     log::cout() << std::endl;
     log::cout() << "Storage initialization..."  << std::endl;
 
-    ScalarPiercedStorage<bool> cellSolvedFlag(1, &mesh.getCells());
-    ScalarPiercedStorage<bool> cellFluidFlag(1, &mesh.getCells());
-    ScalarPiercedStorage<double> cellPrimitives(N_FIELDS, &mesh.getCells());
-    ScalarPiercedStorage<double> cellConservatives(N_FIELDS, &mesh.getCells());
-    ScalarPiercedStorage<double> cellConservativesWork(N_FIELDS, &mesh.getCells());
-    ScalarPiercedStorage<double> cellRHS(N_FIELDS, &mesh.getCells());
+    CellStorageBool cellSolvedFlag(1, &mesh.getCells());
+    CellStorageBool cellFluidFlag(1, &mesh.getCells());
+    CellStorageDouble cellPrimitives(N_FIELDS, &mesh.getCells());
+    CellStorageDouble cellConservatives(N_FIELDS, &mesh.getCells());
+    CellStorageDouble cellConservativesWork(N_FIELDS, &mesh.getCells());
+    CellStorageDouble cellRHS(N_FIELDS, &mesh.getCells());
 
     // Initialize fluid and solved flag
     for (std::size_t i = 0; i < nCells; ++i) {
@@ -248,7 +248,7 @@ void computation(int argc, char *argv[])
     log::cout() << std::endl;
     log::cout() << "Boundary conditions initialization..."  << std::endl;
 
-    ScalarPiercedStorage<int> interfaceBCs(1, &mesh.getInterfaces());
+    InterfaceStorageInt interfaceBCs(1, &mesh.getInterfaces());
     for (std::size_t i = 0; i < nInterfaces; ++i) {
         const std::size_t interfaceRawId = interfaceRawIds[i];
         const Interface &interface = mesh.getInterfaces().rawAt(interfaceRawId);
@@ -307,15 +307,15 @@ void computation(int argc, char *argv[])
     std::unique_ptr<GhostCommunicator> conservativeCommunicator;
     std::unique_ptr<GhostCommunicator> conservativeWorkCommunicator;
 
-    std::unique_ptr<ValuePiercedStorageBufferStreamer<double>> conservativeGhostStreamer;
-    std::unique_ptr<ValuePiercedStorageBufferStreamer<double>> conservativeWorkGhostStreamer;
+    std::unique_ptr<CellBufferStreamer> conservativeGhostStreamer;
+    std::unique_ptr<CellBufferStreamer> conservativeWorkGhostStreamer;
     if (mesh.isPartitioned()) {
         // Conservative fields
         conservativeCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh));
         conservativeCommunicator->resetExchangeLists();
         conservativeCommunicator->setRecvsContinuous(true);
 
-        conservativeGhostStreamer = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&cellConservatives));
+        conservativeGhostStreamer = std::unique_ptr<CellBufferStreamer>(new CellBufferStreamer(&cellConservatives));
         conservativeCommunicator->addData(conservativeGhostStreamer.get());
 
         // Conservative tields tmp
@@ -323,7 +323,7 @@ void computation(int argc, char *argv[])
         conservativeWorkCommunicator->resetExchangeLists();
         conservativeWorkCommunicator->setRecvsContinuous(true);
 
-        conservativeWorkGhostStreamer = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&cellConservativesWork));
+        conservativeWorkGhostStreamer = std::unique_ptr<CellBufferStreamer>(new CellBufferStreamer(&cellConservativesWork));
         conservativeWorkCommunicator->addData(conservativeWorkGhostStreamer.get());
     }
 #endif
