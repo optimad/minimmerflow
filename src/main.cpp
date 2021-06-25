@@ -195,9 +195,6 @@ void computation(int argc, char *argv[])
     log::cout() << "Mesh data initialization..."  << std::endl;
 
     MeshGeometricalInfo meshInfo(&mesh);
-#if ENABLE_CUDA
-    meshInfo.cuda_initialize();
-#endif
 
     const ScalarStorage<std::size_t> &cellRawIds = meshInfo.getCellRawIds();
     const std::size_t nCells = cellRawIds.size();
@@ -574,11 +571,6 @@ void computation(int argc, char *argv[])
     log::cout() << std::endl;
     log::cout() << " Final error:  " << std::setprecision(12) << std::scientific << error << std::endl;
     log::cout() << std::endl;
-
-#if ENABLE_CUDA
-    // Cuda finalization
-    meshInfo.cuda_finalize();
-#endif
 }
 
 int main(int argc, char *argv[])

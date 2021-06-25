@@ -24,40 +24,36 @@
 
 #include "mesh_info.hpp"
 
+using namespace bitpit;
+
+/*!
+ * \brief The MeshGeometricalInfo class provides an interface for defining patch info.
+ */
+
+/*!
+ * Creates a new info.
+ *
+ * \param patch is patch from which the informations will be extracted
+ */
+MeshGeometricalInfo::MeshGeometricalInfo(VolumeKernel *patch)
+    : PatchInfo(patch)
+{
+    m_volumePatch = dynamic_cast<const VolumeKernel *>(patch);
+    if (!m_volumePatch) {
+        throw std::runtime_error("Volume geometrical information can only be used with volume patches.");
+    }
+
+    MeshGeometricalInfo::_init();
+
+    extract();
+}
+
+#if ENABLE_CUDA
 /*!
  * Initialize CUDA operations.
  */
 void MeshGeometricalInfo::cuda_initialize()
 {
-    // Allocate CUDA memory
-    m_cellRawIds.cuda_allocate();
-    m_internalCellRawIds.cuda_allocate();
-
-    m_cellVolumes.cuda_allocate();
-    m_cellSizes.cuda_allocate();
-    m_cellCentroids.cuda_allocate();
-
-    m_interfaceRawIds.cuda_allocate();
-
-    m_interfaceAreas.cuda_allocate();
-    m_interfaceCentroids.cuda_allocate();
-    m_interfaceNormals.cuda_allocate();
-    m_interfaceTangents.cuda_allocate();
-
-    // Copy data to the device
-    m_cellRawIds.cuda_updateDevice();
-    m_internalCellRawIds.cuda_updateDevice();
-
-    m_cellVolumes.cuda_updateDevice();
-    m_cellSizes.cuda_updateDevice();
-    m_cellCentroids.cuda_updateDevice();
-
-    m_interfaceRawIds.cuda_updateDevice();
-
-    m_interfaceAreas.cuda_updateDevice();
-    m_interfaceCentroids.cuda_updateDevice();
-    m_interfaceNormals.cuda_updateDevice();
-    m_interfaceTangents.cuda_updateDevice();
 }
 
 /*!
@@ -65,188 +61,522 @@ void MeshGeometricalInfo::cuda_initialize()
  */
 void MeshGeometricalInfo::cuda_finalize()
 {
-    // Deallocate CUDA memory
-    m_cellRawIds.cuda_free();
-    m_internalCellRawIds.cuda_free();
+}
+#endif
 
-    m_cellVolumes.cuda_free();
-    m_cellSizes.cuda_free();
-    m_cellCentroids.cuda_free();
-
-    m_interfaceRawIds.cuda_free();
-
-    m_interfaceAreas.cuda_free();
-    m_interfaceCentroids.cuda_free();
-    m_interfaceNormals.cuda_free();
-    m_interfaceTangents.cuda_free();
+/*!
+ * Get the patch.
+ *
+ * \result The patch.
+ */
+bitpit::VolumeKernel const & MeshGeometricalInfo::getPatch() const
+{
+    return *m_volumePatch;
 }
 
 /*!
- * Gets a constant pointer to the cell raw id CUDA data storage.
- *
- * \result A constant pointer to the cell raw id CUDA data storage.
+ * Sets the patch associated to the info.
  */
-const std::size_t * MeshGeometricalInfo::cuda_getCellRawIdDevData() const
+void MeshGeometricalInfo::_init()
 {
-    return m_cellRawIds.cuda_devData();
+    m_cellVolumes.setStaticKernel(&m_volumePatch->getCells());
+    m_cellSizes.setStaticKernel(&m_volumePatch->getCells());
+    m_cellCentroids.setStaticKernel(&m_volumePatch->getCells());
+
+    m_interfaceAreas.setStaticKernel(&m_volumePatch->getInterfaces());
+    m_interfaceCentroids.setStaticKernel(&m_volumePatch->getInterfaces());
+    m_interfaceNormals.setStaticKernel(&m_volumePatch->getInterfaces());
+    m_interfaceTangents.setStaticKernel(&m_volumePatch->getInterfaces());
 }
 
 /*!
- * Gets a constant pointer to the internal cell raw id CUDA data storage.
- *
- * \result A constant pointer to the internal cell raw id CUDA data storage.
+ * Internal function to reset the information.
  */
-const std::size_t * MeshGeometricalInfo::cuda_getInternalCellRawIdDevData() const
+void MeshGeometricalInfo::_reset()
 {
-    return m_internalCellRawIds.cuda_devData();
 }
 
 /*!
- * Gets a pointer to the cell volume CUDA data storage.
- *
- * \result A pointer to the cell volume CUDA data storage.
+ * Internal function to extract global information from the patch.
  */
-double * MeshGeometricalInfo::cuda_getCellVolumeDevData()
+void MeshGeometricalInfo::_extract()
 {
-    return m_cellVolumes.cuda_devData();
+    // Evaluate cell data
+    for (VolumeKernel::CellConstIterator cellItr = m_patch->cellConstBegin(); cellItr != m_patch->cellConstEnd(); ++cellItr) {
+        long cellId = cellItr.getId();
+        std::size_t cellRawId = cellItr.getRawIndex();
+
+        m_cellVolumes.rawSet(cellRawId, m_volumePatch->evalCellVolume(cellId));
+        m_cellSizes.rawSet(cellRawId, m_volumePatch->evalCellSize(cellId));
+        m_cellCentroids.rawSet(cellRawId, m_volumePatch->evalCellCentroid(cellId));
+    }
+
+    // Evaluate interface data
+    for (VolumeKernel::InterfaceConstIterator interfaceItr = m_patch->interfaceConstBegin(); interfaceItr != m_patch->interfaceConstEnd(); ++interfaceItr) {
+        long cellId = interfaceItr.getId();
+        std::size_t interfaceRawId = interfaceItr.getRawIndex();
+
+        m_interfaceAreas.rawSet(interfaceRawId, m_volumePatch->evalInterfaceArea(cellId));
+        m_interfaceCentroids.rawSet(interfaceRawId, m_volumePatch->evalInterfaceCentroid(cellId));
+        m_interfaceNormals.rawSet(interfaceRawId, m_volumePatch->evalInterfaceNormal(cellId));
+        m_interfaceTangents.rawSet(interfaceRawId, {{1., 0, 0}});
+    }
 }
 
 /*!
- * Gets a constant pointer to the cell volume CUDA data storage.
+ * Gets the dimension of the patch.
  *
- * \result A constant pointer to the cell volume CUDA data storage.
+ * \result The dimension of the patch.
  */
-const double * MeshGeometricalInfo::cuda_getCellVolumeDevData() const
+int MeshGeometricalInfo::getDimension() const
 {
-    return m_cellVolumes.cuda_devData();
+    return m_patch->getDimension();
 }
 
 /*!
- * Gets a pointer to the cell size CUDA data storage.
+ * Gets the volume of the specified cell.
  *
- * \result A pointer to the cell size CUDA data storage.
+ * \param id is the id of the cell
+ * \result The volume of the specified cell.
  */
-double * MeshGeometricalInfo::cuda_getCellSizeDevData()
+double MeshGeometricalInfo::getCellVolume(long id) const
 {
-    return m_cellSizes.cuda_devData();
+    return m_cellVolumes.at(id);
 }
 
 /*!
- * Gets a constant pointer to the cell size CUDA data storage.
+ * Gets the volume of the cell at the specified raw position.
  *
- * \result A constant pointer to the cell size CUDA data storage.
+ * \param pos is the raw position of the item
+ * \result The volume of the specified cell.
  */
-const double * MeshGeometricalInfo::cuda_getCellSizeDevData() const
+double MeshGeometricalInfo::rawGetCellVolume(size_t pos) const
 {
-    return m_cellSizes.cuda_devData();
+    return m_cellVolumes.rawAt(pos);
 }
 
 /*!
- * Gets a pointer to the cell centroid CUDA data storage.
+ * Gets a constant reference to the cell volume storage.
  *
- * \result A pointer to the cell centroid CUDA data storage.
+ * \result A constant reference to the cell volume storage.
  */
-double * MeshGeometricalInfo::cuda_getCellCentroidDevData()
+const PiercedStorage<double, long> & MeshGeometricalInfo::getCellVolumes() const
 {
-    return m_cellCentroids.cuda_devData();
+    return m_cellVolumes;
 }
 
 /*!
- * Gets a constant pointer to the cell centroid CUDA data storage.
+ * Gets a reference to the cell volume storage.
  *
- * \result A constant pointer to the cell centroid CUDA data storage.
+ * \result A reference to the cell volume storage.
  */
-const double * MeshGeometricalInfo::cuda_getCellCentroidDevData() const
+PiercedStorage<double, long> & MeshGeometricalInfo::getCellVolumes()
 {
-    return m_cellCentroids.cuda_devData();
+    return m_cellVolumes;
+}
+
+#if ENABLE_CUDA
+/*!
+ * Gets a pointer to the cell volume CUDA storage.
+ *
+ * \result A pointer to the cell volume CUDA storage.
+ */
+double * MeshGeometricalInfo::cuda_getCellVolumeStorage()
+{
+    return m_cuda_cellVolumeStorage;
 }
 
 /*!
- * Gets a constant pointer to the interface raw id CUDA data storage.
+ * Gets a constant pointer to the cell volume CUDA storage.
  *
- * \result A constant pointer to the interface raw id CUDA data storage.
+ * \result A constant pointer to the cell volume CUDA storage.
  */
-const std::size_t * MeshGeometricalInfo::cuda_getInterfaceRawIdDevData() const
+const double * MeshGeometricalInfo::cuda_getCellVolumeStorage() const
 {
-    return m_interfaceRawIds.cuda_devData();
+    return m_cuda_cellVolumeStorage;
+}
+#endif
+
+/*!
+ * Gets the size of the specified cell.
+ *
+ * \param id is the id of the cell
+ * \result The size of the specified cell.
+ */
+double MeshGeometricalInfo::getCellSize(long id) const
+{
+    return m_cellSizes.at(id);
 }
 
 /*!
- * Gets a pointer to the interface area CUDA data storage.
+ * Gets the size of the cell at the specified raw position.
  *
- * \result A pointer to the interface area CUDA data storage.
+ * \param pos is the raw position of the item
+ * \result The size of the specified cell.
  */
-double * MeshGeometricalInfo::cuda_getInterfaceAreaDevData()
+double MeshGeometricalInfo::rawGetCellSize(size_t pos) const
 {
-    return m_interfaceAreas.cuda_devData();
+    return m_cellSizes.rawAt(pos);
 }
 
 /*!
- * Gets a constant pointer to the interface area CUDA data storage.
+ * Gets a constant reference to the cell size storage.
  *
- * \result A constant pointer to the interface area CUDA data storage.
+ * \result A constant reference to the cell size storage.
  */
-const double * MeshGeometricalInfo::cuda_getInterfaceAreaDevData() const
+const PiercedStorage<double, long> & MeshGeometricalInfo::getCellSizes() const
 {
-    return m_interfaceAreas.cuda_devData();
+    return m_cellSizes;
 }
 
 /*!
- * Gets a pointer to the interface centroid CUDA data storage.
+ * Gets a reference to the cell size storage.
  *
- * \result A pointer to the interface centroid CUDA data storage.
+ * \result A reference to the cell size storage.
  */
-double * MeshGeometricalInfo::cuda_getInterfaceCentroidDevData()
+PiercedStorage<double, long> & MeshGeometricalInfo::getCellSizes()
 {
-    return m_interfaceCentroids.cuda_devData();
+    return m_cellSizes;
+}
+
+#if ENABLE_CUDA
+/*!
+ * Gets a pointer to the cell size CUDA storage.
+ *
+ * \result A pointer to the cell size CUDA storage.
+ */
+double * MeshGeometricalInfo::cuda_getCellSizeStorage()
+{
+    return m_cuda_cellSizeStorage;
 }
 
 /*!
- * Gets a constant pointer to the interface centroid CUDA data storage.
+ * Gets a constant pointer to the cell size CUDA storage.
  *
- * \result A constant pointer to the interface centroid CUDA data storage.
+ * \result A constant pointer to the cell size CUDA storage.
  */
-const double * MeshGeometricalInfo::cuda_getInterfaceCentroidDevData() const
+const double * MeshGeometricalInfo::cuda_getCellSizeStorage() const
 {
-    return m_interfaceCentroids.cuda_devData();
+    return m_cuda_cellSizeStorage;
+}
+#endif
+
+/*!
+ * Gets the centroid of the specified cell.
+ *
+ * \param id is the id of the cell
+ * \result The centroid of the specified cell.
+ */
+const std::array<double, 3> & MeshGeometricalInfo::getCellCentroid(long id) const
+{
+    return m_cellCentroids.at(id);
 }
 
 /*!
- * Gets a pointer to the interface normal CUDA data storage.
+ * Gets the centroid of the cell at the specified raw position.
  *
- * \result A pointer to the interface normal CUDA data storage.
+ * \param pos is the raw position of the item
+ * \result The centroid of the specified cell.
  */
-double * MeshGeometricalInfo::cuda_getInterfaceNormalDevData()
+const std::array<double, 3> & MeshGeometricalInfo::rawGetCellCentroid(size_t pos) const
 {
-    return m_interfaceNormals.cuda_devData();
+    return m_cellCentroids.rawAt(pos);
 }
 
 /*!
- * Gets a constant pointer to the interface normal CUDA data storage.
+ * Gets a constant reference to the cell centroid storage.
  *
- * \result A constant pointer to the interface normal CUDA data storage.
+ * \result A constant reference to the cell centroid storage.
  */
-const double * MeshGeometricalInfo::cuda_getInterfaceNormalDevData() const
+const PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getCellCentroids() const
 {
-    return m_interfaceNormals.cuda_devData();
+    return m_cellCentroids;
 }
 
 /*!
- * Gets a pointer to the interface tangent CUDA data storage.
+ * Gets a reference to the cell centroid storage.
  *
- * \result A pointer to the interface tangent CUDA data storage.
+ * \result A reference to the cell centroid storage.
  */
-double * MeshGeometricalInfo::cuda_getInterfaceTangentDevData()
+PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getCellCentroids()
 {
-    return m_interfaceTangents.cuda_devData();
+    return m_cellCentroids;
+}
+
+#if ENABLE_CUDA
+/*!
+ * Gets a pointer to the cell centroid CUDA storage.
+ *
+ * \result A pointer to the cell centroid CUDA storage.
+ */
+double * MeshGeometricalInfo::cuda_getCellCentroidStorage()
+{
+    return m_cuda_cellCentroidStorage;
 }
 
 /*!
- * Gets a constant pointer to the interface tangent CUDA data storage.
+ * Gets a constant pointer to the cell centroid CUDA storage.
  *
- * \result A constant pointer to the interface tangent CUDA data storage.
+ * \result A constant pointer to the cell centroid CUDA storage.
  */
-const double * MeshGeometricalInfo::cuda_getInterfaceTangentDevData() const
+const double * MeshGeometricalInfo::cuda_getCellCentroidStorage() const
 {
-    return m_interfaceTangents.cuda_devData();
+    return m_cuda_cellCentroidStorage;
 }
+#endif
+
+/*!
+ * Gets the area of the specified interface.
+ *
+ * \param id is the id of the interface
+ * \result The centroid of the specified interface.
+ */
+double MeshGeometricalInfo::getInterfaceArea(long id) const
+{
+    return m_interfaceAreas.at(id);
+}
+
+/*!
+ * Gets the area of the interface at the specified raw position.
+ *
+ * \param pos is the raw position of the item
+ * \result The area of the specified interface.
+ */
+double MeshGeometricalInfo::rawGetInterfaceArea(size_t pos) const
+{
+    return m_interfaceAreas.rawAt(pos);
+}
+
+/*!
+ * Gets a constant reference to the interface area storage.
+ *
+ * \result A constant reference to the interface area storage.
+ */
+const PiercedStorage<double, long> & MeshGeometricalInfo::getInterfaceAreas() const
+{
+    return m_interfaceAreas;
+}
+
+/*!
+ * Gets a reference to the interface area storage.
+ *
+ * \result A reference to the interface area storage.
+ */
+PiercedStorage<double, long> & MeshGeometricalInfo::getInterfaceAreas()
+{
+    return m_interfaceAreas;
+}
+
+#if ENABLE_CUDA
+/*!
+ * Gets a pointer to the interface area CUDA storage.
+ *
+ * \result A pointer to the interface area CUDA storage.
+ */
+double * MeshGeometricalInfo::cuda_getInterfaceAreaStorage()
+{
+    return m_cuda_interfaceAreaStorage;
+}
+
+/*!
+ * Gets a constant pointer to the interface area CUDA storage.
+ *
+ * \result A constant pointer to the interface area CUDA storage.
+ */
+const double * MeshGeometricalInfo::cuda_getInterfaceAreaStorage() const
+{
+    return m_cuda_interfaceAreaStorage;
+}
+#endif
+
+/*!
+ * Gets the centroid of the specified interface.
+ *
+ * \param id is the id of the interface
+ * \result The centroid of the specified interface.
+ */
+const std::array<double, 3> & MeshGeometricalInfo::getInterfaceCentroid(long id) const
+{
+    return m_interfaceCentroids.at(id);
+}
+
+/*!
+ * Gets the centroid of the interface at the specified raw position.
+ *
+ * \param pos is the raw position of the item
+ * \result The centroid of the specified interface.
+ */
+const std::array<double, 3> & MeshGeometricalInfo::rawGetInterfaceCentroid(size_t pos) const
+{
+    return m_interfaceCentroids.rawAt(pos);
+}
+
+/*!
+ * Gets a constant reference to the interface centroid storage.
+ *
+ * \result A constant reference to the interface centroid storage.
+ */
+const PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInterfaceCentroids() const
+{
+    return m_interfaceCentroids;
+}
+
+/*!
+ * Gets a reference to the interface centroid storage.
+ *
+ * \result A reference to the interface centroid storage.
+ */
+PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInterfaceCentroids()
+{
+    return m_interfaceCentroids;
+}
+
+#if ENABLE_CUDA
+/*!
+ * Gets a pointer to the interface centroid CUDA storage.
+ *
+ * \result A pointer to the interface centroid CUDA storage.
+ */
+double * MeshGeometricalInfo::cuda_getInterfaceCentroidStorage()
+{
+    return m_cuda_interfaceCentroidStorage;
+}
+
+/*!
+ * Gets a constant pointer to the interface centroid CUDA storage.
+ *
+ * \result A constant pointer to the interface centroid CUDA storage.
+ */
+const double * MeshGeometricalInfo::cuda_getInterfaceCentroidStorage() const
+{
+    return m_cuda_interfaceCentroidStorage;
+}
+#endif
+
+/*!
+ * Gets the normal of the specified interface.
+ *
+ * \param id is the id of the interface
+ * \result The normal of the specified interface.
+ */
+const std::array<double, 3> & MeshGeometricalInfo::getInterfaceNormal(long id) const
+{
+    return m_interfaceNormals.at(id);
+}
+
+/*!
+ * Gets the normal of the interface at the specified raw position.
+ *
+ * \param pos is the raw position of the item
+ * \result The normal of the specified interface.
+ */
+const std::array<double, 3> & MeshGeometricalInfo::rawGetInterfaceNormal(size_t pos) const
+{
+    return m_interfaceNormals.rawAt(pos);
+}
+
+/*!
+ * Gets a constant reference to the interface normal storage.
+ *
+ * \result A constant reference to the interface normal storage.
+ */
+const PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInterfaceNormals() const
+{
+    return m_interfaceNormals;
+}
+
+/*!
+ * Gets a reference to the interface normal storage.
+ *
+ * \result A reference to the interface normal storage.
+ */
+PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInterfaceNormals()
+{
+    return m_interfaceNormals;
+}
+
+#if ENABLE_CUDA
+/*!
+ * Gets a pointer to the interface normal CUDA storage.
+ *
+ * \result A pointer to the interface normal CUDA storage.
+ */
+double * MeshGeometricalInfo::cuda_getInterfaceNormalStorage()
+{
+    return m_cuda_interfaceNormalStorage;
+}
+
+/*!
+ * Gets a constant pointer to the interface normal CUDA storage.
+ *
+ * \result A constant pointer to the interface normal CUDA storage.
+ */
+const double * MeshGeometricalInfo::cuda_getInterfaceNormalStorage() const
+{
+    return m_cuda_interfaceNormalStorage;
+}
+#endif
+
+/*!
+ * Gets the tangent of the specified interface.
+ *
+ * \param id is the id of the interface
+ * \result The tangent of the specified interface.
+ */
+const std::array<double, 3> & MeshGeometricalInfo::getInterfaceTangent(long id) const
+{
+    return m_interfaceTangents.at(id);
+}
+
+/*!
+ * Gets the tangent of the interface at the specified raw position.
+ *
+ * \param pos is the raw position of the item
+ * \result The tangent of the specified interface.
+ */
+const std::array<double, 3> & MeshGeometricalInfo::rawGetInterfaceTangent(size_t pos) const
+{
+    return m_interfaceTangents.rawAt(pos);
+}
+
+/*!
+ * Gets a constant reference to the interface tangent storage.
+ *
+ * \result A constant reference to the interface tangent storage.
+ */
+const PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInterfaceTangents() const
+{
+    return m_interfaceTangents;
+}
+
+/*!
+ * Gets a reference to the interface tangent storage.
+ *
+ * \result A reference to the interface tangent storage.
+ */
+PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInterfaceTangents()
+{
+    return m_interfaceTangents;
+}
+
+#if ENABLE_CUDA
+/*!
+ * Gets a pointer to the interface tangent CUDA storage.
+ *
+ * \result A pointer to the interface tangent CUDA storage.
+ */
+double * MeshGeometricalInfo::cuda_getInterfaceTangentStorage()
+{
+    return m_cuda_interfaceTangentStorage;
+}
+
+/*!
+ * Gets a constant pointer to the interface tangent CUDA storage.
+ *
+ * \result A constant pointer to the interface tangent CUDA storage.
+ */
+const double * MeshGeometricalInfo::cuda_getInterfaceTangentStorage() const
+{
+    return m_cuda_interfaceTangentStorage;
+}
+#endif
