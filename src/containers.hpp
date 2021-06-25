@@ -33,56 +33,30 @@
 #include <array>
 
 #if ENABLE_CUDA
-template<typename container_t, typename value_t, typename dev_value_t>
-class ValueBaseStorage : public container_t
+template<typename value_t>
+class ValuePiercedStorage : public bitpit::PiercedStorage<value_t, long>
 {
 
 public:
+    using bitpit::PiercedStorage<value_t, long>::PiercedStorage;
+
     void cuda_allocate();
     void cuda_free();
 
     void cuda_updateHost();
     void cuda_updateDevice();
 
-    dev_value_t * cuda_devData();
-    const dev_value_t * cuda_devData() const;
+    double * cuda_devData();
+    const double * cuda_devData() const;
 
-    virtual std::size_t cuda_devSize() const = 0;
+    void cuda_devFill(const value_t &value);
 
-    void cuda_devFill(const dev_value_t &value);
-
-protected:
-    using container_t::container_t;
-    
-    dev_value_t *m_devData;
-
-};
-
-// Avoid implicit instantiation
-extern template class ValueBaseStorage<bitpit::PiercedStorage<int, long>, int, int>;
-extern template class ValueBaseStorage<bitpit::PiercedStorage<std::size_t, long>, std::size_t, std::size_t>;
-extern template class ValueBaseStorage<bitpit::PiercedStorage<double, long>, double, double>;
-extern template class ValueBaseStorage<bitpit::PiercedStorage<std::array<double, 3>, long>, std::array<double, 3>, double>;
-
-extern template class ValueBaseStorage<std::vector<int>, int, int>;
-extern template class ValueBaseStorage<std::vector<std::size_t>, std::size_t, std::size_t>;
-extern template class ValueBaseStorage<std::vector<double>, double, double>;
-extern template class ValueBaseStorage<std::vector<std::array<double, 3>>, std::array<double, 3>, double>;
-#endif
-
-#if ENABLE_CUDA
-template<typename value_t, typename dev_value_t = value_t>
-class ValuePiercedStorage : public ValueBaseStorage<bitpit::PiercedStorage<value_t, long>, value_t, dev_value_t>
-{
-
-public:
-    std::size_t cuda_devSize() const override;
-    
-    using ValueBaseStorage<bitpit::PiercedStorage<value_t, long>, value_t, dev_value_t>::ValueBaseStorage;
+private:
+    double *m_devData;
 
 };
 #else
-template<typename value_t, typename dev_value_t = value_t>
+template<typename value_t>
 using ValuePiercedStorage = bitpit::PiercedStorage<value_t, long>;
 #endif
 
@@ -90,34 +64,33 @@ template<typename value_t>
 using ScalarPiercedStorage = ValuePiercedStorage<value_t>;
 
 template<typename value_t>
-using VectorPiercedStorage = ValuePiercedStorage<std::array<value_t, 3>, value_t>;
+using VectorPiercedStorage = ValuePiercedStorage<std::array<value_t, 3>>;
 
 #if ENABLE_CUDA
-// Avoid implicit instantiation
-extern template class ValuePiercedStorage<int, int>;
-extern template class ValuePiercedStorage<std::size_t, std::size_t>;
-extern template class ValuePiercedStorage<double, double>;
-extern template class ValuePiercedStorage<std::array<double, 3>, double>;
-#endif
-
-#if ENABLE_MPI
 template<typename value_t>
-using ValuePiercedStorageBufferStreamer = PiercedStorageBufferStreamer<value_t>;
-#endif
-
-#if ENABLE_CUDA
-template<typename value_t, typename dev_value_t = value_t>
-class ValueStorage : public ValueBaseStorage<std::vector<value_t>, value_t, dev_value_t>
+class ValueStorage : public std::vector<value_t>
 {
 
 public:
-    using ValueBaseStorage<std::vector<value_t>, value_t, dev_value_t>::ValueBaseStorage;
-    
-    std::size_t cuda_devSize() const override;
+    using std::vector<value_t>::vector;
+
+    void cuda_allocate();
+    void cuda_free();
+
+    void cuda_updateHost();
+    void cuda_updateDevice();
+
+    double * cuda_devData();
+    const double * cuda_devData() const;
+
+    void cuda_devFill(const value_t &value);
+
+private:
+    double *m_devData;
 
 };
 #else
-template<typename value_t, typename dev_value_t = value_t>
+template<typename value_t>
 using ValueStorage = std::vector<value_t>;
 #endif
 
@@ -125,14 +98,16 @@ template<typename value_t>
 using ScalarStorage = ValueStorage<value_t>;
 
 template<typename value_t>
-using VectorStorage = ValueStorage<std::array<value_t, 3>, value_t>;
+using VectorStorage = ValueStorage<std::array<value_t, 3>>;
+
+#if ENABLE_MPI
+template<typename value_t>
+using ValuePiercedStorageBufferStreamer = PiercedStorageBufferStreamer<value_t>;
+#endif
 
 #if ENABLE_CUDA
-// Avoid implicit instantiation
-extern template class ValueStorage<int, int>;
-extern template class ValueStorage<std::size_t, std::size_t>;
-extern template class ValueStorage<double, double>;
-extern template class ValueStorage<std::array<double, 3>, double>;
+// Include template implementations
+#include <containers.tcu>
 #endif
 
 #endif

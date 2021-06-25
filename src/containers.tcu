@@ -28,17 +28,17 @@
 /*!
  * Allocate cuda memory.
  */
-template<typename container_t, typename value_t, typename dev_value_t>
-void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_allocate()
+template<typename value_t>
+void ValuePiercedStorage<value_t>::cuda_allocate()
 {
-    cudaMalloc((void **) &m_devData, this->cuda_devSize() * sizeof(value_t));
+    cudaMalloc((void **) &m_devData, this->rawSize() * sizeof(value_t));
 }
 
 /*!
  * Free cuda memory.
  */
-template<typename container_t, typename value_t, typename dev_value_t>
-void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_free()
+template<typename value_t>
+void ValuePiercedStorage<value_t>::cuda_free()
 {
     cudaFree(m_devData);
 }
@@ -46,39 +46,39 @@ void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_free()
 /*!
  * Update host data using device data.
  */
-template<typename container_t, typename value_t, typename dev_value_t>
-void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_updateHost()
+template<typename value_t>
+void ValuePiercedStorage<value_t>::cuda_updateHost()
 {
-    cudaMemcpy(this->data(), m_devData, this->cuda_devSize() * sizeof(value_t), cudaMemcpyDeviceToHost);
+    cudaMemcpy(this->data(), m_devData, this->rawSize() * sizeof(value_t), cudaMemcpyDeviceToHost);
 }
 
 /*!
  * Update device data using host data.
  */
-template<typename container_t, typename value_t, typename dev_value_t>
-void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_updateDevice()
+template<typename value_t>
+void ValuePiercedStorage<value_t>::cuda_updateDevice()
 {
-    cudaMemcpy(m_devData, this->data(), this->cuda_devSize() * sizeof(value_t), cudaMemcpyHostToDevice);
+    cudaMemcpy(this->data(), m_devData, this->rawSize() * sizeof(value_t), cudaMemcpyHostToDevice);
 }
 
 /*!
- * Gets a pointer to the device data storage.
+ * Gets a pointer to the CUDA data storage.
  *
- * \result A pointer to the device data storage.
+ * \result A pointer to the CUDA data storage.
  */
-template<typename container_t, typename value_t, typename dev_value_t>
-dev_value_t * ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_devData()
+template<typename value_t>
+double * ValuePiercedStorage<value_t>::cuda_devData()
 {
     return m_devData;
 }
 
 /*!
- * Gets a constant pointer to the device data storage.
+ * Gets a constant pointer to the CUDA data storage.
  *
- * \result A constant pointer to the device data storage.
+ * \result A constant pointer to the CUDA data storage.
  */
-template<typename container_t, typename value_t, typename dev_value_t>
-const dev_value_t * ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_devData() const
+template<typename value_t>
+const double * ValuePiercedStorage<value_t>::cuda_devData() const
 {
     return m_devData;
 }
@@ -88,36 +88,79 @@ const dev_value_t * ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_de
  *
  * \param value is the value that will be used to fille the container
  */
-template<typename container_t, typename value_t, typename dev_value_t>
-void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_devFill(const dev_value_t &value)
+template<typename value_t>
+void ValuePiercedStorage<value_t>::cuda_devFill(const value_t &value)
 {
-    cudaMemset(this->m_devData, value, this->cuda_devSize() * sizeof(value_t));
+    cudaMemset(m_devData, value, this->rawSize() * sizeof(value_t));
 }
 
 /*!
- * Get the size, expressed in number of device elements, of the device data
- * storage.
- *
- * \result The size, expressed in number of device elements, of the device
- * data storage.
+ * Allocate cuda memory.
  */
-template<typename value_t, typename dev_value_t>
-std::size_t ValuePiercedStorage<value_t, dev_value_t>::cuda_devSize() const
+template<typename value_t>
+void ValueStorage<value_t>::cuda_allocate()
 {
-    return (this->rawSize() * this->getFieldCount());
+    cudaMalloc((void **) &m_devData, this->size() * sizeof(value_t));
 }
 
 /*!
- * Get the size, expressed in number of device elements, of the device data
- * storage.
- *
- * \result The size, expressed in number of device elements, of the device
- * data storage.
+ * Free cuda memory.
  */
-template<typename value_t, typename dev_value_t>
-std::size_t ValueStorage<value_t, dev_value_t>::cuda_devSize() const
+template<typename value_t>
+void ValueStorage<value_t>::cuda_free()
 {
-    return this->size();
+    cudaFree(m_devData);
+}
+
+/*!
+ * Update host data using device data.
+ */
+template<typename value_t>
+void ValueStorage<value_t>::cuda_updateHost()
+{
+    cudaMemcpy(this->data(), m_devData, this->size() * sizeof(value_t), cudaMemcpyDeviceToHost);
+}
+
+/*!
+ * Update device data using host data.
+ */
+template<typename value_t>
+void ValueStorage<value_t>::cuda_updateDevice()
+{
+    cudaMemcpy(this->data(), m_devData, this->size() * sizeof(value_t), cudaMemcpyHostToDevice);
+}
+
+/*!
+ * Gets a pointer to the CUDA data storage.
+ *
+ * \result A pointer to the CUDA data storage.
+ */
+template<typename value_t>
+double * ValueStorage<value_t>::cuda_devData()
+{
+    return m_devData;
+}
+
+/*!
+ * Gets a constant pointer to the CUDA data storage.
+ *
+ * \result A constant pointer to the CUDA data storage.
+ */
+template<typename value_t>
+const double * ValueStorage<value_t>::cuda_devData() const
+{
+    return m_devData;
+}
+
+/*!
+ * Fill the container with the specified value.
+ *
+ * \param value is the value that will be used to fille the container
+ */
+template<typename value_t>
+void ValueStorage<value_t>::cuda_devFill(const value_t &value)
+{
+    cudaMemset(m_devData, value, this->rawSize() * sizeof(value_t));
 }
 
 #endif
