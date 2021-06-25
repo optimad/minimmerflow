@@ -216,13 +216,13 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
 
             int interfaceBC = interfaceBCs.rawAt(interfaceRawId);
 
-            std::array<double, 3> boundaryNormal = meshInfo.rawGetInterfaceNormal(interfaceRawId);
+            std::array<double, 3> interfaceNormal = meshInfo.rawGetInterfaceNormal(interfaceRawId);
             if (flipNormal) {
-                boundaryNormal = -1. * boundaryNormal;
+                interfaceNormal = -1. * interfaceNormal;
             }
 
             reconstruction::eval(fluidRawId, meshInfo, order, interfaceCentroid, fluidMean, fluidReconstruction);
-            evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, boundaryNormal, fluidReconstruction, virtualReconstruction);
+            evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, interfaceNormal, fluidReconstruction, virtualReconstruction);
         }
 
         FluxData fluxes;
