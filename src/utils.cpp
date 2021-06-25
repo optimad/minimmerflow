@@ -34,7 +34,7 @@ namespace utils {
  * \param n is the normal vector
  * \result The normal velocity.
  */
-double normalVelocity(const double *fields, const double *n)
+double normalVelocity(const double *fields, const std::array<double, 3> &n)
 {
     return (fields[FID_U] * n[0] + fields[FID_V] * n[1] + fields[FID_W] * n[2]);
 }

@@ -29,7 +29,7 @@
 
 namespace utils {
 
-double normalVelocity(const double *fields, const double *n);
+double normalVelocity(const double *fields, const std::array<double, 3> &n);
 
 void conservative2primitive(const double *c, double *p);
 void primitive2conservative(const double *p, double *c);

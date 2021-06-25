@@ -56,11 +56,11 @@ void evalSplitting(const double *conservativeL, const double *conservativeR, con
     evalFluxes(conservativeR, primitiveR.data(), n, &fR);
 
     // Eigenvalues
-    double unL     = ::utils::normalVelocity(primitiveL.data(), n.data());
+    double unL     = ::utils::normalVelocity(primitiveL.data(), n);
     double aL      = std::sqrt(GAMMA * primitiveL[FID_T]);
     double lambdaL = std::abs(unL) + aL;
 
-    double unR     = ::utils::normalVelocity(primitiveR.data(), n.data());
+    double unR     = ::utils::normalVelocity(primitiveR.data(), n);
     double aR      = std::sqrt(GAMMA * primitiveR[FID_T]);
     double lambdaR = std::abs(unR) + aR;
 
@@ -88,7 +88,7 @@ void evalFluxes(const double *conservative, const double *primitive, const std::
     double w = primitive[FID_W];
 
     double vel2 = u * u + v * v + w * w;
-    double un   = ::utils::normalVelocity(primitive, n.data());
+    double un   = ::utils::normalVelocity(primitive, n);
 
     double p = primitive[FID_P];
     if (p < 0.) {
@@ -327,7 +327,7 @@ void evalReflectingBCValues(const std::array<double, 3> &point,
     ::utils::conservative2primitive(conservative, primitive.data());
 
     std::array<double, 3> u    = {{primitive[FID_U], primitive[FID_V], primitive[FID_W]}};
-    std::array<double, 3> u_n  = ::utils::normalVelocity(primitive.data(), normal.data()) * normal;
+    std::array<double, 3> u_n  = ::utils::normalVelocity(primitive.data(), normal) * normal;
 
     primitive[FID_U] = u[0] - 2 * u_n[0];
     primitive[FID_V] = u[1] - 2 * u_n[1];
