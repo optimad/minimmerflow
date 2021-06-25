@@ -113,7 +113,7 @@ void evalFluxes(const double *conservative, const double *primitive, const doubl
 }
 
 /*!
- * Computes cell RHS.
+ * Computes flux differences for every cell.
  *
  * \param problemType is the problem type
  * \param meshInfo are the geometrical information
@@ -148,7 +148,7 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
 }
 
 /*!
- * Reset cell RHS.
+ * Reset the RHS.
  *
  * \param[in,out] rhs is the RHS that will be reset
  */
@@ -158,7 +158,7 @@ void resetRHS(ScalarPiercedStorage<double> *cellsRHS)
 }
 
 /*!
- * Update cell RHS.
+ * Computes flux differences for every cell.
  *
  * \param problemType is the problem type
  * \param meshInfo are the geometrical information

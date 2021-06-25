@@ -246,7 +246,7 @@ void cuda_resetRHS(ScalarPiercedStorage<double> *cellsRHS)
 }
 
 /*!
- * Update cell RHS.
+ * Computes flux differences for every cell.
  *
  * \param problemType is the problem type
  * \param meshInfo are the geometrical information
