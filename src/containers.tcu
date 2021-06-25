@@ -125,12 +125,12 @@ std::size_t ValuePiercedStorage<value_t, dev_value_t>::cuda_deviceDataSize() con
 template<typename value_t, typename dev_value_t>
 void ValueStorage<value_t, dev_value_t>::cuda_updateHost(std::size_t count, std::size_t offset)
 {
-    std::size_t hostOffset = offset * sizeof(value_t);
+    std::size_t hostOffsetBytes = offset * sizeof(value_t);
 
-    std::size_t deviceOffset     = this->cuda_deviceDataSize(offset);
-    std::size_t deviceCountBytes = this->cuda_deviceDataSize(count) * sizeof(dev_value_t);
+    std::size_t deviceOffsetBytes = this->cuda_deviceDataSize(offset) * sizeof(dev_value_t);
+    std::size_t deviceCountBytes  = this->cuda_deviceDataSize(count) * sizeof(dev_value_t);
 
-    CUDA_ERROR_CHECK(cudaMemcpy(this->data() + hostOffset, this->cuda_deviceData() + deviceOffset, deviceCountBytes, cudaMemcpyDeviceToHost));
+    CUDA_ERROR_CHECK(cudaMemcpy(this->data() + hostOffsetBytes, this->cuda_deviceData() + deviceOffsetBytes, deviceCountBytes, cudaMemcpyDeviceToHost));
 }
 
 /*!
@@ -144,12 +144,12 @@ void ValueStorage<value_t, dev_value_t>::cuda_updateHost(std::size_t count, std:
 template<typename value_t, typename dev_value_t>
 void ValueStorage<value_t, dev_value_t>::cuda_updateDevice(std::size_t count, std::size_t offset)
 {
-    std::size_t hostOffset = offset * sizeof(value_t);
+    std::size_t hostOffsetBytes = offset * sizeof(value_t);
 
-    std::size_t deviceOffset     = this->cuda_deviceDataSize(offset);
-    std::size_t deviceCountBytes = this->cuda_deviceDataSize(count) * sizeof(dev_value_t);
+    std::size_t deviceOffsetBytes = this->cuda_deviceDataSize(offset) * sizeof(dev_value_t);
+    std::size_t deviceCountBytes  = this->cuda_deviceDataSize(count) * sizeof(dev_value_t);
 
-    CUDA_ERROR_CHECK(cudaMemcpy(this->cuda_deviceData() + deviceOffset, this->data() + hostOffset, deviceCountBytes, cudaMemcpyHostToDevice));
+    CUDA_ERROR_CHECK(cudaMemcpy(this->cuda_deviceData() + deviceOffsetBytes, this->data() + hostOffsetBytes, deviceCountBytes, cudaMemcpyHostToDevice));
 }
 
 /*!
