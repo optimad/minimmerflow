@@ -47,12 +47,6 @@ if (MINIMMERFLOW_ENABLE_CUDA)
 endif()
 
 #------------------------------------------------------------------------------------#
-# External utilities
-#------------------------------------------------------------------------------------#
-include(CheckCCompilerFlag)
-include(CheckCXXCompilerFlag)
-
-#------------------------------------------------------------------------------------#
 # Customized build types
 #------------------------------------------------------------------------------------#
 
@@ -157,36 +151,19 @@ set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 
 if (MINIMMERFLOW_ENABLE_OPENACC)
-    set(OpenACC_C_FLAGS_CUSTOM "")
-    check_c_compiler_flag(-acc=noautopar OpenACC_C_SUPPORTS_NOAUTOPAR)
-    if (OpenACC_C_SUPPORTS_NOAUTOPAR)
-        set(OpenACC_C_FLAGS_CUSTOM "${OpenACC_C_FLAGS_CUSTOM} -acc=noautopar")
-    endif()
-    if (ENABLE_WARNINGS)
-        check_c_compiler_flag(-Minfo OpenACC_C_SUPPORTS_MINFO)
-        if (OpenACC_C_SUPPORTS_MINFO)
-            set(OpenACC_C_FLAGS_CUSTOM "${OpenACC_C_FLAGS_CUSTOM} -Minfo")
-        endif()
-    endif()
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenACC_C_FLAGS} ${OpenACC_C_FLAGS_CUSTOM}")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenACC_C_FLAGS} -acc=noautopar")
 
-    set(OpenACC_CXX_FLAGS_CUSTOM "")
-    check_cxx_compiler_flag(-acc=noautopar OpenACC_CXX_SUPPORTS_NOAUTOPAR)
-    if (OpenACC_CXX_SUPPORTS_NOAUTOPAR)
-        set(OpenACC_CXX_FLAGS_CUSTOM "${OpenACC_CXX_FLAGS_CUSTOM} -acc=noautopar")
-    endif()
-    if (ENABLE_WARNINGS)
-        check_cxx_compiler_flag(-Minfo OpenACC_CXX_SUPPORTS_MINFO)
-        if (OpenACC_CXX_SUPPORTS_MINFO)
-            set(OpenACC_CXX_FLAGS_CUSTOM "${OpenACC_CXX_FLAGS_CUSTOM} -Minfo")
-        endif()
-    endif()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenACC_CXX_FLAGS} ${OpenACC_CXX_FLAGS_CUSTOM}")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenACC_CXX_FLAGS} -acc=noautopar")
 endif()
 
 if (ENABLE_WARNINGS)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+
+    if (MINIMMERFLOW_ENABLE_OPENACC)
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Minfo")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Minfo")
+    endif()
 endif()
 
 if (NOT ("${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_PATCH_VERSION}" VERSION_LESS "2.8.12"))
