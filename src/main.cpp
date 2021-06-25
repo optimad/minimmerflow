@@ -560,20 +560,19 @@ void computation(int argc, char *argv[])
 
         // Write the solution
         if (t > nextSave){
-            clock_t diskStart = clock();
-            for (VolumeKernel::CellConstIterator cellItr = mesh.cellConstBegin(); cellItr != mesh.cellConstEnd(); ++cellItr) {
-                std::size_t cellRawId = cellItr.getRawIndex();
-                bool isCellSolved = cellSolvedFlag.rawAt(cellRawId);
-                if (isCellSolved) {
-                    const double *conservative = cellConservatives.rawData(cellRawId);
-                    double *primitives = cellPrimitives.rawData(cellRawId);
-                    ::utils::conservative2primitive(conservative, primitives);
-                }
-            }
-            mesh.write();
+          clock_t diskStart = clock();
+          for (std::size_t i = 0; i < nCells; ++i) {
+              const std::size_t cellRawId = cellRawIds[i];
+              const long cellId = mesh.getCells().rawFind(cellRawId).getId();
 
-            diskTime += clock() - diskStart;
-            nextSave += (tMax - tMin) / nSaves;
+              const double *conservative = cellConservatives.data(cellId);
+              double *primitives = cellPrimitives.data(cellId);
+              ::utils::conservative2primitive(conservative, primitives);
+          }
+          mesh.write();
+
+          diskTime += clock() - diskStart;
+          nextSave += (tMax - tMin) / nSaves;
         }
     }
     clock_t computeEnd = clock();
@@ -582,14 +581,13 @@ void computation(int argc, char *argv[])
     {
         std::stringstream filename;
         filename << "final_background_" << nCellsPerDirection;
-        for (VolumeKernel::CellConstIterator cellItr = mesh.cellConstBegin(); cellItr != mesh.cellConstEnd(); ++cellItr) {
-            std::size_t cellRawId = cellItr.getRawIndex();
-            bool isCellSolved = cellSolvedFlag.rawAt(cellRawId);
-            if (isCellSolved) {
-                const double *conservative = cellConservatives.rawData(cellRawId);
-                double *primitives = cellPrimitives.rawData(cellRawId);
-                ::utils::conservative2primitive(conservative, primitives);
-            }
+        for (std::size_t i = 0; i < nCells; ++i) {
+            const std::size_t cellRawId = cellRawIds[i];
+            const long cellId = mesh.getCells().rawFind(cellRawId).getId();
+
+            const double *conservative = cellConservatives.data(cellId);
+            double *primitives = cellPrimitives.data(cellId);
+            ::utils::conservative2primitive(conservative, primitives);
         }
         mesh.write(filename.str().c_str());
     }
