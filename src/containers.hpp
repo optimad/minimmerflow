@@ -38,23 +38,23 @@ class ValueBaseStorage : public container_t
 {
 
 public:
-    void cuda_allocateDevice();
-    void cuda_freeDevice();
+    void cuda_allocate();
+    void cuda_free();
 
     void cuda_updateHost();
     void cuda_updateDevice();
 
-    dev_value_t * cuda_deviceData();
-    const dev_value_t * cuda_deviceData() const;
+    dev_value_t * cuda_devData();
+    const dev_value_t * cuda_devData() const;
 
-    virtual std::size_t cuda_deviceDataSize() const = 0;
+    virtual std::size_t cuda_devSize() const = 0;
 
-    void cuda_fillDevice(const dev_value_t &value);
+    void cuda_devFill(const dev_value_t &value);
 
 protected:
     using container_t::container_t;
     
-    dev_value_t *m_deviceData;
+    dev_value_t *m_devData;
 
 };
 
@@ -76,7 +76,7 @@ class ValuePiercedStorage : public ValueBaseStorage<bitpit::PiercedStorage<value
 {
 
 public:
-    std::size_t cuda_deviceDataSize() const override;
+    std::size_t cuda_devSize() const override;
     
     using ValueBaseStorage<bitpit::PiercedStorage<value_t, long>, value_t, dev_value_t>::ValueBaseStorage;
 
@@ -113,7 +113,7 @@ class ValueStorage : public ValueBaseStorage<std::vector<value_t>, value_t, dev_
 public:
     using ValueBaseStorage<std::vector<value_t>, value_t, dev_value_t>::ValueBaseStorage;
     
-    std::size_t cuda_deviceDataSize() const override;
+    std::size_t cuda_devSize() const override;
 
 };
 #else

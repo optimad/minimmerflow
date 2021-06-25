@@ -30,14 +30,14 @@
 void MeshGeometricalInfo::cuda_initialize()
 {
     // Allocate CUDA memory
-    m_cellVolumes.cuda_allocateDevice();
-    m_cellSizes.cuda_allocateDevice();
-    m_cellCentroids.cuda_allocateDevice();
+    m_cellVolumes.cuda_allocate();
+    m_cellSizes.cuda_allocate();
+    m_cellCentroids.cuda_allocate();
 
-    m_interfaceAreas.cuda_allocateDevice();
-    m_interfaceCentroids.cuda_allocateDevice();
-    m_interfaceNormals.cuda_allocateDevice();
-    m_interfaceTangents.cuda_allocateDevice();
+    m_interfaceAreas.cuda_allocate();
+    m_interfaceCentroids.cuda_allocate();
+    m_interfaceNormals.cuda_allocate();
+    m_interfaceTangents.cuda_allocate();
 
     // Copy data to the device
     m_cellVolumes.cuda_updateDevice();
@@ -56,14 +56,14 @@ void MeshGeometricalInfo::cuda_initialize()
 void MeshGeometricalInfo::cuda_finalize()
 {
     // Deallocate CUDA memory
-    m_cellVolumes.cuda_freeDevice();
-    m_cellSizes.cuda_freeDevice();
-    m_cellCentroids.cuda_freeDevice();
+    m_cellVolumes.cuda_free();
+    m_cellSizes.cuda_free();
+    m_cellCentroids.cuda_free();
 
-    m_interfaceAreas.cuda_freeDevice();
-    m_interfaceCentroids.cuda_freeDevice();
-    m_interfaceNormals.cuda_freeDevice();
-    m_interfaceTangents.cuda_freeDevice();
+    m_interfaceAreas.cuda_free();
+    m_interfaceCentroids.cuda_free();
+    m_interfaceNormals.cuda_free();
+    m_interfaceTangents.cuda_free();
 }
 
 /*!
@@ -73,7 +73,7 @@ void MeshGeometricalInfo::cuda_finalize()
  */
 double * MeshGeometricalInfo::cuda_getCellVolumeDevData()
 {
-    return m_cellVolumes.cuda_deviceData();
+    return m_cellVolumes.cuda_devData();
 }
 
 /*!
@@ -83,7 +83,7 @@ double * MeshGeometricalInfo::cuda_getCellVolumeDevData()
  */
 const double * MeshGeometricalInfo::cuda_getCellVolumeDevData() const
 {
-    return m_cellVolumes.cuda_deviceData();
+    return m_cellVolumes.cuda_devData();
 }
 
 /*!
@@ -93,7 +93,7 @@ const double * MeshGeometricalInfo::cuda_getCellVolumeDevData() const
  */
 double * MeshGeometricalInfo::cuda_getCellSizeDevData()
 {
-    return m_cellSizes.cuda_deviceData();
+    return m_cellSizes.cuda_devData();
 }
 
 /*!
@@ -103,7 +103,7 @@ double * MeshGeometricalInfo::cuda_getCellSizeDevData()
  */
 const double * MeshGeometricalInfo::cuda_getCellSizeDevData() const
 {
-    return m_cellSizes.cuda_deviceData();
+    return m_cellSizes.cuda_devData();
 }
 
 /*!
@@ -113,7 +113,7 @@ const double * MeshGeometricalInfo::cuda_getCellSizeDevData() const
  */
 double * MeshGeometricalInfo::cuda_getCellCentroidDevData()
 {
-    return m_cellCentroids.cuda_deviceData();
+    return m_cellCentroids.cuda_devData();
 }
 
 /*!
@@ -123,7 +123,7 @@ double * MeshGeometricalInfo::cuda_getCellCentroidDevData()
  */
 const double * MeshGeometricalInfo::cuda_getCellCentroidDevData() const
 {
-    return m_cellCentroids.cuda_deviceData();
+    return m_cellCentroids.cuda_devData();
 }
 
 /*!
@@ -133,7 +133,7 @@ const double * MeshGeometricalInfo::cuda_getCellCentroidDevData() const
  */
 double * MeshGeometricalInfo::cuda_getInterfaceAreaDevData()
 {
-    return m_interfaceAreas.cuda_deviceData();
+    return m_interfaceAreas.cuda_devData();
 }
 
 /*!
@@ -143,7 +143,7 @@ double * MeshGeometricalInfo::cuda_getInterfaceAreaDevData()
  */
 const double * MeshGeometricalInfo::cuda_getInterfaceAreaDevData() const
 {
-    return m_interfaceAreas.cuda_deviceData();
+    return m_interfaceAreas.cuda_devData();
 }
 
 /*!
@@ -153,7 +153,7 @@ const double * MeshGeometricalInfo::cuda_getInterfaceAreaDevData() const
  */
 double * MeshGeometricalInfo::cuda_getInterfaceCentroidDevData()
 {
-    return m_interfaceCentroids.cuda_deviceData();
+    return m_interfaceCentroids.cuda_devData();
 }
 
 /*!
@@ -163,7 +163,7 @@ double * MeshGeometricalInfo::cuda_getInterfaceCentroidDevData()
  */
 const double * MeshGeometricalInfo::cuda_getInterfaceCentroidDevData() const
 {
-    return m_interfaceCentroids.cuda_deviceData();
+    return m_interfaceCentroids.cuda_devData();
 }
 
 /*!
@@ -173,7 +173,7 @@ const double * MeshGeometricalInfo::cuda_getInterfaceCentroidDevData() const
  */
 double * MeshGeometricalInfo::cuda_getInterfaceNormalDevData()
 {
-    return m_interfaceNormals.cuda_deviceData();
+    return m_interfaceNormals.cuda_devData();
 }
 
 /*!
@@ -183,7 +183,7 @@ double * MeshGeometricalInfo::cuda_getInterfaceNormalDevData()
  */
 const double * MeshGeometricalInfo::cuda_getInterfaceNormalDevData() const
 {
-    return m_interfaceNormals.cuda_deviceData();
+    return m_interfaceNormals.cuda_devData();
 }
 
 /*!
@@ -193,7 +193,7 @@ const double * MeshGeometricalInfo::cuda_getInterfaceNormalDevData() const
  */
 double * MeshGeometricalInfo::cuda_getInterfaceTangentDevData()
 {
-    return m_interfaceTangents.cuda_deviceData();
+    return m_interfaceTangents.cuda_devData();
 }
 
 /*!
@@ -203,5 +203,5 @@ double * MeshGeometricalInfo::cuda_getInterfaceTangentDevData()
  */
 const double * MeshGeometricalInfo::cuda_getInterfaceTangentDevData() const
 {
-    return m_interfaceTangents.cuda_deviceData();
+    return m_interfaceTangents.cuda_devData();
 }
