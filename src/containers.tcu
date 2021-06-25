@@ -31,12 +31,7 @@
 template<typename container_t, typename value_t, typename dev_value_t>
 void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_allocateDevice()
 {
-    std::size_t deviceBytes = this->cuda_deviceDataSize() * sizeof(dev_value_t);
-
-    cudaMalloc((void **) &m_deviceData, deviceBytes);
-#if ENABLE_OPENACC
-    acc_map_data(this->data(), m_deviceData, deviceBytes);
-#endif
+    cudaMalloc((void **) &m_deviceData, this->cuda_deviceDataSize() * sizeof(dev_value_t));
 }
 
 /*!
@@ -45,9 +40,6 @@ void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_allocateDevice()
 template<typename container_t, typename value_t, typename dev_value_t>
 void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_freeDevice()
 {
-#if ENABLE_OPENACC
-    acc_unmap_data(this->data());
-#endif
     cudaFree(m_deviceData);
 }
 
