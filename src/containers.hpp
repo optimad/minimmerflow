@@ -46,13 +46,14 @@ public:
 
     dev_value_t * cuda_deviceData();
     const dev_value_t * cuda_deviceData() const;
+
     virtual std::size_t cuda_deviceDataSize() const = 0;
 
     void cuda_fillDevice(const dev_value_t &value);
 
 protected:
     using container_t::container_t;
-
+    
     dev_value_t *m_deviceData;
 
 };
@@ -75,10 +76,9 @@ class ValuePiercedStorage : public ValueBaseStorage<bitpit::PiercedStorage<value
 {
 
 public:
-    using ValueBaseStorage<bitpit::PiercedStorage<value_t, long>, value_t, dev_value_t>::ValueBaseStorage;
-
     std::size_t cuda_deviceDataSize() const override;
-
+    
+    using ValueBaseStorage<bitpit::PiercedStorage<value_t, long>, value_t, dev_value_t>::ValueBaseStorage;
 
 };
 #else
@@ -112,7 +112,7 @@ class ValueStorage : public ValueBaseStorage<std::vector<value_t>, value_t, dev_
 
 public:
     using ValueBaseStorage<std::vector<value_t>, value_t, dev_value_t>::ValueBaseStorage;
-
+    
     std::size_t cuda_deviceDataSize() const override;
 
 };
