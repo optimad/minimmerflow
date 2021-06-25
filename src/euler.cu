@@ -59,40 +59,6 @@ __device__ void dev_atomicMax(const double value, double * const maxValue)
     } while (assumedMaxValue != oldMaxValue);
 }
 
-/**
- * Compute the maximum of double-precision floating point values.
- *
- * \param value is the value that is compared in order to determine the maximum
- * \param nElements is the number of the elements that will be compared
- * \param[in,out] maxValue is the address of the reference value which might
- * get updated with the maximum
- */
-__device__ void dev_reduceMax(const double value, const size_t nElements, double *maxValue)
-{
-    extern __shared__ double blockValues[];
-
-    // Get thread and global ids
-    int tid = threadIdx.x;
-    int gid = (blockDim.x * blockIdx.x) + tid;
-
-    // Put thread value in the array that stores block values
-    blockValues[tid] = value;
-    __syncthreads();
-
-    // Evaluate the maximum of each block
-    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
-        if (tid < s && gid < nElements) {
-            blockValues[tid] = max(blockValues[tid], blockValues[tid + s]);
-        }
-        __syncthreads();
-    }
-
-    // Evaluate the maximum among different blocks
-    if (tid == 0) {
-        dev_atomicMax(blockValues[0], maxValue);
-    }
-}
-
 /*!
  * Calculates the conservative fluxes for a perfect gas.
  *
@@ -228,7 +194,7 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t 
     }
 
     // Update maximum eigenvalue
-    dev_reduceMax(interfaceMaxEig, nInterfaces, maxEig);
+    atomicMax(interfaceMaxEig, maxEig);
 }
 
 /*!
@@ -287,7 +253,7 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, const std::size_t
     }
 
     // Update maximum eigenvalue
-    dev_reduceMax(interfaceMaxEig, nInterfaces, maxEig);
+    atomicMax(interfaceMaxEig, maxEig);
 }
 
 /*!
@@ -392,12 +358,11 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
 
     const int UNIFORM_BLOCK_SIZE = 256;
     int nUniformnBlocks = (nSolvedUniformInterfaces + UNIFORM_BLOCK_SIZE - 1) / UNIFORM_BLOCK_SIZE;
-    int uniformSharedMemorySize = UNIFORM_BLOCK_SIZE * sizeof(double);
-    dev_uniformUpdateRHS<<<nUniformnBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devSolvedUniformInterfaceRawIds,
-                                                                                           devInterfaceNormals, devInterfaceAreas,
-                                                                                           devUniformOwnerRawIds, devUniformNeighRawIds,
-                                                                                           devLeftReconstructions, devRightReconstructions,
-                                                                                           devCellsRHS, devMaxEig);
+    dev_uniformUpdateRHS<<<nUniformnBlocks, UNIFORM_BLOCK_SIZE>>>(nSolvedUniformInterfaces, devSolvedUniformInterfaceRawIds,
+                                                                  devInterfaceNormals, devInterfaceAreas,
+                                                                  devUniformOwnerRawIds, devUniformNeighRawIds,
+                                                                  devLeftReconstructions, devRightReconstructions,
+                                                                  devCellsRHS, devMaxEig);
 
     //
     // Process boundary interfaces
@@ -437,12 +402,11 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
 
     const int BOUNDARY_BLOCK_SIZE = 256;
     int nBoundarynBlocks = (nSolvedBoundaryInterfaces + BOUNDARY_BLOCK_SIZE - 1) / BOUNDARY_BLOCK_SIZE;
-    int boundarySharedMemorySize = BOUNDARY_BLOCK_SIZE * sizeof(double);
-    dev_boundaryUpdateRHS<<<nBoundarynBlocks, BOUNDARY_BLOCK_SIZE, boundarySharedMemorySize>>>(nSolvedBoundaryInterfaces, devSolvedBoundaryInterfaceRawIds,
-                                                                                               devInterfaceNormals, devInterfaceAreas,
-                                                                                               devBoundaryFluidRawIds, devBoundarySigns,
-                                                                                               devLeftReconstructions, devRightReconstructions,
-                                                                                               devCellsRHS, devMaxEig);
+    dev_boundaryUpdateRHS<<<nBoundarynBlocks, BOUNDARY_BLOCK_SIZE>>>(nSolvedBoundaryInterfaces, devSolvedBoundaryInterfaceRawIds,
+                                                                     devInterfaceNormals, devInterfaceAreas,
+                                                                     devBoundaryFluidRawIds, devBoundarySigns,
+                                                                     devLeftReconstructions, devRightReconstructions,
+                                                                     devCellsRHS, devMaxEig);
 
     //
     // Update host memory
