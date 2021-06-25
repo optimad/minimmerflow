@@ -43,11 +43,6 @@ void computeRHS(problem::ProblemType problemType, ComputationInfo &computationIn
                 const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
                 const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig);
 
-#if ENABLE_CUDA
-void cuda_initialize();
-void cuda_finalize();
-#endif
-
 void resetRHS(ScalarPiercedStorage<double> *cellsRHS);
 #if ENABLE_CUDA
 void cuda_resetRHS(ScalarPiercedStorage<double> *cellsRHS);

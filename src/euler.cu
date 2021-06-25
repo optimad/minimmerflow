@@ -30,8 +30,6 @@
 
 namespace euler {
 
-double *devMaxEig;
-
 /**
  * @brief Compute the maximum of 2 double-precision floating point values using an atomic operation
  *
@@ -262,22 +260,6 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, const std::size_t
 }
 
 /*!
- * Initialize CUDA computation
- */
-void cuda_initialize()
-{
-    CUDA_ERROR_CHECK(cudaMalloc((void **) &devMaxEig, 1 * sizeof(double)));
-}
-
-/*!
- * Finalize CUDA computation
- */
-void cuda_finalize()
-{
-    CUDA_ERROR_CHECK(cudaFree(devMaxEig));
-}
-
-/*!
  * Reset the RHS.
  *
  * \param[in,out] rhs is the RHS that will be reset
@@ -309,6 +291,8 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     const double *devInterfaceNormals = computationInfo.cuda_getInterfaceNormalDevData();
     const double *devInterfaceAreas   = computationInfo.cuda_getInterfaceAreaDevData();
 
+    double *devMaxEig;
+    CUDA_ERROR_CHECK(cudaMalloc((void **) &devMaxEig, 1 * sizeof(double)));
     CUDA_ERROR_CHECK(cudaMemset(devMaxEig, 0., 1 * sizeof(double)));
 
     double *devCellsRHS = cellsRHS->cuda_deviceData();
@@ -377,6 +361,9 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
                                                                   devLeftReconstructions, devRightReconstructions,
                                                                   devCellsRHS, devMaxEig);
 
+    double uniformMaxEig;
+    CUDA_ERROR_CHECK(cudaMemcpy(&uniformMaxEig, devMaxEig, 1 * sizeof(double), cudaMemcpyDeviceToHost));
+
     //
     // Process boundary interfaces
     //
@@ -421,11 +408,22 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
                                                                     devLeftReconstructions, devRightReconstructions,
                                                                     devCellsRHS, devMaxEig);
 
+    double boundaryMaxEig;
+    CUDA_ERROR_CHECK(cudaMemcpy(&boundaryMaxEig, devMaxEig, 1 * sizeof(double), cudaMemcpyDeviceToHost));
+
+    // Evaluate maximum eigenvalue
+    *maxEig = std::max(uniformMaxEig, boundaryMaxEig);
+
     //
     // Update host memory
     //
+
     cellsRHS->cuda_updateHost();
-    CUDA_ERROR_CHECK(cudaMemcpy(maxEig, devMaxEig, sizeof(double), cudaMemcpyDeviceToHost));
+
+    //
+    // Clean-up
+    //
+    CUDA_ERROR_CHECK(cudaFree(devMaxEig));
 }
 
 }
