@@ -401,11 +401,11 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
 
     const int BOUNDARY_BLOCK_SIZE = 256;
     int nBoundarynBlocks = (nSolvedBoundaryInterfaces + BOUNDARY_BLOCK_SIZE - 1) / BOUNDARY_BLOCK_SIZE;
-    dev_boundaryUpdateRHS<<<nBoundarynBlocks, BOUNDARY_BLOCK_SIZE>>>(nSolvedBoundaryInterfaces, devSolvedBoundaryInterfaceRawIds,
-                                                                     devInterfaceNormals, devInterfaceAreas,
-                                                                     devBoundaryFluidRawIds, devBoundarySigns,
-                                                                     devLeftReconstructions, devRightReconstructions,
-                                                                     devCellsRHS, devMaxEig);
+    dev_boundaryUpdateRHS<<<nBoundarynBlocks, UNIFORM_BLOCK_SIZE>>>(nSolvedBoundaryInterfaces, devSolvedBoundaryInterfaceRawIds,
+                                                                    devInterfaceNormals, devInterfaceAreas,
+                                                                    devBoundaryFluidRawIds, devBoundarySigns,
+                                                                    devLeftReconstructions, devRightReconstructions,
+                                                                    devCellsRHS, devMaxEig);
 
     //
     // Update host memory
