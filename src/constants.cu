@@ -23,9 +23,6 @@
 \*---------------------------------------------------------------------------*/
 
 #include "constants.hcu"
-#include "utils_cuda.hpp"
-
-#include <iostream>
 
 __constant__ int DEV_FID_P;
 __constant__ int DEV_FID_U;
@@ -53,26 +50,26 @@ namespace constants
 
 void cuda_initialize()
 {
-    CUDA_ERROR_CHECK(cudaMemcpyToSymbol(DEV_FID_P, &FID_P, sizeof(FID_P)));
-    CUDA_ERROR_CHECK(cudaMemcpyToSymbol(DEV_FID_U, &FID_U, sizeof(FID_U)));
-    CUDA_ERROR_CHECK(cudaMemcpyToSymbol(DEV_FID_V, &FID_V, sizeof(FID_V)));
-    CUDA_ERROR_CHECK(cudaMemcpyToSymbol(DEV_FID_W, &FID_W, sizeof(FID_W)));
-    CUDA_ERROR_CHECK(cudaMemcpyToSymbol(DEV_FID_T, &FID_T, sizeof(FID_T)));
+    cudaMemcpyToSymbol(DEV_FID_P, &FID_P, sizeof(FID_P));
+    cudaMemcpyToSymbol(DEV_FID_U, &FID_U, sizeof(FID_U));
+    cudaMemcpyToSymbol(DEV_FID_V, &FID_V, sizeof(FID_V));
+    cudaMemcpyToSymbol(DEV_FID_W, &FID_W, sizeof(FID_W));
+    cudaMemcpyToSymbol(DEV_FID_T, &FID_T, sizeof(FID_T));
 
-    CUDA_ERROR_CHECK(cudaMemcpyToSymbol(DEV_FID_RHO,   &FID_RHO,   sizeof(FID_RHO)));
-    CUDA_ERROR_CHECK(cudaMemcpyToSymbol(DEV_FID_RHO_U, &FID_RHO_U, sizeof(FID_RHO_U)));
-    CUDA_ERROR_CHECK(cudaMemcpyToSymbol(DEV_FID_RHO_V, &FID_RHO_V, sizeof(FID_RHO_V)));
-    CUDA_ERROR_CHECK(cudaMemcpyToSymbol(DEV_FID_RHO_W, &FID_RHO_W, sizeof(FID_RHO_W)));
-    CUDA_ERROR_CHECK(cudaMemcpyToSymbol(DEV_FID_RHO_E, &FID_RHO_E, sizeof(FID_RHO_E)));
+    cudaMemcpyToSymbol(DEV_FID_RHO,   &FID_RHO,   sizeof(FID_RHO));
+    cudaMemcpyToSymbol(DEV_FID_RHO_U, &FID_RHO_U, sizeof(FID_RHO_U));
+    cudaMemcpyToSymbol(DEV_FID_RHO_V, &FID_RHO_V, sizeof(FID_RHO_V));
+    cudaMemcpyToSymbol(DEV_FID_RHO_W, &FID_RHO_W, sizeof(FID_RHO_W));
+    cudaMemcpyToSymbol(DEV_FID_RHO_E, &FID_RHO_E, sizeof(FID_RHO_E));
 
-    CUDA_ERROR_CHECK(cudaMemcpyToSymbol(DEV_FID_EQ_C,   &FID_EQ_C,   sizeof(FID_EQ_C)));
-    CUDA_ERROR_CHECK(cudaMemcpyToSymbol(DEV_FID_EQ_M_X, &FID_EQ_M_X, sizeof(FID_EQ_M_X)));
-    CUDA_ERROR_CHECK(cudaMemcpyToSymbol(DEV_FID_EQ_M_Y, &FID_EQ_M_Y, sizeof(FID_EQ_M_Y)));
-    CUDA_ERROR_CHECK(cudaMemcpyToSymbol(DEV_FID_EQ_M_Z, &FID_EQ_M_Z, sizeof(FID_EQ_M_Z)));
-    CUDA_ERROR_CHECK(cudaMemcpyToSymbol(DEV_FID_EQ_E,   &FID_EQ_E,   sizeof(FID_EQ_E)));
+    cudaMemcpyToSymbol(DEV_FID_EQ_C,   &FID_EQ_C,   sizeof(FID_EQ_C));
+    cudaMemcpyToSymbol(DEV_FID_EQ_M_X, &FID_EQ_M_X, sizeof(FID_EQ_M_X));
+    cudaMemcpyToSymbol(DEV_FID_EQ_M_Y, &FID_EQ_M_Y, sizeof(FID_EQ_M_Y));
+    cudaMemcpyToSymbol(DEV_FID_EQ_M_Z, &FID_EQ_M_Z, sizeof(FID_EQ_M_Z));
+    cudaMemcpyToSymbol(DEV_FID_EQ_E,   &FID_EQ_E,   sizeof(FID_EQ_E));
 
-    CUDA_ERROR_CHECK(cudaMemcpyToSymbol(DEV_GAMMA, &GAMMA, sizeof(GAMMA)));
-    CUDA_ERROR_CHECK(cudaMemcpyToSymbol(DEV_R,     &R,     sizeof(R)));
+    cudaMemcpyToSymbol(DEV_GAMMA, &GAMMA, sizeof(GAMMA));
+    cudaMemcpyToSymbol(DEV_R,     &R,     sizeof(R));
 }
 
 }

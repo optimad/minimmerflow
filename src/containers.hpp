@@ -26,7 +26,6 @@
 #define __MINIMMERFLOW_CONTAINERS_HPP__
 
 #include <communications.hpp>
-#include <utils_cuda.hpp>
 
 #include <bitpit_containers.hpp>
 
