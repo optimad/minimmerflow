@@ -62,24 +62,19 @@ __device__ void atomicMax(double * const address, const double value)
  * Calculates the conservative fluxes for a perfect gas.
  *
  * \param conservative is the conservative state
+ * \param primitive is the primitive state
  * \param n is the normal direction
  * \param[out] fluxes on output will contain the conservative fluxes
- * \param[out] lambda on output will contain the maximum eigenvalue
  */
-__device__ void dev_evalFluxes(const double *conservative, const double *n,
-                               double *fluxes, double *lambda)
+__device__ void dev_evalFluxes(const double *conservative, const double *primitive, const double *n, double *fluxes)
 {
     // Compute variables
-    double primitive[N_FIELDS];
-    ::utils::dev_conservative2primitive(conservative, primitive);
-
     double u = primitive[DEV_FID_U];
     double v = primitive[DEV_FID_V];
     double w = primitive[DEV_FID_W];
 
     double vel2 = u * u + v * v + w * w;
     double un   = ::utils::dev_normalVelocity(primitive, n);
-    double a    = std::sqrt(DEV_GAMMA * primitive[DEV_FID_T]);
 
     double p = primitive[DEV_FID_P];
     if (p < 0.) {
@@ -101,9 +96,6 @@ __device__ void dev_evalFluxes(const double *conservative, const double *n,
     fluxes[DEV_FID_EQ_M_Y] = massFlux * v + p * n[1];
     fluxes[DEV_FID_EQ_M_Z] = massFlux * w + p * n[2];
     fluxes[DEV_FID_EQ_E]   = un * (eto + p);
-
-    // Evaluate maximum eigenvalue
-    *lambda = std::abs(un) + a;
 }
 
 /*!
@@ -117,18 +109,32 @@ __device__ void dev_evalFluxes(const double *conservative, const double *n,
  */
 __device__ void dev_evalSplitting(const double *conservativeL, const double *conservativeR, const double *n, double *fluxes, double *lambda)
 {
+    // Primitive variables
+    double primitiveL[N_FIELDS];
+    ::utils::dev_conservative2primitive(conservativeL, primitiveL);
+
+    double primitiveR[N_FIELDS];
+    ::utils::dev_conservative2primitive(conservativeR, primitiveR);
+
     // Fluxes
     double fL[N_FIELDS];
-    double lambdaL;
-    dev_evalFluxes(conservativeL, n, fL, &lambdaL);
+    dev_evalFluxes(conservativeL, primitiveL, n, fL);
 
     double fR[N_FIELDS];
-    double lambdaR;
-    dev_evalFluxes(conservativeR, n, fR, &lambdaR);
+    dev_evalFluxes(conservativeR, primitiveR, n, fR);
 
-    // Splitting
+    // Eigenvalues
+    double unL     = ::utils::dev_normalVelocity(primitiveL, n);
+    double aL      = std::sqrt(GAMMA * primitiveL[DEV_FID_T]);
+    double lambdaL = std::abs(unL) + aL;
+
+    double unR     = ::utils::dev_normalVelocity(primitiveR, n);
+    double aR      = std::sqrt(DEV_GAMMA * primitiveR[DEV_FID_T]);
+    double lambdaR = std::abs(unR) + aR;
+
     *lambda = max(lambdaR, lambdaL);
 
+    // Splitting
     for (int k = 0; k < N_FIELDS; ++k) {
         fluxes[k] = 0.5 * ((fR[k] + fL[k]) - (*lambda) * (conservativeR[k] - conservativeL[k]));
     }
