@@ -215,7 +215,7 @@ void computation(int argc, char *argv[])
 
     log_memory_status();
 
-    // Initialize storage
+    // Initialize cell storage
     log::cout() << std::endl;
     log::cout() << "Storage initialization..."  << std::endl;
 
@@ -225,8 +225,6 @@ void computation(int argc, char *argv[])
     ScalarPiercedStorage<double> cellConservatives(N_FIELDS, &mesh.getCells());
     ScalarPiercedStorage<double> cellConservativesWork(N_FIELDS, &mesh.getCells());
     ScalarPiercedStorage<double> cellRHS(N_FIELDS, &mesh.getCells());
-
-    ScalarPiercedStorage<int> interfaceSolvedFlag(1, &mesh.getInterfaces());
 
     // Initialize fluid and solved flag
     for (std::size_t i = 0; i < nCells; ++i) {
@@ -245,26 +243,6 @@ void computation(int argc, char *argv[])
 #endif
         cellSolvedFlag.rawSet(cellRawId, (isSolved ? 1 : 0));
     }
-
-    for (std::size_t i = 0; i < nInterfaces; ++i) {
-        const std::size_t interfaceRawId = interfaceRawIds[i];
-        const Interface &interface = mesh.getInterfaces().rawAt(interfaceRawId);
-
-        // Info about the interface owner
-        long ownerId = interface.getOwner();
-        bool ownerSolved = cellSolvedFlag.at(ownerId);
-
-        // Info about the interface neighbour
-        long neighId = interface.getNeigh();
-        bool neighSolved = false;
-        if (neighId >= 0) {
-            neighSolved = cellSolvedFlag.at(neighId);
-        }
-
-        // Check if the interface needs to be solved
-        interfaceSolvedFlag.rawAt(interfaceRawId) = (ownerSolved || neighSolved);
-    }
-
     log_memory_status();
 
     // Initialize reconstruction
@@ -416,7 +394,7 @@ void computation(int argc, char *argv[])
 
         // Compute the residuals
         reconstruction::computePolynomials(problemType, meshInfo, cellSolvedFlag, cellConservatives, interfaceBCs);
-        euler::computeRHS(problemType, meshInfo, cellSolvedFlag, interfaceSolvedFlag, order, cellConservatives, interfaceBCs, &cellRHS, &maxEig);
+        euler::computeRHS(problemType, meshInfo, cellSolvedFlag, order, cellConservatives, interfaceBCs, &cellRHS, &maxEig);
 
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
@@ -460,7 +438,7 @@ void computation(int argc, char *argv[])
 #endif
 
         reconstruction::computePolynomials(problemType, meshInfo, cellSolvedFlag, cellConservativesWork, interfaceBCs);
-        euler::computeRHS(problemType, meshInfo, cellSolvedFlag, interfaceSolvedFlag, order, cellConservativesWork, interfaceBCs, &cellRHS, &maxEig);
+        euler::computeRHS(problemType, meshInfo, cellSolvedFlag, order, cellConservativesWork, interfaceBCs, &cellRHS, &maxEig);
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
             MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_DOUBLE, MPI_MAX, mesh.getCommunicator());
@@ -496,7 +474,7 @@ void computation(int argc, char *argv[])
 #endif
 
         reconstruction::computePolynomials(problemType, meshInfo, cellSolvedFlag, cellConservativesWork, interfaceBCs);
-        euler::computeRHS(problemType, meshInfo, cellSolvedFlag, interfaceSolvedFlag, order, cellConservativesWork, interfaceBCs, &cellRHS, &maxEig);
+        euler::computeRHS(problemType, meshInfo, cellSolvedFlag, order, cellConservativesWork, interfaceBCs, &cellRHS, &maxEig);
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
             MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_DOUBLE, MPI_MAX, mesh.getCommunicator());

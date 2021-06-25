@@ -118,7 +118,6 @@ void evalFluxes(const double *conservative, const double *primitive, const doubl
  * \param problemType is the problem type
  * \param meshInfo are the geometrical information
  * \param cellSolvedFlag is the storage for the cell solved flag
- * \param interfaceSolvedFlag is the storage for the interface solved flag
  * \param order is the order
  * \param cellConservatives are the cell conservative values
  * \param interfaceBCs is the boundary conditions storage
@@ -126,9 +125,9 @@ void evalFluxes(const double *conservative, const double *primitive, const doubl
  * \param[out] maxEig on putput will containt the maximum eigenvalue
  */
 void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo,
-                const ScalarPiercedStorage<int> &cellSolvedFlag, const ScalarPiercedStorage<int> &interfaceSolvedFlag,
-                const int order, const ScalarPiercedStorage<double> &cellConservatives,
-                const ScalarPiercedStorage<int> &interfaceBCs, ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
+                const ScalarPiercedStorage<int> &cellSolvedFlag, int order,
+                const ScalarPiercedStorage<double> &cellConservatives, const ScalarPiercedStorage<int> &interfaceBCs,
+                ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
 {
     // Get mesh information
     const VolumeKernel &mesh = meshInfo.getPatch();
@@ -153,16 +152,7 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
 
     for (std::size_t i = 0; i < nInterfaces; ++i) {
         const std::size_t interfaceRawId = interfaceRawIds[i];
-        if (!interfaceSolvedFlag.rawAt(interfaceRawId)) {
-            continue;
-        }
-
-        // Info about the interface
         const Interface &interface = mesh.getInterfaces().rawAt(interfaceRawId);
-        int interfaceBCType = interfaceBCs.rawAt(interfaceRawId);
-        const double interfaceArea = meshInfo.rawGetInterfaceArea(interfaceRawId);
-        const double *interfaceNormal = meshInfo.rawGetInterfaceNormal(interfaceRawId).data();
-        const std::array<double, 3> &interfaceCentroid = meshInfo.rawGetInterfaceCentroid(interfaceRawId);
 
         // Info about the interface owner
         long ownerId = interface.getOwner();
@@ -186,6 +176,17 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
             neighRHS    = cellsRHS->rawData(neighRawId);
             neighSolved = cellSolvedFlag.rawAt(neighRawId);
         }
+
+        // Check if the interface needs to be solved
+        if (!ownerSolved && !neighSolved) {
+            continue;
+        }
+
+        // Info about the interface
+        int interfaceBCType = interfaceBCs.rawAt(interfaceRawId);
+        const double interfaceArea = meshInfo.rawGetInterfaceArea(interfaceRawId);
+        const double *interfaceNormal = meshInfo.rawGetInterfaceNormal(interfaceRawId).data();
+        const std::array<double, 3> &interfaceCentroid = meshInfo.rawGetInterfaceCentroid(interfaceRawId);
 
         // Evaluate the conservative fluxes
         std::array<double, N_FIELDS> ownerReconstruction;
