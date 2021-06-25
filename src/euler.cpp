@@ -130,56 +130,23 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
                 const int order, const ScalarPiercedStorage<double> &cellConservatives,
                 const ScalarPiercedStorage<int> &interfaceBCs, ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
 {
-    // Reset residuals
-#if ENABLE_CUDA
-    cuda_resetRHS(cellsRHS);
-#else
-    resetRHS(cellsRHS);
-#endif
-
-    // Update residuals
-#if ENABLE_CUDA
-    cuda_updateRHS(problemType, meshInfo, cellSolvedFlag, interfaceSolvedFlag, order, cellConservatives,
-                   interfaceBCs, cellsRHS, maxEig);
-#else
-    updateRHS(problemType, meshInfo, cellSolvedFlag, interfaceSolvedFlag, order, cellConservatives,
-              interfaceBCs, cellsRHS, maxEig);
-#endif
-}
-
-/*!
- * Reset the RHS.
- *
- * \param[in,out] rhs is the RHS that will be reset
- */
-void resetRHS(ScalarPiercedStorage<double> *cellsRHS)
-{
-    cellsRHS->fill(0.);
-}
-
-/*!
- * Computes flux differences for every cell.
- *
- * \param problemType is the problem type
- * \param meshInfo are the geometrical information
- * \param cellSolvedFlag is the storage for the cell solved flag
- * \param interfaceSolvedFlag is the storage for the interface solved flag
- * \param order is the order
- * \param cellConservatives are the cell conservative values
- * \param interfaceBCs is the boundary conditions storage
- * \param[out] cellsRHS on output will containt the RHS
- * \param[out] maxEig on putput will containt the maximum eigenvalue
- */
-void updateRHS(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo,
-                const ScalarPiercedStorage<int> &cellSolvedFlag, const ScalarPiercedStorage<int> &interfaceSolvedFlag,
-                const int order, const ScalarPiercedStorage<double> &cellConservatives,
-                const ScalarPiercedStorage<int> &interfaceBCs, ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
-{
     // Get mesh information
     const VolumeKernel &mesh = meshInfo.getPatch();
 
+    const ScalarStorage<std::size_t> &internalCellRawIds = meshInfo.getCellRawIds();
+    const std::size_t nInternalCells = internalCellRawIds.size();
+
     const ScalarStorage<std::size_t> &interfaceRawIds = meshInfo.getInterfaceRawIds();
     const std::size_t nInterfaces = interfaceRawIds.size();
+
+    // Reset the residuals
+    for (std::size_t i = 0; i < nInternalCells; ++i) {
+        const std::size_t cellRawId = internalCellRawIds[i];
+        double *cellRHS = cellsRHS->rawData(cellRawId);
+        for (int k = 0; k < N_FIELDS; ++k) {
+            cellRHS[k] = 0.;
+        }
+    }
 
     // Update the residuals
     *maxEig = 0.0;
