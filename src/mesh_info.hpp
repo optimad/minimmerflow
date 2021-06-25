@@ -79,14 +79,6 @@ public:
 #if ENABLE_CUDA
     const std::size_t * cuda_getInterfaceRawIdDevData() const;
 #endif
-    const ScalarStorage<std::size_t> & getInterfaceOwnerRawIds() const;
-#if ENABLE_CUDA
-    const std::size_t * cuda_getInterfaceOwnerRawIdDevData() const;
-#endif
-    const ScalarStorage<std::size_t> & getInterfaceNeighRawIds() const;
-#if ENABLE_CUDA
-    const std::size_t * cuda_getInterfaceNeighRawIdDevData() const;
-#endif
 
     double getInterfaceArea(long id) const;
     double rawGetInterfaceArea(size_t pos) const;
@@ -136,8 +128,6 @@ protected:
     ScalarStorage<std::size_t> m_internalCellRawIds;
 
     ScalarStorage<std::size_t> m_interfaceRawIds;
-    ScalarStorage<std::size_t> m_interfaceOwnerRawIds;
-    ScalarStorage<std::size_t> m_interfaceNeighRawIds;
 
     using bitpit::PatchInfo::setPatch;
 
