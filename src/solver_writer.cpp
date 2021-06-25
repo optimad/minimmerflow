@@ -37,12 +37,12 @@ using namespace bitpit;
  * \param RHS is the storage with the RHS
  * \param solved is the storage with the solved flag
  */
-SolverWriter::SolverWriter(const VolumeKernel *mesh, const ScalarPiercedStorage<int> *solved,
-                           const ScalarPiercedStorage<double> *primitives, const  ScalarPiercedStorage<double> *conservatives,
-                           const ScalarPiercedStorage<double> *RHS)
-    : m_mesh(mesh), m_solved(solved),
-      m_primitives(primitives), m_conservatives(conservatives),
-      m_RHS(RHS)
+SolverWriter::SolverWriter(VolumeKernel *mesh,
+                           ScalarPiercedStorage<double> *primitives, ScalarPiercedStorage<double> *conservatives,
+                           ScalarPiercedStorage<double> *RHS, ScalarPiercedStorage<int> *solved)
+    : m_mesh(mesh),
+      m_primitives(primitives), m_conservatives(conservatives), m_RHS(RHS),
+      m_solved(solved)
 {
 }
 
