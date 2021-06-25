@@ -31,7 +31,7 @@
 template<typename container_t, typename value_t, typename dev_value_t>
 void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_allocateDevice()
 {
-    cudaMalloc((void **) &m_deviceData, this->cuda_deviceDataSize() * sizeof(dev_value_t));
+    cudaMalloc((void **) &m_deviceData, this->cuda_deviceDataSize() * sizeof(value_t));
 }
 
 /*!
@@ -49,7 +49,7 @@ void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_freeDevice()
 template<typename container_t, typename value_t, typename dev_value_t>
 void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_updateHost()
 {
-    cudaMemcpy(this->data(), m_deviceData, this->cuda_deviceDataSize() * sizeof(dev_value_t), cudaMemcpyDeviceToHost);
+    cudaMemcpy(this->data(), m_deviceData, this->cuda_deviceDataSize() * sizeof(value_t), cudaMemcpyDeviceToHost);
 }
 
 /*!
@@ -58,7 +58,7 @@ void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_updateHost()
 template<typename container_t, typename value_t, typename dev_value_t>
 void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_updateDevice()
 {
-    cudaMemcpy(m_deviceData, this->data(), this->cuda_deviceDataSize() * sizeof(dev_value_t), cudaMemcpyHostToDevice);
+    cudaMemcpy(m_deviceData, this->data(), this->cuda_deviceDataSize() * sizeof(value_t), cudaMemcpyHostToDevice);
 }
 
 /*!
@@ -91,7 +91,7 @@ const dev_value_t * ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_de
 template<typename container_t, typename value_t, typename dev_value_t>
 void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_fillDevice(const dev_value_t &value)
 {
-    cudaMemset(this->m_deviceData, value, this->cuda_deviceDataSize() * sizeof(dev_value_t));
+    cudaMemset(this->m_deviceData, value, this->cuda_deviceDataSize() * sizeof(value_t));
 }
 
 /*!
@@ -104,7 +104,7 @@ void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_fillDevice(const 
 template<typename value_t, typename dev_value_t>
 std::size_t ValuePiercedStorage<value_t, dev_value_t>::cuda_deviceDataSize() const
 {
-    return (this->rawSize() * this->getFieldCount() * static_cast<double>(sizeof(value_t)) / sizeof(dev_value_t));
+    return (this->rawSize() * this->getFieldCount());
 }
 
 /*!
@@ -117,7 +117,7 @@ std::size_t ValuePiercedStorage<value_t, dev_value_t>::cuda_deviceDataSize() con
 template<typename value_t, typename dev_value_t>
 std::size_t ValueStorage<value_t, dev_value_t>::cuda_deviceDataSize() const
 {
-    return (this->size() * static_cast<double>(sizeof(value_t)) / sizeof(dev_value_t));
+    return this->size();
 }
 
 #endif
