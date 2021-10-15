@@ -434,11 +434,6 @@ void computation(int argc, char *argv[])
         nvtxRangePushA("RK1");
 
         // Compute the residuals
-#if ENABLE_CUDA
-        nvtxRangePushA("UpdateDevConservatives");
-        cellConservatives.cuda_updateDevice();
-        nvtxRangePop();
-#endif
 
         nvtxRangePushA("CPUReconstructions");
         reconstruction::computePolynomials(problemType, computationInfo, cellConservatives, solvedBoundaryInterfaceBCs);
