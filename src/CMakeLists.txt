@@ -36,7 +36,11 @@ endif()
 file(GLOB sources ${SOURCE_PATTERN})
 add_executable(${MINIMMERFLOW_EXECUTABLE_NAME} ${sources})
 if (MINIMMERFLOW_ENABLE_CUDA)
-    set_target_properties(${MINIMMERFLOW_EXECUTABLE_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+    # set_target_properties(${MINIMMERFLOW_EXECUTABLE_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+    # add relocatable device code (separate compilation)
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc true")
+    # instruct nvidia compiler/linker to cope with cuda object code
+    target_link_options(${MINIMMERFLOW_EXECUTABLE_NAME} BEFORE PRIVATE "-cuda")
 endif()
 
 target_link_libraries(${MINIMMERFLOW_EXECUTABLE_NAME} ${BITPIT_LIBRARIES})
