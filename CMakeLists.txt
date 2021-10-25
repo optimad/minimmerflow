@@ -126,6 +126,12 @@ if (MINIMMERFLOW_ENABLE_CUDA)
         set(CMAKE_CUDA_STANDARD 11)
         set(CMAKE_CUDA_STANDARD_REQUIRED ON)
     endif()
+
+    # return useful info from CUDA kernel build
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --ptxas-options=-v")
+    # add source inlining to use with ncu, using the command:
+    # mpirun -np 1 ncu --set full --import-source=on -f -o output <executable>
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lineinfo")
 endif()
 
 if (MINIMMERFLOW_ENABLE_MPI)
@@ -157,6 +163,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 
 if (MINIMMERFLOW_ENABLE_OPENACC)
+    set(OpenACC_C_FLAGS "-acc=gpu -gpu=cc70 -gpu=lineinfo")
     set(OpenACC_C_FLAGS_CUSTOM "")
     check_c_compiler_flag(-acc=noautopar OpenACC_C_SUPPORTS_NOAUTOPAR)
     if (OpenACC_C_SUPPORTS_NOAUTOPAR)
@@ -170,6 +177,7 @@ if (MINIMMERFLOW_ENABLE_OPENACC)
     endif()
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenACC_C_FLAGS} ${OpenACC_C_FLAGS_CUSTOM}")
 
+    set(OpenACC_CXX_FLAGS_CUSTOM "-acc=gpu -gpu=cc70 -gpu=lineinfo")
     set(OpenACC_CXX_FLAGS_CUSTOM "")
     check_cxx_compiler_flag(-acc=noautopar OpenACC_CXX_SUPPORTS_NOAUTOPAR)
     if (OpenACC_CXX_SUPPORTS_NOAUTOPAR)
