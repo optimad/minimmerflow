@@ -279,16 +279,6 @@ const ScalarStorage<std::size_t> & ComputationInfo::getSolvedBoundaryInterfaceRa
 }
 
 /*!
- * Gets the list of solved boundary interfaces signs.
- *
- * \result The list of solved boundary interfaces signs.
- */
-const ScalarStorage<std::size_t> & ComputationInfo::getSolvedBoundaryInterfaceSigns() const
-{
-    return m_solvedBoundaryInterfaceSigns;
-}
-
-/*!
  * Gets the list of boundary interfaces fluid raw ids.
  *
  * \result The list of boundary interfaces fluid raw ids.
@@ -296,6 +286,16 @@ const ScalarStorage<std::size_t> & ComputationInfo::getSolvedBoundaryInterfaceSi
 const ScalarStorage<std::size_t> & ComputationInfo::getSolvedBoundaryInterfaceFluidRawIds() const
 {
     return m_solvedBoundaryInterfaceFluidRawIds;
+}
+
+/*!
+ * Gets the list of solved boundary interfaces signs.
+ *
+ * \result The list of solved boundary interfaces signs.
+ */
+const ScalarStorage<int> & ComputationInfo::getSolvedBoundaryInterfaceSigns() const
+{
+    return m_solvedBoundaryInterfaceSigns;
 }
 
 /*!

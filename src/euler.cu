@@ -247,7 +247,7 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t 
  */
 __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, const std::size_t *interfaceRawIds,
                                       const double *interfaceNormals, const double *interfaceAreas,
-                                      const std::size_t *fluidCellRawIds, const std::size_t *boundarySigns,
+                                      const std::size_t *fluidCellRawIds, const int *boundarySigns,
                                       const double *fluidReconstructions, const double *virtualReconstructions,
                                       double *cellRHS, double *maxEig)
 {
@@ -402,7 +402,7 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     //
     // Process boundary interfaces
     //
-    const ScalarStorage<std::size_t> &solvedBoundaryInterfaceSigns = computationInfo.getSolvedBoundaryInterfaceSigns();
+    const ScalarStorage<int> &solvedBoundaryInterfaceSigns = computationInfo.getSolvedBoundaryInterfaceSigns();
     const ScalarStorage<std::size_t> &solvedBoundaryInterfaceFluidRawIds = computationInfo.getSolvedBoundaryInterfaceFluidRawIds();
 
     // Reconstruct interface values
@@ -433,7 +433,7 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
 
     const std::size_t *devBoundaryFluidRawIds = solvedBoundaryInterfaceFluidRawIds.cuda_deviceData();
 
-    const std::size_t *devBoundarySigns = solvedBoundaryInterfaceSigns.cuda_deviceData();
+    const int *devBoundarySigns = solvedBoundaryInterfaceSigns.cuda_deviceData();
 
     const int BOUNDARY_BLOCK_SIZE = 256;
     int nBoundarynBlocks = (nSolvedBoundaryInterfaces + BOUNDARY_BLOCK_SIZE - 1) / BOUNDARY_BLOCK_SIZE;

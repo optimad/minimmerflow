@@ -177,8 +177,8 @@ void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInf
     const std::size_t nSolvedUniformInterfaces = solvedUniformInterfaceRawIds.size();
 
     const ScalarStorage<std::size_t> &solvedBoundaryInterfaceRawIds = computationInfo.getSolvedBoundaryInterfaceRawIds();
-    const ScalarStorage<std::size_t> &solvedBoundaryInterfaceSigns = computationInfo.getSolvedBoundaryInterfaceSigns();
     const ScalarStorage<std::size_t> &solvedBoundaryInterfaceFluidRawIds = computationInfo.getSolvedBoundaryInterfaceFluidRawIds();
+    const ScalarStorage<int> &solvedBoundaryInterfaceSigns = computationInfo.getSolvedBoundaryInterfaceSigns();
     const std::size_t nSolvedBoundaryInterfaces = solvedBoundaryInterfaceRawIds.size();
 
     // Update the residuals
