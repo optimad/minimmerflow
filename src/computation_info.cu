@@ -42,8 +42,8 @@ void ComputationInfo::cuda_initialize()
     m_solvedUniformInterfaceNeighRawIds.cuda_allocateDevice();
 
     m_solvedBoundaryInterfaceRawIds.cuda_allocateDevice();
-    m_solvedBoundaryInterfaceSigns.cuda_allocateDevice();
     m_solvedBoundaryInterfaceFluidRawIds.cuda_allocateDevice();
+    m_solvedBoundaryInterfaceSigns.cuda_allocateDevice();
 
     m_solvedInterfaceLeftReconstructions.cuda_allocateDevice();
     m_solvedInterfaceRightReconstructions.cuda_allocateDevice();
@@ -58,8 +58,8 @@ void ComputationInfo::cuda_initialize()
     m_solvedUniformInterfaceNeighRawIds.cuda_updateDevice();
 
     m_solvedBoundaryInterfaceRawIds.cuda_updateDevice();
-    m_solvedBoundaryInterfaceSigns.cuda_updateDevice();
     m_solvedBoundaryInterfaceFluidRawIds.cuda_updateDevice();
+    m_solvedBoundaryInterfaceSigns.cuda_updateDevice();
 }
 
 /*!
@@ -80,8 +80,8 @@ void ComputationInfo::cuda_finalize()
     m_solvedUniformInterfaceNeighRawIds.cuda_freeDevice();
 
     m_solvedBoundaryInterfaceRawIds.cuda_freeDevice();
-    m_solvedBoundaryInterfaceSigns.cuda_freeDevice();
     m_solvedBoundaryInterfaceFluidRawIds.cuda_freeDevice();
+    m_solvedBoundaryInterfaceSigns.cuda_freeDevice();
 
     m_solvedInterfaceLeftReconstructions.cuda_freeDevice();
     m_solvedInterfaceRightReconstructions.cuda_freeDevice();
@@ -168,18 +168,6 @@ const std::size_t * ComputationInfo::cuda_getSolvedBoundaryInterfaceRawIdDevData
 
 /*!
  * Gets a constant pointer to the device storage for the solved boundary
- * interface signs.
- *
- * \result A constant pointer to the device storage for the solved boundary
- * interface signs.
- */
-const std::size_t * ComputationInfo::cuda_getSolvedBoundaryInterfaceSignDevData() const
-{
-    return m_solvedBoundaryInterfaceSigns.cuda_deviceData();
-}
-
-/*!
- * Gets a constant pointer to the device storage for the solved boundary
  * interface fluid raw ids.
  *
  * \result A constant pointer to the device storage for the solved boundary
@@ -188,6 +176,18 @@ const std::size_t * ComputationInfo::cuda_getSolvedBoundaryInterfaceSignDevData(
 const std::size_t * ComputationInfo::cuda_getSolvedBoundaryInterfaceFluidRawIdDevData() const
 {
     return m_solvedBoundaryInterfaceFluidRawIds.cuda_deviceData();
+}
+
+/*!
+ * Gets a constant pointer to the device storage for the solved boundary
+ * interface signs.
+ *
+ * \result A constant pointer to the device storage for the solved boundary
+ * interface signs.
+ */
+const int * ComputationInfo::cuda_getSolvedBoundaryInterfaceSignDevData() const
+{
+    return m_solvedBoundaryInterfaceSigns.cuda_deviceData();
 }
 
 /*!

@@ -60,12 +60,12 @@ public:
 #endif
 
     const ScalarStorage<std::size_t> & getSolvedBoundaryInterfaceRawIds() const;
-    const ScalarStorage<std::size_t> & getSolvedBoundaryInterfaceSigns() const;
     const ScalarStorage<std::size_t> & getSolvedBoundaryInterfaceFluidRawIds() const;
+    const ScalarStorage<int> & getSolvedBoundaryInterfaceSigns() const;
 #if ENABLE_CUDA
     const std::size_t * cuda_getSolvedBoundaryInterfaceRawIdDevData() const;
-    const std::size_t * cuda_getSolvedBoundaryInterfaceSignDevData() const;
     const std::size_t * cuda_getSolvedBoundaryInterfaceFluidRawIdDevData() const;
+    const int * cuda_getSolvedBoundaryInterfaceSignDevData() const;
 #endif
 
     ScalarStorage<double> & getSolvedInterfaceLeftReconstructions();
@@ -94,8 +94,8 @@ protected:
     ScalarStorage<std::size_t> m_solvedUniformInterfaceNeighRawIds;
 
     ScalarStorage<std::size_t> m_solvedBoundaryInterfaceRawIds;
-    ScalarStorage<std::size_t> m_solvedBoundaryInterfaceSigns;
     ScalarStorage<std::size_t> m_solvedBoundaryInterfaceFluidRawIds;
+    ScalarStorage<int> m_solvedBoundaryInterfaceSigns;
 
     ScalarStorage<double> m_solvedInterfaceLeftReconstructions;
     ScalarStorage<double> m_solvedInterfaceRightReconstructions;
