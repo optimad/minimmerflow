@@ -226,6 +226,7 @@ void computation(int argc, char *argv[])
 #if ENABLE_CUDA
     cellRHS.cuda_allocateDevice();
     cellConservatives.cuda_allocateDevice();
+    cellConservativesWork.cuda_allocateDevice();
 #endif
 
     log_memory_status();
@@ -260,6 +261,13 @@ void computation(int argc, char *argv[])
             solvedBoundaryInterfaceBCs[i] = BC_WALL;
         }
     }
+
+
+#if ENABLE_CUDA
+    solvedBoundaryInterfaceBCs.cuda_allocateDevice();
+    solvedBoundaryInterfaceBCs.cuda_updateDevice();
+#endif
+
     log_memory_status();
 
     // Initialize output
@@ -389,6 +397,10 @@ void computation(int argc, char *argv[])
         //
 
         // Compute the residuals
+#if ENABLE_CUDA
+	cellConservatives.cuda_updateDevice();
+#endif
+
         reconstruction::computePolynomials(problemType, computationInfo, cellConservatives, solvedBoundaryInterfaceBCs);
         euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservatives, &cellRHS, &maxEig);
 
@@ -429,6 +441,10 @@ void computation(int argc, char *argv[])
         }
 #endif
 
+#if ENABLE_CUDA
+	cellConservativesWork.cuda_updateDevice();
+#endif
+
         reconstruction::computePolynomials(problemType, computationInfo, cellConservativesWork, solvedBoundaryInterfaceBCs);
         euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservativesWork, &cellRHS, &maxEig);
 #if ENABLE_MPI
@@ -459,6 +475,10 @@ void computation(int argc, char *argv[])
             conservativeWorkCommunicator->startAllExchanges();
             conservativeWorkCommunicator->completeAllExchanges();
         }
+#endif
+	
+#if ENABLE_CUDA
+	cellConservativesWork.cuda_updateDevice();
 #endif
 
         reconstruction::computePolynomials(problemType, computationInfo, cellConservativesWork, solvedBoundaryInterfaceBCs);
