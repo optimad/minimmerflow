@@ -51,6 +51,9 @@ __constant__ double DEV_R;
 namespace constants
 {
 
+/*!
+ * Initialize CUDA data structures.
+ */
 void cuda_initialize()
 {
     CUDA_ERROR_CHECK(cudaMemcpyToSymbol(DEV_FID_P, &FID_P, sizeof(FID_P)));
