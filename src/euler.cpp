@@ -340,12 +340,11 @@ void evalReflectingBCValues(const std::array<double, 3> &point, const std::array
     std::array<double, N_FIELDS> primitive;
     ::utils::conservative2primitive(innerValues, primitive.data());
 
-    std::array<double, 3> u    = {{primitive[FID_U], primitive[FID_V], primitive[FID_W]}};
-    std::array<double, 3> u_n  = ::utils::normalVelocity(primitive.data(), normal.data()) * normal;
+    double u_n = ::utils::normalVelocity(primitive.data(), normal.data());
 
-    primitive[FID_U] = u[0] - 2 * u_n[0];
-    primitive[FID_V] = u[1] - 2 * u_n[1];
-    primitive[FID_W] = u[2] - 2 * u_n[2];
+    primitive[FID_U] -= 2 * u_n * normal[0];
+    primitive[FID_V] -= 2 * u_n * normal[1];
+    primitive[FID_W] -= 2 * u_n * normal[2];
 
     ::utils::primitive2conservative(primitive.data(), boundaryValues);
 }
