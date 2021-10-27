@@ -63,29 +63,24 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
 #endif
 
 void evalInterfaceBCValues(problem::ProblemType problemType, int BCType,
-                           const std::array<double, 3> &point,
-                           const std::array<double, 3> &normal,
+                           const std::array<double, 3> &point, const std::array<double, 3> &normal,
                            const double *conservative, double *conservative_BC);
 
-void evalFreeFlowBCValues(const std::array<double, 3> &point,
-                          const std::array<double, 3> &normal,
-                          const std::array<double, BC_INFO_SIZE> &info,
-                          const double *conservative, double *conservative_BC);
+void evalFreeFlowBCValues(const std::array<double, 3> &point, const std::array<double, 3> &normal,
+                          const std::array<double, BC_INFO_SIZE> &info, const double *conservative,
+                          double *conservative_BC);
 
-void evalReflectingBCValues(const std::array<double, 3> &point,
-                          const std::array<double, 3> &normal,
-                          const std::array<double, BC_INFO_SIZE> &info,
-                          const double *conservative, double *conservative_BC);
+void evalReflectingBCValues(const std::array<double, 3> &point, const std::array<double, 3> &normal,
+                            const std::array<double, BC_INFO_SIZE> &info, const double *conservative,
+                            double *conservative_BC);
 
-void evalWallBCValues(const std::array<double, 3> &point,
-                          const std::array<double, 3> &normal,
-                          const std::array<double, BC_INFO_SIZE> &info,
-                          const double *conservative, double *conservative_BC);
+void evalWallBCValues(const std::array<double, 3> &point, const std::array<double, 3> &normal,
+                      const std::array<double, BC_INFO_SIZE> &info, const double *conservative,
+                      double *conservative_BC);
 
-void evalDirichletBCValues(const std::array<double, 3> &point,
-                          const std::array<double, 3> &normal,
-                          const std::array<double, BC_INFO_SIZE> &info,
-                          const double *conservative, double *conservative_BC);
+void evalDirichletBCValues(const std::array<double, 3> &point, const std::array<double, 3> &normal,
+                           const std::array<double, BC_INFO_SIZE> &info, const double *conservative,
+                           double *conservative_BC);
 
 }
 
