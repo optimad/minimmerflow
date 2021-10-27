@@ -62,9 +62,9 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
                     const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig);
 #endif
 
-void evalInterfaceBCValues(problem::ProblemType problemType, int BCType,
-                           const std::array<double, 3> &point, const std::array<double, 3> &normal,
-                           const double *innerValues, double *boundaryValues);
+void evalInterfaceBCValues(const std::array<double, 3> &point, const std::array<double, 3> &normal,
+                           problem::ProblemType problemType, int BCType, const double *innerValues,
+                           double *boundaryValues);
 
 void evalFreeFlowBCValues(const std::array<double, 3> &point, const std::array<double, 3> &normal,
                           const std::array<double, BC_INFO_SIZE> &info, const double *innerValues,
