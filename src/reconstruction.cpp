@@ -56,19 +56,17 @@ void computePolynomials(problem::ProblemType problemType, const ComputationInfo 
 /*!
  * Evaluate the reconstruction are the specified point.
  *
- * \param cellRawId is the raw id of the cell
- * \param meshInfo are the mesh information
  * \param order is the order
  * \param point is the point where the reconstruction will be evaluated
- * \param means are the mean valuesof the fields
+ * \param means are the mean values of the fields
  * \param[out] values on output will contain the reconstructed values
  */
-void eval(std::size_t cellRawId, const MeshGeometricalInfo &meshInfo, int order, const std::array<double, 3> &point, const double *means, double *values)
+void eval(int order, const std::array<double, 3> &point, const double *means, double *values)
 {
     switch (order) {
 
     case (1):
-        eval_1(cellRawId, meshInfo, point, means, values);
+        eval_1(point, means, values);
         break;
 
     default:
@@ -80,16 +78,13 @@ void eval(std::size_t cellRawId, const MeshGeometricalInfo &meshInfo, int order,
 /*!
  * Evaluate the reconstruction are the specified point.
  *
- * \param cellRawId is the raw id of the cell
- * \param meshInfo are the mesh information
  * \param order is the order
  * \param point is the point where the reconstruction will be evaluated
+ * \param means are the mean values of the fields
  * \param[out] values on output will contain the reconstructed values
  */
-void eval_1(std::size_t cellRawId, const MeshGeometricalInfo &meshInfo, const std::array<double, 3> &point, const double *means, double *values)
+void eval_1(const std::array<double, 3> &point, const double *means, double *values)
 {
-    BITPIT_UNUSED(cellRawId);
-    BITPIT_UNUSED(meshInfo);
     BITPIT_UNUSED(point);
 
     std::copy_n(means, N_FIELDS, values);

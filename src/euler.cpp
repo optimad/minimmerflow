@@ -206,8 +206,8 @@ void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInf
         std::array<double, N_FIELDS> ownerReconstruction;
         std::array<double, N_FIELDS> neighReconstruction;
 
-        reconstruction::eval(ownerRawId, computationInfo, order, interfaceCentroid, ownerMean, ownerReconstruction.data());
-        reconstruction::eval(neighRawId, computationInfo, order, interfaceCentroid, neighMean, neighReconstruction.data());
+        reconstruction::eval(order, interfaceCentroid, ownerMean, ownerReconstruction.data());
+        reconstruction::eval(order, interfaceCentroid, neighMean, neighReconstruction.data());
 
         // Evaluate the conservative fluxes
         FluxData fluxes;
@@ -244,7 +244,7 @@ void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInf
         std::array<double, N_FIELDS> fluidReconstruction;
         std::array<double, N_FIELDS> virtualReconstruction;
 
-        reconstruction::eval(fluidRawId, computationInfo, order, interfaceCentroid, fluidMean, fluidReconstruction.data());
+        reconstruction::eval(order, interfaceCentroid, fluidMean, fluidReconstruction.data());
         evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, interfaceNormal, fluidReconstruction.data(), virtualReconstruction.data());
 
         // Evaluate the conservative fluxes
