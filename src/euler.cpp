@@ -245,7 +245,7 @@ void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInf
         std::array<double, N_FIELDS> virtualReconstruction;
 
         reconstruction::eval(order, interfaceCentroid, fluidMean, fluidReconstruction.data());
-        evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, interfaceNormal, fluidReconstruction.data(), virtualReconstruction.data());
+        evalInterfaceBCValues(interfaceCentroid, interfaceNormal, problemType, interfaceBC, fluidReconstruction.data(), virtualReconstruction.data());
 
         // Evaluate the conservative fluxes
         FluxData fluxes;
@@ -266,16 +266,16 @@ void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInf
 /*!
  * Computes the boundary values for the specified interface.
  *
- * \param problemType is the type of problem being solved
- * \param BCType is the type of boundary condition to apply
  * \param point is the point where the boundary condition should be applied
  * \param normal is the normal needed for evaluating the boundary condition
+ * \param problemType is the type of problem being solved
+ * \param BCType is the type of boundary condition to apply
  * \param innerValues are the inner values
  * \param[out] boundaryValues are the boundary values
  */
-void evalInterfaceBCValues(problem::ProblemType problemType, int BCType,
-                           const std::array<double, 3> &point, const std::array<double, 3> &normal,
-                           const double *innerValues, double *boundaryValues)
+void evalInterfaceBCValues(const std::array<double, 3> &point, const std::array<double, 3> &normal,
+                           problem::ProblemType problemType, int BCType, const double *innerValues,
+                           double *boundaryValues)
 {
     std::array<double, BC_INFO_SIZE> info;
     problem::getBorderBCInfo(problemType, BCType, point, normal, info);
