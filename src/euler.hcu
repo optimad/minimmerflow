@@ -40,6 +40,35 @@ __device__ void dev_evalFluxes(const double *conservative, const double *n, doub
 
 __device__ void dev_evalSplitting(const double *conservativeL, const double *conservativeR, const double *n, double *fluxes, double *lambda);
 
+__device__ void dev_evalInterfaceBCValues(const double *point, const double *normal,
+                                          int problemType, int BCType, const double *innerValues,
+                                          double *boundaryValues);
+
+__device__ void dev_evalFreeFlowBCValues(const double *point, const double *normal,
+                                         const double *info, const double *innerValues,
+                                         double *boundaryValues);
+
+__device__ void dev_evalReflectingBCValues(const double *point, const double *normal,
+                                           const double *info, const double *innerValues,
+                                           double *boundaryValues);
+
+__device__ void dev_evalWallBCValues(const double *point, const double *normal,
+                                     const double *info, const double *innerValues,
+                                     double *boundaryValues);
+
+__device__ void dev_evalDirichletBCValues(const double *point, const double *normal,
+                                          const double *info, const double *innerValues,
+                                          double *boundaryValues);
+
+__global__ void dev_evalInterfaceValues(std::size_t nInterfaces, const std::size_t *interfaceRawIds, const double *interfaceCentroids,
+                                        const std::size_t *cellRawIds, const double *cellValues,
+                                        int order, double *interfaceValues);
+
+__global__ void dev_evalInterfaceBCs(std::size_t nInterfaces, const std::size_t *interfaceRawIds, const int *interfaceBCs,
+                                     const double *interfaceNormals, const double *interfaceCentroids, 
+                                     const std::size_t *cellRawIds, const double *cellValues,
+                                     int problemType, int order, double *interfaceValues);
+
 __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t *interfaceRawIds,
                                      const double *interfaceNormals, const double *interfaceAreas,
                                      const std::size_t *leftCellRawIds, const std::size_t *rightCellRawIds,

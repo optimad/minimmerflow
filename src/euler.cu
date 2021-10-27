@@ -23,7 +23,8 @@
 \*---------------------------------------------------------------------------*/
 
 #include "euler.hcu"
-#include "reconstruction.hpp"
+#include "problem.hcu"
+#include "reconstruction.hcu"
 #include "utils_cuda.hpp"
 
 #define uint64  unsigned long long
@@ -167,6 +168,207 @@ __device__ void dev_evalSplitting(const double *conservativeL, const double *con
     for (int k = 0; k < N_FIELDS; ++k) {
         fluxes[k] = 0.5 * ((fR[k] + fL[k]) - (*lambda) * (conservativeR[k] - conservativeL[k]));
     }
+}
+
+/*!
+ * Computes the boundary values for the free flow BC.
+ *
+ * \param point is the point where the boundary condition should be applied
+ * \param normal is the normal needed for evaluating the boundary condition
+ * \param info are the info needed for evaluating the boundary condition
+ * \param innerValues are the inner innerValues values
+ * \param[out] boundaryValues are the boundary values
+ */
+__device__ void dev_evalFreeFlowBCValues(const double *point, const double *normal,
+                                         double *info, const double *innerValues,
+                                         double *boundaryValues)
+{
+    BITPIT_UNUSED(point);
+    BITPIT_UNUSED(normal);
+    BITPIT_UNUSED(info);
+
+    for (int i = 0; i < N_FIELDS; ++i) {
+        boundaryValues[i] = innerValues[i];
+    }
+}
+
+/*!
+ * Computes the boundary values for the reflecting BC.
+ *
+ * \param point is the point where the boundary condition should be applied
+ * \param normal is the normal needed for evaluating the boundary condition
+ * \param info are the info needed for evaluating the boundary condition
+ * \param innerValues are the inner innerValues values
+ * \param[out] boundaryValues are the boundary values
+ */
+__device__ void dev_evalReflectingBCValues(const double *point, const double *normal,
+                                           double *info, const double *innerValues,
+                                           double *boundaryValues)
+{
+    BITPIT_UNUSED(point);
+    BITPIT_UNUSED(info);
+
+    double primitive[N_FIELDS];
+    ::utils::dev_conservative2primitive(innerValues, primitive);
+
+    double u_n = ::utils::dev_normalVelocity(primitive, normal);
+
+    primitive[FID_U] -= 2 * u_n * normal[0];
+    primitive[FID_V] -= 2 * u_n * normal[1];
+    primitive[FID_W] -= 2 * u_n * normal[2];
+
+    ::utils::dev_primitive2conservative(primitive, boundaryValues);
+}
+
+/*!
+ * Computes the boundary values for the wall BC.
+ *
+ * \param point is the point where the boundary condition should be applied
+ * \param normal is the normal needed for evaluating the boundary condition
+ * \param info are the info needed for evaluating the boundary condition
+ * \param innerValues are the inner innerValues values
+ * \param[out] boundaryValues are the boundary values
+ */
+__device__ void dev_evalWallBCValues(const double *point, const double *normal,
+                                     double *info, const double *innerValues,
+                                     double *boundaryValues)
+{
+    BITPIT_UNUSED(point);
+    BITPIT_UNUSED(info);
+
+    dev_evalReflectingBCValues(point, normal, info, innerValues, boundaryValues);
+}
+
+/*!
+ * Computes the boundary values for the dirichlet BC.
+ *
+ * \param point is the point where the boundary condition should be applied
+ * \param normal is the normal needed for evaluating the boundary condition
+ * \param info are the info needed for evaluating the boundary condition
+ * \param innerValues are the inner innerValues values
+ * \param[out] boundaryValues are the boundary values
+ */
+__device__ void dev_evalDirichletBCValues(const double *point, const double *normal,
+                                          double *info, const double *innerValues,
+                                          double *boundaryValues)
+{
+    BITPIT_UNUSED(point);
+    BITPIT_UNUSED(normal);
+    BITPIT_UNUSED(innerValues);
+
+    ::utils::dev_primitive2conservative(info, boundaryValues);
+}
+
+/*!
+ * Computes the boundary values for the specified interface.
+ *
+ * \param point is the point where the boundary condition should be applied
+ * \param normal is the normal needed for evaluating the boundary condition
+ * \param problemType is the type of problem being solved
+ * \param BCType is the type of boundary condition to apply
+ * \param innerValues are the inner innerValues values
+ * \param[out] boundaryValues are the boundary values
+ */
+__device__ void dev_evalInterfaceBCValues(const double *point, const double *normal,
+                                          int problemType, int BCType, const double *innerValues,
+                                          double *boundaryValues)
+{
+    double info[BC_INFO_SIZE];
+    problem::dev_getBorderBCInfo(problemType, BCType, point, normal, info);
+
+    switch (BCType)
+    {
+        case BC_FREE_FLOW:
+            dev_evalFreeFlowBCValues(point, normal, info, innerValues, boundaryValues);
+            break;
+
+        case BC_REFLECTING:
+            dev_evalReflectingBCValues(point, normal, info, innerValues, boundaryValues);
+            break;
+
+        case BC_WALL:
+            dev_evalWallBCValues(point, normal, info, innerValues, boundaryValues);
+            break;
+
+        case BC_DIRICHLET:
+            dev_evalDirichletBCValues(point, normal, info, innerValues, boundaryValues);
+            break;
+
+    }
+}
+
+/*!
+ * Evaluate cell values on interface centroids.
+ *
+ * \param nInterfaces is the number of solved interfaces
+ * \param interfaceRawIds are the raw ids of the solved interfaces
+ * \param interfaceCentroids are the centroid of the interfaces
+ * \param cellRawIds are the raw ids of the cells
+ * \param cellValues are the cell values
+ * \param order is the reconstruction order
+ * \param[out] interfaceValues are the interface values
+ */
+__global__ void dev_evalInterfaceValues(std::size_t nInterfaces, const std::size_t *interfaceRawIds, const double *interfaceCentroids,
+                                        const std::size_t *cellRawIds, const double *cellValues,
+                                        int order, double *interfaceValues)
+{
+    // Get interface information
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= nInterfaces) {
+        return;
+    }
+
+    const std::size_t interfaceRawId = interfaceRawIds[i];
+    const double *interfaceCentroid = interfaceCentroids + 3 * interfaceRawId;
+
+    // Cell information
+    const std::size_t cellRawId = cellRawIds[i];
+    const double *meanValues = cellValues + N_FIELDS * cellRawId;
+
+    // Reconstruct interface values
+    double *reconstructedValues = interfaceValues + N_FIELDS * i;
+    reconstruction::dev_eval(order, interfaceCentroid, meanValues, reconstructedValues);
+}
+
+/*!
+ * Evaluate boundary conditions on interface centroids.
+ *
+ * \param nInterfaces is the number of solved interfaces
+ * \param interfaceRawIds are the raw ids of the solved interfaces
+ * \param interfaceBCs are the boundary conditions associated with the
+ * interfaces
+ * \param interfaceNormals are the normals of the interfaces
+ * \param interfaceCentroids are the centroid of the interfaces
+ * \param cellRawIds are the raw ids of the cells
+ * \param cellValues are the cell values
+ * \param problemType is the problem type
+ * \param order is the reconstruction order
+ * \param[out] interfaceValues are the interface values
+ */
+__global__ void dev_evalInterfaceBCs(std::size_t nInterfaces, const std::size_t *interfaceRawIds, const int *interfaceBCs,
+		                     const double *interfaceNormals, const double *interfaceCentroids, 
+                                     const std::size_t *cellRawIds, const double *cellValues,
+                                     int problemType, int order, double *interfaceValues)
+{
+    // Get interface information
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= nInterfaces) {
+        return;
+    }
+
+    const int interfaceBC = interfaceBCs[i];
+    
+    const std::size_t interfaceRawId = interfaceRawIds[i];
+    const double *interfaceCentroid = interfaceCentroids + 3 * interfaceRawId;
+    const double *interfaceNormal   = interfaceNormals + 3 * interfaceRawId;
+
+    // Cell information
+    const std::size_t cellRawId = cellRawIds[i];
+    const double *innerValues = cellValues + N_FIELDS * cellRawId;
+
+    // Evaluate boundary values
+    double *boundaryValues = interfaceValues + N_FIELDS * i;
+    dev_evalInterfaceBCValues(interfaceCentroid, interfaceNormal, problemType, interfaceBC, innerValues, boundaryValues);
 }
 
 /*!
@@ -334,66 +536,47 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     //
     // Initialization
     //
-    const double *devInterfaceNormals = computationInfo.cuda_getInterfaceNormalDevData();
-    const double *devInterfaceAreas   = computationInfo.cuda_getInterfaceAreaDevData();
+    const double *devInterfaceCentroids = computationInfo.cuda_getInterfaceCentroidDevData();
+    const double *devInterfaceNormals   = computationInfo.cuda_getInterfaceNormalDevData();
+    const double *devInterfaceAreas     = computationInfo.cuda_getInterfaceAreaDevData();
 
     CUDA_ERROR_CHECK(cudaMemset(devMaxEig, 0., 1 * sizeof(double)));
 
     double *devCellsRHS = cellsRHS->cuda_deviceData();
 
-    const ScalarStorage<std::size_t> &solvedUniformInterfaceRawIds = computationInfo.getSolvedUniformInterfaceRawIds();
-    const std::size_t nSolvedUniformInterfaces = solvedUniformInterfaceRawIds.size();
+    const double *devCellConservatives = cellConservatives.cuda_deviceData();
 
-    const ScalarStorage<std::size_t> &solvedBoundaryInterfaceRawIds = computationInfo.getSolvedBoundaryInterfaceRawIds();
-    const std::size_t nSolvedBoundaryInterfaces = solvedBoundaryInterfaceRawIds.size();
-
-    ScalarStorage<double> *leftReconstructions = &(computationInfo.getSolvedInterfaceLeftReconstructions());
-    ScalarStorage<double> *rightReconstructions = &(computationInfo.getSolvedInterfaceRightReconstructions());
-
-    double *devLeftReconstructions = computationInfo.getSolvedInterfaceLeftReconstructions().cuda_deviceData();
+    double *devLeftReconstructions  = computationInfo.getSolvedInterfaceLeftReconstructions().cuda_deviceData();
     double *devRightReconstructions = computationInfo.getSolvedInterfaceRightReconstructions().cuda_deviceData();
+
+    int devProblemType = static_cast<int>(problemType);
 
     //
     // Process uniform interfaces
     //
-    const ScalarStorage<std::size_t> &solvedUniformInterfaceOwnerRawIds = computationInfo.getSolvedUniformInterfaceOwnerRawIds();
-    const ScalarStorage<std::size_t> &solvedUniformInterfaceNeighRawIds = computationInfo.getSolvedUniformInterfaceNeighRawIds();
+    const ScalarStorage<std::size_t> &uniformInterfaceRawIds      = computationInfo.getSolvedUniformInterfaceRawIds();
+    const ScalarStorage<std::size_t> &uniformInterfaceOwnerRawIds = computationInfo.getSolvedUniformInterfaceOwnerRawIds();
+    const ScalarStorage<std::size_t> &uniformInterfaceNeighRawIds = computationInfo.getSolvedUniformInterfaceNeighRawIds();
 
-    // Reconstruct interface values
-    for (std::size_t i = 0; i < nSolvedUniformInterfaces; ++i) {
-        // Info about the interface
-        const std::size_t interfaceRawId = solvedUniformInterfaceRawIds[i];
-        const std::array<double, 3> &interfaceCentroid = computationInfo.rawGetInterfaceCentroid(interfaceRawId);
+    const std::size_t nSolvedUniformInterfaces   = uniformInterfaceRawIds.size();
+    const std::size_t *devUniformInterfaceRawIds = uniformInterfaceRawIds.cuda_deviceData();
+    const std::size_t *devUniformOwnerRawIds     = uniformInterfaceOwnerRawIds.cuda_deviceData();
+    const std::size_t *devUniformNeighRawIds     = uniformInterfaceNeighRawIds.cuda_deviceData();
 
-        // Info about the interface owner
-        std::size_t ownerRawId = solvedUniformInterfaceOwnerRawIds[i];
-        const double *ownerMean = cellConservatives.rawData(ownerRawId);
-
-        // Info about the interface neighbour
-        std::size_t neighRawId = solvedUniformInterfaceNeighRawIds[i];
-        const double *neighMean = cellConservatives.rawData(neighRawId);
-
-        // Evaluate interface reconstructions
-        double *ownerReconstruction = leftReconstructions->data() + N_FIELDS * i;
-        double *neighReconstruction = rightReconstructions->data() + N_FIELDS * i;
-
-        reconstruction::eval(ownerRawId, computationInfo, order, interfaceCentroid, ownerMean, ownerReconstruction);
-        reconstruction::eval(neighRawId, computationInfo, order, interfaceCentroid, neighMean, neighReconstruction);
-    }
-
-    leftReconstructions->cuda_updateDevice(N_FIELDS * nSolvedUniformInterfaces);
-    rightReconstructions->cuda_updateDevice(N_FIELDS * nSolvedUniformInterfaces);
-
-    // Evaluate fluxes
-    const std::size_t *devSolvedUniformInterfaceRawIds = solvedUniformInterfaceRawIds.cuda_deviceData();
-
-    const std::size_t *devUniformOwnerRawIds = solvedUniformInterfaceOwnerRawIds.cuda_deviceData();
-    const std::size_t *devUniformNeighRawIds = solvedUniformInterfaceNeighRawIds.cuda_deviceData();
-
+    // Get block information
     const int UNIFORM_BLOCK_SIZE = 256;
     int nUniformnBlocks = (nSolvedUniformInterfaces + UNIFORM_BLOCK_SIZE - 1) / UNIFORM_BLOCK_SIZE;
     int uniformSharedMemorySize = UNIFORM_BLOCK_SIZE * sizeof(double);
-    dev_uniformUpdateRHS<<<nUniformnBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devSolvedUniformInterfaceRawIds,
+
+    // Evaluate interface values
+    dev_evalInterfaceValues<<<nUniformnBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds, devInterfaceCentroids,
+                                                                                              devUniformOwnerRawIds, devCellConservatives, order, devLeftReconstructions);
+
+    dev_evalInterfaceValues<<<nUniformnBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds, devInterfaceCentroids,
+                                                                                              devUniformNeighRawIds, devCellConservatives, order, devRightReconstructions);
+
+    // Evaluate fluxes
+    dev_uniformUpdateRHS<<<nUniformnBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds,
                                                                                            devInterfaceNormals, devInterfaceAreas,
                                                                                            devUniformOwnerRawIds, devUniformNeighRawIds,
                                                                                            devLeftReconstructions, devRightReconstructions,
@@ -402,45 +585,34 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     //
     // Process boundary interfaces
     //
-    const ScalarStorage<int> &solvedBoundaryInterfaceSigns = computationInfo.getSolvedBoundaryInterfaceSigns();
-    const ScalarStorage<std::size_t> &solvedBoundaryInterfaceFluidRawIds = computationInfo.getSolvedBoundaryInterfaceFluidRawIds();
+    const ScalarStorage<std::size_t> &boundaryInterfaceRawIds      = computationInfo.getSolvedBoundaryInterfaceRawIds();
+    const ScalarStorage<std::size_t> &boundaryInterfaceFluidRawIds = computationInfo.getSolvedBoundaryInterfaceFluidRawIds();
+    const ScalarStorage<int> &boundaryInterfaceSigns               = computationInfo.getSolvedBoundaryInterfaceSigns();
 
-    // Reconstruct interface values
-    for (std::size_t i = 0; i < nSolvedBoundaryInterfaces; ++i) {
-        // Info about the interface
-        const std::size_t interfaceRawId = solvedBoundaryInterfaceRawIds[i];
-        const std::array<double, 3> &interfaceNormal = computationInfo.rawGetInterfaceNormal(interfaceRawId);
-        const std::array<double, 3> &interfaceCentroid = computationInfo.rawGetInterfaceCentroid(interfaceRawId);
-        int interfaceBC = solvedBoundaryInterfaceBCs[i];
+    const std::size_t nBoundaryInterfaces         = boundaryInterfaceRawIds.size();
+    const std::size_t *devBoundaryInterfaceRawIds = boundaryInterfaceRawIds.cuda_deviceData();
+    const std::size_t *devBoundaryFluidRawIds     = boundaryInterfaceFluidRawIds.cuda_deviceData();
+    const int *devBoundaryInterfaceSigns          = boundaryInterfaceSigns.cuda_deviceData();
+    const int *devBoundaryInterfaceBCs            = solvedBoundaryInterfaceBCs.cuda_deviceData();
 
-        // Info about the interface fluid cell
-        std::size_t fluidRawId = solvedBoundaryInterfaceFluidRawIds[i];
-        const double *fluidMean = cellConservatives.rawData(fluidRawId);
+    // Get block information
+    const int BOUNDARY_BLOCK_SIZE = 256;
+    int nBoundarynBlocks = (nBoundaryInterfaces + BOUNDARY_BLOCK_SIZE - 1) / BOUNDARY_BLOCK_SIZE;
+    int boundarySharedMemorySize = BOUNDARY_BLOCK_SIZE * sizeof(double);
 
-        // Evaluate interface reconstructions
-        double *fluidReconstruction   = leftReconstructions->data() + N_FIELDS * i;
-        double *virtualReconstruction = rightReconstructions->data() + N_FIELDS * i;
+    // Evaluate interface values
+    dev_evalInterfaceValues<<<nBoundarynBlocks, BOUNDARY_BLOCK_SIZE, boundarySharedMemorySize>>>(nBoundaryInterfaces, devBoundaryInterfaceRawIds, devInterfaceCentroids,
+                                                                                                 devBoundaryFluidRawIds, devCellConservatives,  order, devLeftReconstructions);
 
-        reconstruction::eval(fluidRawId, computationInfo, order, interfaceCentroid, fluidMean, fluidReconstruction);
-        evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, interfaceNormal, fluidReconstruction, virtualReconstruction);
-    }
-
-    leftReconstructions->cuda_updateDevice(N_FIELDS * nSolvedBoundaryInterfaces);
-    rightReconstructions->cuda_updateDevice(N_FIELDS * nSolvedBoundaryInterfaces);
+    dev_evalInterfaceBCs<<<nBoundarynBlocks, BOUNDARY_BLOCK_SIZE, boundarySharedMemorySize>>>(nBoundaryInterfaces, devBoundaryInterfaceRawIds, devBoundaryInterfaceBCs,
+                                                                                              devInterfaceNormals, devInterfaceCentroids,
+                                                                                              devBoundaryFluidRawIds, devCellConservatives,
+                                                                                              devProblemType, order, devRightReconstructions);
 
     // Evaluate fluxes
-    const std::size_t *devSolvedBoundaryInterfaceRawIds = solvedBoundaryInterfaceRawIds.cuda_deviceData();
-
-    const std::size_t *devBoundaryFluidRawIds = solvedBoundaryInterfaceFluidRawIds.cuda_deviceData();
-
-    const int *devBoundarySigns = solvedBoundaryInterfaceSigns.cuda_deviceData();
-
-    const int BOUNDARY_BLOCK_SIZE = 256;
-    int nBoundarynBlocks = (nSolvedBoundaryInterfaces + BOUNDARY_BLOCK_SIZE - 1) / BOUNDARY_BLOCK_SIZE;
-    int boundarySharedMemorySize = BOUNDARY_BLOCK_SIZE * sizeof(double);
-    dev_boundaryUpdateRHS<<<nBoundarynBlocks, BOUNDARY_BLOCK_SIZE, boundarySharedMemorySize>>>(nSolvedBoundaryInterfaces, devSolvedBoundaryInterfaceRawIds,
+    dev_boundaryUpdateRHS<<<nBoundarynBlocks, BOUNDARY_BLOCK_SIZE, boundarySharedMemorySize>>>(nBoundaryInterfaces, devBoundaryInterfaceRawIds,
                                                                                                devInterfaceNormals, devInterfaceAreas,
-                                                                                               devBoundaryFluidRawIds, devBoundarySigns,
+                                                                                               devBoundaryFluidRawIds, devBoundaryInterfaceSigns,
                                                                                                devLeftReconstructions, devRightReconstructions,
                                                                                                devCellsRHS, devMaxEig);
 
