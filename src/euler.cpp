@@ -270,12 +270,12 @@ void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInf
  * \param BCType is the type of boundary condition to apply
  * \param point is the point where the boundary condition should be applied
  * \param normal is the normal needed for evaluating the boundary condition
- * \param conservative are the inner conservative values
- * \param[out] conservative_BC are the outer conservative values
+ * \param innerValues are the inner values
+ * \param[out] boundaryValues are the boundary values
  */
 void evalInterfaceBCValues(problem::ProblemType problemType, int BCType,
                            const std::array<double, 3> &point, const std::array<double, 3> &normal,
-                           const double *conservative, double *conservative_BC)
+                           const double *innerValues, double *boundaryValues)
 {
     std::array<double, BC_INFO_SIZE> info;
     problem::getBorderBCInfo(problemType, BCType, point, normal, info);
@@ -283,19 +283,19 @@ void evalInterfaceBCValues(problem::ProblemType problemType, int BCType,
     switch (BCType)
     {
         case BC_FREE_FLOW:
-            evalFreeFlowBCValues(point, normal, info, conservative, conservative_BC);
+            evalFreeFlowBCValues(point, normal, info, innerValues, boundaryValues);
             break;
 
         case BC_REFLECTING:
-            evalReflectingBCValues(point, normal, info, conservative, conservative_BC);
+            evalReflectingBCValues(point, normal, info, innerValues, boundaryValues);
             break;
 
         case BC_WALL:
-            evalWallBCValues(point, normal, info, conservative, conservative_BC);
+            evalWallBCValues(point, normal, info, innerValues, boundaryValues);
             break;
 
         case BC_DIRICHLET:
-            evalDirichletBCValues(point, normal, info, conservative, conservative_BC);
+            evalDirichletBCValues(point, normal, info, innerValues, boundaryValues);
             break;
 
     }
@@ -307,17 +307,18 @@ void evalInterfaceBCValues(problem::ProblemType problemType, int BCType,
  * \param point is the point where the boundary condition should be applied
  * \param normal is the normal needed for evaluating the boundary condition
  * \param info are the info needed for evaluating the boundary condition
- * \param[out] conservative_BC are the outer conservative values
+ * \param innerValues are the inner values
+ * \param[out] boundaryValues are the boundary values
  */
 void evalFreeFlowBCValues(const std::array<double, 3> &point, const std::array<double, 3> &normal,
-                          const std::array<double, BC_INFO_SIZE> &info, const double *conservative,
-                          double *conservative_BC)
+                          const std::array<double, BC_INFO_SIZE> &info, const double *innerValues,
+                          double *boundaryValues)
 {
     BITPIT_UNUSED(point);
     BITPIT_UNUSED(normal);
     BITPIT_UNUSED(info);
 
-    std::copy_n(conservative, N_FIELDS, conservative_BC);
+    std::copy_n(innerValues, N_FIELDS, boundaryValues);
 }
 
 /*!
@@ -326,17 +327,18 @@ void evalFreeFlowBCValues(const std::array<double, 3> &point, const std::array<d
  * \param point is the point where the boundary condition should be applied
  * \param normal is the normal needed for evaluating the boundary condition
  * \param info are the info needed for evaluating the boundary condition
- * \param[out] conservative_BC are the outer conservative values
+ * \param innerValues are the inner values
+ * \param[out] boundaryValues are the boundary values
  */
 void evalReflectingBCValues(const std::array<double, 3> &point, const std::array<double, 3> &normal,
-                            const std::array<double, BC_INFO_SIZE> &info, const double *conservative,
-                            double *conservative_BC)
+                            const std::array<double, BC_INFO_SIZE> &info, const double *innerValues,
+                            double *boundaryValues)
 {
     BITPIT_UNUSED(point);
     BITPIT_UNUSED(info);
 
     std::array<double, N_FIELDS> primitive;
-    ::utils::conservative2primitive(conservative, primitive.data());
+    ::utils::conservative2primitive(innerValues, primitive.data());
 
     std::array<double, 3> u    = {{primitive[FID_U], primitive[FID_V], primitive[FID_W]}};
     std::array<double, 3> u_n  = ::utils::normalVelocity(primitive.data(), normal.data()) * normal;
@@ -345,7 +347,7 @@ void evalReflectingBCValues(const std::array<double, 3> &point, const std::array
     primitive[FID_V] = u[1] - 2 * u_n[1];
     primitive[FID_W] = u[2] - 2 * u_n[2];
 
-    ::utils::primitive2conservative(primitive.data(), conservative_BC);
+    ::utils::primitive2conservative(primitive.data(), boundaryValues);
 }
 
 /*!
@@ -354,16 +356,17 @@ void evalReflectingBCValues(const std::array<double, 3> &point, const std::array
  * \param point is the point where the boundary condition should be applied
  * \param normal is the normal needed for evaluating the boundary condition
  * \param info are the info needed for evaluating the boundary condition
- * \param[out] conservative_BC are the outer conservative values
+ * \param innerValues are the inner values
+ * \param[out] boundaryValues are the boundary values
  */
 void evalWallBCValues(const std::array<double, 3> &point, const std::array<double, 3> &normal,
-                      const std::array<double, BC_INFO_SIZE> &info, const double *conservative,
-                      double *conservative_BC)
+                      const std::array<double, BC_INFO_SIZE> &info, const double *innerValues,
+                      double *boundaryValues)
 {
     BITPIT_UNUSED(point);
     BITPIT_UNUSED(info);
 
-    evalReflectingBCValues(point, normal, info, conservative, conservative_BC);
+    evalReflectingBCValues(point, normal, info, innerValues, boundaryValues);
 }
 
 /*!
@@ -372,17 +375,18 @@ void evalWallBCValues(const std::array<double, 3> &point, const std::array<doubl
  * \param point is the point where the boundary condition should be applied
  * \param normal is the normal needed for evaluating the boundary condition
  * \param info are the info needed for evaluating the boundary condition
- * \param[out] conservative_BC are the outer conservative values
+ * \param innerValues are the inner values
+ * \param[out] boundaryValues are the boundary values
  */
 void evalDirichletBCValues(const std::array<double, 3> &point, const std::array<double, 3> &normal,
-                           const std::array<double, BC_INFO_SIZE> &info, const double *conservative,
-                           double *conservative_BC)
+                           const std::array<double, BC_INFO_SIZE> &info, const double *innerValues,
+                           double *boundaryValues)
 {
     BITPIT_UNUSED(point);
     BITPIT_UNUSED(normal);
-    BITPIT_UNUSED(conservative);
+    BITPIT_UNUSED(innerValues);
 
-    ::utils::primitive2conservative(info.data(), conservative_BC);
+    ::utils::primitive2conservative(info.data(), boundaryValues);
 }
 
 }
