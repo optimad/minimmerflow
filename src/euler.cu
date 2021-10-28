@@ -565,22 +565,22 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
 
     // Get block information
     const int UNIFORM_BLOCK_SIZE = 256;
-    int nUniformnBlocks = (nSolvedUniformInterfaces + UNIFORM_BLOCK_SIZE - 1) / UNIFORM_BLOCK_SIZE;
+    int nUniformBlocks = (nSolvedUniformInterfaces + UNIFORM_BLOCK_SIZE - 1) / UNIFORM_BLOCK_SIZE;
     int uniformSharedMemorySize = UNIFORM_BLOCK_SIZE * sizeof(double);
 
     // Evaluate interface values
-    dev_evalInterfaceValues<<<nUniformnBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds, devInterfaceCentroids,
-                                                                                              devUniformOwnerRawIds, devCellConservatives, order, devLeftReconstructions);
+    dev_evalInterfaceValues<<<nUniformBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds, devInterfaceCentroids,
+                                                                                             devUniformOwnerRawIds, devCellConservatives, order, devLeftReconstructions);
 
-    dev_evalInterfaceValues<<<nUniformnBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds, devInterfaceCentroids,
-                                                                                              devUniformNeighRawIds, devCellConservatives, order, devRightReconstructions);
+    dev_evalInterfaceValues<<<nUniformBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds, devInterfaceCentroids,
+                                                                                             devUniformNeighRawIds, devCellConservatives, order, devRightReconstructions);
 
     // Evaluate fluxes
-    dev_uniformUpdateRHS<<<nUniformnBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds,
-                                                                                           devInterfaceNormals, devInterfaceAreas,
-                                                                                           devUniformOwnerRawIds, devUniformNeighRawIds,
-                                                                                           devLeftReconstructions, devRightReconstructions,
-                                                                                           devCellsRHS, devMaxEig);
+    dev_uniformUpdateRHS<<<nUniformBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds,
+                                                                                          devInterfaceNormals, devInterfaceAreas,
+                                                                                          devUniformOwnerRawIds, devUniformNeighRawIds,
+                                                                                          devLeftReconstructions, devRightReconstructions,
+                                                                                          devCellsRHS, devMaxEig);
 
     //
     // Process boundary interfaces
@@ -597,24 +597,24 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
 
     // Get block information
     const int BOUNDARY_BLOCK_SIZE = 256;
-    int nBoundarynBlocks = (nBoundaryInterfaces + BOUNDARY_BLOCK_SIZE - 1) / BOUNDARY_BLOCK_SIZE;
+    int nBoundaryBlocks = (nBoundaryInterfaces + BOUNDARY_BLOCK_SIZE - 1) / BOUNDARY_BLOCK_SIZE;
     int boundarySharedMemorySize = BOUNDARY_BLOCK_SIZE * sizeof(double);
 
     // Evaluate interface values
-    dev_evalInterfaceValues<<<nBoundarynBlocks, BOUNDARY_BLOCK_SIZE, boundarySharedMemorySize>>>(nBoundaryInterfaces, devBoundaryInterfaceRawIds, devInterfaceCentroids,
-                                                                                                 devBoundaryFluidRawIds, devCellConservatives,  order, devLeftReconstructions);
+    dev_evalInterfaceValues<<<nBoundaryBlocks, BOUNDARY_BLOCK_SIZE, boundarySharedMemorySize>>>(nBoundaryInterfaces, devBoundaryInterfaceRawIds, devInterfaceCentroids,
+                                                                                                devBoundaryFluidRawIds, devCellConservatives,  order, devLeftReconstructions);
 
-    dev_evalInterfaceBCs<<<nBoundarynBlocks, BOUNDARY_BLOCK_SIZE, boundarySharedMemorySize>>>(nBoundaryInterfaces, devBoundaryInterfaceRawIds, devBoundaryInterfaceBCs,
-                                                                                              devInterfaceNormals, devInterfaceCentroids,
-                                                                                              devBoundaryFluidRawIds, devCellConservatives,
-                                                                                              devProblemType, order, devRightReconstructions);
+    dev_evalInterfaceBCs<<<nBoundaryBlocks, BOUNDARY_BLOCK_SIZE, boundarySharedMemorySize>>>(nBoundaryInterfaces, devBoundaryInterfaceRawIds, devBoundaryInterfaceBCs,
+                                                                                             devInterfaceNormals, devInterfaceCentroids,
+                                                                                             devBoundaryFluidRawIds, devCellConservatives,
+                                                                                             devProblemType, order, devRightReconstructions);
 
     // Evaluate fluxes
-    dev_boundaryUpdateRHS<<<nBoundarynBlocks, BOUNDARY_BLOCK_SIZE, boundarySharedMemorySize>>>(nBoundaryInterfaces, devBoundaryInterfaceRawIds,
-                                                                                               devInterfaceNormals, devInterfaceAreas,
-                                                                                               devBoundaryFluidRawIds, devBoundaryInterfaceSigns,
-                                                                                               devLeftReconstructions, devRightReconstructions,
-                                                                                               devCellsRHS, devMaxEig);
+    dev_boundaryUpdateRHS<<<nBoundaryBlocks, BOUNDARY_BLOCK_SIZE, boundarySharedMemorySize>>>(nBoundaryInterfaces, devBoundaryInterfaceRawIds,
+                                                                                              devInterfaceNormals, devInterfaceAreas,
+                                                                                              devBoundaryFluidRawIds, devBoundaryInterfaceSigns,
+                                                                                              devLeftReconstructions, devRightReconstructions,
+                                                                                              devCellsRHS, devMaxEig);
 
     //
     // Update host memory
