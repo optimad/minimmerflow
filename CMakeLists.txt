@@ -126,6 +126,22 @@ if (MINIMMERFLOW_ENABLE_CUDA)
         set(CMAKE_CUDA_STANDARD 11)
         set(CMAKE_CUDA_STANDARD_REQUIRED ON)
     endif()
+
+    # Return useful info from CUDA kernel build
+    if (MINIMMERFLOW_VERBOSE_MAKE)
+        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --ptxas-options=-v")
+    endif()
+
+    # Add debug flags
+    #
+    # With these flags NVIDIA Nsight Compute is able to automaticall import
+    # source code when run with the follwoing command:
+    #   mpirun -np 1 ncu --set full --import-source=on -f -o output <executable>
+    if (CMAKE_BUILD_TYPE_LOWER MATCHES "debug")
+        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -G")
+    else()
+        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lineinfo")
+    endif()
 endif()
 
 if (MINIMMERFLOW_ENABLE_MPI)
