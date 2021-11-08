@@ -231,7 +231,6 @@ void computation(int argc, char *argv[])
     cellConservatives.cuda_allocateDevice();
     cellConservativesWork.cuda_allocateDevice();
     cellPrimitives.cuda_allocateDevice();
-    cellConservativesWork.cuda_allocateDevice();
 #endif
 
     // Set host storage pointers for OpenACC
@@ -532,9 +531,9 @@ void computation(int argc, char *argv[])
         }
 #endif
 	
-#if ENABLE_CUDA
-	cellConservativesWork.cuda_updateDevice();
-#endif
+//#if ENABLE_CUDA
+//	cellConservativesWork.cuda_updateDevice();
+//#endif
 
 #if ENABLE_CUDA
         nvtxRangePushA("UpdateHostConsWork");
