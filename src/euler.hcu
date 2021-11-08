@@ -26,7 +26,7 @@
 #define __MINIMMERFLOW_EULER_HCU__
 
 #include "constants.hcu"
-#include "utils.hcu"
+#include "utils.cu"
 
 #include "euler.hpp"
 

@@ -30,7 +30,12 @@ set(MINIMMERFLOW_EXECUTABLE_NAME minimmerflow CACHE INTERNAL "Executable name of
 
 set(SOURCE_PATTERN "*.cpp")
 if (MINIMMERFLOW_ENABLE_CUDA)
-    LIST(APPEND SOURCE_PATTERN "*.cu")
+    # SOURCE_PATTERN is modified by appending the list of CUDA source files and by removing utils.cu
+    # utils.cu is removed because is directly included in euler.cu as a header file
+    # This should not be necessary when cmake will allow the use of device interprocedural optimization
+    FILE(GLOB CUDA_SOURCE_FILES "*.cu")
+    LIST(APPEND SOURCE_PATTERN "${CUDA_SOURCE_FILES}")
+    LIST(FILTER SOURCE_PATTERN EXCLUDE REGEX "utils.cu")
 endif()
 
 file(GLOB sources ${SOURCE_PATTERN})
