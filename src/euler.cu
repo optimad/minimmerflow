@@ -42,7 +42,7 @@ double *devMaxEig;
  * \param[in,out] maxValue is the address of the reference value which might
  * get updated with the maximum
  */
-__device__ void dev_atomicMax(const double value, double * const maxValue)
+__device__ void dev_atomicMax(const double value, const double* __restrict__ maxValue)
 {
     if (*maxValue >= value) {
         return;
@@ -68,7 +68,7 @@ __device__ void dev_atomicMax(const double value, double * const maxValue)
  * \param[in,out] maxValue is the address of the reference value which might
  * get updated with the maximum
  */
-__device__ void dev_reduceMax(const double value, const size_t nElements, double *maxValue)
+__device__ void dev_reduceMax(const double value, const size_t nElements, double* __restrict__ maxValue)
 {
     extern __shared__ double blockValues[];
 
@@ -102,8 +102,8 @@ __device__ void dev_reduceMax(const double value, const size_t nElements, double
  * \param[out] fluxes on output will contain the conservative fluxes
  * \param[out] lambda on output will contain the maximum eigenvalue
  */
-__device__ void dev_evalFluxes(const double *conservative, const double *n,
-                               double *fluxes, double *lambda)
+__device__ void dev_evalFluxes(const double* __restrict__ conservative, const double* __restrict__ n,
+                               double* __restrict__ fluxes, double* __restrict__ lambda)
 {
     // Compute variables
     double primitive[N_FIELDS];
@@ -151,7 +151,7 @@ __device__ void dev_evalFluxes(const double *conservative, const double *n,
  * \param[out] fluxes on output will contain the conservative fluxes
  * \param[out] lambda on output will contain the maximum eigenvalue
  */
-__device__ void dev_evalSplitting(const double *conservativeL, const double *conservativeR, const double *n, double *fluxes, double *lambda)
+__device__ void dev_evalSplitting(const double* __restrict__ conservativeL, const double* __restrict__ conservativeR, const double* __restrict__ n, double* __restrict__ fluxes, double* __restrict__ lambda)
 {
     // Fluxes
     double fL[N_FIELDS];
@@ -184,11 +184,11 @@ __device__ void dev_evalSplitting(const double *conservativeL, const double *con
  * \param[out] cellRHS are the RHS of the cells
  * \param[out] maxEig on output will containt the maximum eigenvalue
  */
-__global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t *interfaceRawIds,
-                                     const double *interfaceNormals, const double *interfaceAreas,
-                                     const std::size_t *leftCellRawIds, const std::size_t *rightCellRawIds,
-                                     const double *leftReconstructions, const double *rightReconstructions,
-                                     double *cellRHS, double *maxEig)
+__global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t* __restrict__ interfaceRawIds,
+                                     const double* __restrict__ interfaceNormals, const double* __restrict__ interfaceAreas,
+                                     const std::size_t* __restrict__ leftCellRawIds, const std::size_t* __restrict__ rightCellRawIds,
+                                     const double* __restrict__ leftReconstructions, const double* __restrict__ rightReconstructions,
+                                     double* __restrict__ cellRHS, double* __restrict__ maxEig)
 {
     // Get interface information
     int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -246,11 +246,11 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t 
  * \param[out] cellRHS are the RHS of the cells
  * \param[out] maxEig on output will containt the maximum eigenvalue
  */
-__global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, const std::size_t *interfaceRawIds,
-                                      const double *interfaceNormals, const double *interfaceAreas,
-                                      const std::size_t *fluidCellRawIds, const std::size_t *boundarySigns,
-                                      const double *fluidReconstructions, const double *virtualReconstructions,
-                                      double *cellRHS, double *maxEig)
+__global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, const std::size_t* __restrict__ interfaceRawIds,
+                                      const double* __restrict__ interfaceNormals, const double* __restrict__ interfaceAreas,
+                                      const std::size_t* __restrict__ fluidCellRawIds, const std::size_t* __restrict__ boundarySigns,
+                                      const double* __restrict__ fluidReconstructions, const double* __restrict__ virtualReconstructions,
+                                      double* __restrict__ cellRHS, double* __restrict__ maxEig)
 {
     // Get interface information
     int i = blockIdx.x * blockDim.x + threadIdx.x;

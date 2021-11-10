@@ -35,7 +35,7 @@ namespace containers {
  * \param is the value that will be set
  */
 template<typename dev_value_t>
-__global__ void dev_setValue(std::size_t nElements, dev_value_t value, dev_value_t *data)
+__global__ void dev_setValue(std::size_t nElements, dev_value_t value, dev_value_t* __restrict__ data)
 {
     unsigned int i = (blockIdx.x * blockDim.x) + threadIdx.x;
     for(; i < nElements; i += gridDim.x*blockDim.x) {
