@@ -126,7 +126,7 @@ void evalFluxes(const double *conservative, const double *primitive, const doubl
  */
 void computeRHS(problem::ProblemType problemType, ComputationInfo &computationInfo,
                 const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-                const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
+                const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig, int kernelType)
 {
     // Reset residuals
 #if ENABLE_CUDA
@@ -138,7 +138,7 @@ void computeRHS(problem::ProblemType problemType, ComputationInfo &computationIn
     // Update residuals
 #if ENABLE_CUDA
     cuda_updateRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservatives,
-                   cellsRHS, maxEig);
+                   cellsRHS, maxEig, kernelType);
 #else
     updateRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservatives,
               cellsRHS, maxEig);

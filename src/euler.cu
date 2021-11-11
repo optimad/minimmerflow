@@ -326,7 +326,7 @@ __global__ void dev_evalInterfaceValues(std::size_t nInterfaces, const std::size
     const double *meanValues = cellValues + N_FIELDS * cellRawId;
 
     // Reconstruct interface values
-    double *reconstructedValues = interfaceValues + N_FIELDS * i;
+    double *reconstructedValues = interfaceValues + 16 * i;
     reconstruction::dev_eval(order, interfaceCentroid, meanValues, reconstructedValues);
 }
 
@@ -404,8 +404,8 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t 
     const double interfaceArea    = interfaceAreas[interfaceRawId];
 
     // Evaluate the conservative fluxes
-    const double *leftReconstruction  = leftReconstructions  + N_FIELDS * i;
-    const double *rightReconstruction = rightReconstructions + N_FIELDS * i;
+    const double *leftReconstruction  = leftReconstructions  + 16 * i;
+    const double *rightReconstruction = rightReconstructions + 16 * i;
 
     double interfaceFluxes[N_FIELDS];
     for (int k = 0; k < N_FIELDS; ++k) {
@@ -531,7 +531,7 @@ void cuda_resetRHS(ScalarPiercedStorage<double> *cellsRHS)
  */
 void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computationInfo,
                     const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-                    const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig)
+                    const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig, int kernelType )
 {
     //
     // Initialization

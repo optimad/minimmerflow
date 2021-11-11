@@ -27,6 +27,7 @@
 
 // Constants
 #define N_FIELDS 5
+#define N_STRIDE 16
 
 const int FID_P = 0;
 const int FID_U = 1;

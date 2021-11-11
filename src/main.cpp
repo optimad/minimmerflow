@@ -40,6 +40,7 @@
 #endif
 #include <vector>
 #include <time.h>
+#include <stdlib.h>     /* atoi */
 
 using namespace bitpit;
 
@@ -56,6 +57,12 @@ void computation(int argc, char *argv[])
     rank        = 0;
 #endif
 
+    // Parse command line arguments
+    int kernelType = 0;
+    if (argc > 0 )
+    {
+      kernelType = atoi( argv[0] );    
+    };
     // Initialize logger
     log::manager().initialize(log::COMBINED, "minimmerflow", true, ".", nProcessors, rank);
 #if ENABLE_DEBUG==1
@@ -402,7 +409,7 @@ void computation(int argc, char *argv[])
 #endif
 
         reconstruction::computePolynomials(problemType, computationInfo, cellConservatives, solvedBoundaryInterfaceBCs);
-        euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservatives, &cellRHS, &maxEig);
+        euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservatives, &cellRHS, &maxEig, kernelType);
 
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
@@ -446,7 +453,7 @@ void computation(int argc, char *argv[])
 #endif
 
         reconstruction::computePolynomials(problemType, computationInfo, cellConservativesWork, solvedBoundaryInterfaceBCs);
-        euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservativesWork, &cellRHS, &maxEig);
+        euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservativesWork, &cellRHS, &maxEig, kernelType);
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
             MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_DOUBLE, MPI_MAX, mesh.getCommunicator());
@@ -482,7 +489,7 @@ void computation(int argc, char *argv[])
 #endif
 
         reconstruction::computePolynomials(problemType, computationInfo, cellConservativesWork, solvedBoundaryInterfaceBCs);
-        euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservativesWork, &cellRHS, &maxEig);
+        euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservativesWork, &cellRHS, &maxEig, kernelType);
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
             MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_DOUBLE, MPI_MAX, mesh.getCommunicator());
