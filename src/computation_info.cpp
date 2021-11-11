@@ -182,7 +182,7 @@ void ComputationInfo::_extract()
     // Initialize storage for reconstructions
     m_solvedInterfaceLeftReconstructions.resize(N_STRIDE * std::max(nSolvedUniformInterfaces, nSolvedBoundaryInterfaces));
     m_solvedInterfaceRightReconstructions.resize(N_STRIDE * std::max(nSolvedUniformInterfaces, nSolvedBoundaryInterfaces));
-    m_solvedInterfaceLeftRightReconstructions.resize( N_STRIDE * std::max(nSolvedUniformInterfaces, nSolvedBoundaryInterfaces));
+    // m_solvedInterfaceLeftRightReconstructions.resize( N_STRIDE * std::max(nSolvedUniformInterfaces, nSolvedBoundaryInterfaces));
 }
 
 /*!

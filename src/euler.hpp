@@ -41,7 +41,7 @@ void evalFluxes(const double *conservative, const double *primitive, const doubl
 
 void computeRHS(problem::ProblemType problemType, ComputationInfo &computationInfo,
                 const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-                const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig);
+                const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig, int kernelType);
 
 #if ENABLE_CUDA
 void cuda_initialize();
@@ -59,7 +59,7 @@ void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInf
 #if ENABLE_CUDA
 void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computationInfo,
                     const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-                    const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig);
+                    const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig, int kernelType);
 #endif
 
 void evalInterfaceBCValues(const std::array<double, 3> &point, const std::array<double, 3> &normal,
