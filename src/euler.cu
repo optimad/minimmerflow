@@ -26,6 +26,7 @@
 #include "problem.hcu"
 #include "reconstruction.hcu"
 #include "utils_cuda.hpp"
+#include "cudaKernels.h"
 
 #define uint64  unsigned long long
 
@@ -326,7 +327,7 @@ __global__ void dev_evalInterfaceValues(std::size_t nInterfaces, const std::size
     const double *meanValues = cellValues + N_FIELDS * cellRawId;
 
     // Reconstruct interface values
-    double *reconstructedValues = interfaceValues + 16 * i;
+    double *reconstructedValues = interfaceValues + N_FIELDS * i;
     reconstruction::dev_eval(order, interfaceCentroid, meanValues, reconstructedValues);
 }
 
@@ -389,7 +390,7 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t 
                                      const double *interfaceNormals, const double *interfaceAreas,
                                      const std::size_t *leftCellRawIds, const std::size_t *rightCellRawIds,
                                      const double *leftReconstructions, const double *rightReconstructions,
-                                     double *cellRHS, double *maxEig)
+                                     double *cellRHS, double *maxEig )
 {
     // Get interface information
     int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -531,7 +532,8 @@ void cuda_resetRHS(ScalarPiercedStorage<double> *cellsRHS)
  */
 void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computationInfo,
                     const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-                    const ScalarPiercedStorage<double> &cellConservatives, ScalarPiercedStorage<double> *cellsRHS, double *maxEig, int kernelType )
+                    const ScalarPiercedStorage<double> &cellConservatives, 
+		    ScalarPiercedStorage<double> *cellsRHS, double *maxEig, int kernelType )
 {
     //
     // Initialization
@@ -576,12 +578,30 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
                                                                                              devUniformNeighRawIds, devCellConservatives, order, devRightReconstructions);
 
     // Evaluate fluxes
-    dev_uniformUpdateRHS<<<nUniformBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds,
-                                                                                          devInterfaceNormals, devInterfaceAreas,
-                                                                                          devUniformOwnerRawIds, devUniformNeighRawIds,
-                                                                                          devLeftReconstructions, devRightReconstructions,
-                                                                                          devCellsRHS, devMaxEig);
-
+    switch (kernelType)
+    {
+	    case 0:
+		    {
+			    std::cout << "Call default kernel" << std::endl;
+ 			    dev_uniformUpdateRHS<<<nUniformBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds,
+                        			                                                                  devInterfaceNormals, devInterfaceAreas,
+                                                			                                          devUniformOwnerRawIds, devUniformNeighRawIds,
+                                                                        			                  devLeftReconstructions, devRightReconstructions,
+                                                                                         			  devCellsRHS, devMaxEig);
+			    break;
+		    }
+	    case 1:
+		    {
+		    
+			    std::cout << "Call Mirco 00 kernel" << std::endl;
+ 			    dev_Mirco00_UniformUpdateRHS<<<nUniformBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds,
+                        			                                                                  devInterfaceNormals, devInterfaceAreas,
+                                                			                                          devUniformOwnerRawIds, devUniformNeighRawIds,
+                                                                        			                  devLeftReconstructions, devRightReconstructions,
+                                                                                         			  devCellsRHS, devMaxEig);
+			    break;
+		    }
+    }
     //
     // Process boundary interfaces
     //

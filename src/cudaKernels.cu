@@ -1,7 +1,7 @@
 #include "cudaKernels.h"
 
 
-__global__ void dev_Mirco02_UniformUpdateRHS
+__global__ void dev_Mirco00_UniformUpdateRHS
 (
         std::size_t  nInterfaces,
   const std::size_t * __restrict__ interfaceRawIds,
@@ -19,7 +19,7 @@ __global__ void dev_Mirco02_UniformUpdateRHS
     // Local variables
     int tid;
     int k;
-    double interfaceFluxes[N_FIELDS];
+    double interfaceFluxes[5];
     double interfaceMaxEig;
     double lk;
     double lun;
@@ -43,7 +43,7 @@ __global__ void dev_Mirco02_UniformUpdateRHS
 
 
     /*
-     *  + GET DATA FROM THE GLOBAL MEORY
+     *  + GET DATA FROM THE GLOBAL MEMORY
      */
     const double* interfaceNormal = interfaceNormals + 3 * interfaceRawId;
     const double  interfaceArea   = interfaceAreas[interfaceRawId];
@@ -153,23 +153,25 @@ __global__ void dev_Mirco02_UniformUpdateRHS
     /*
      *  + REDUCE MAXIMUM EIGENVALUE
      */
+    /*
     dev_reduceMax(interfaceMaxEig, nInterfaces, maxEig);
-
+    */
 
     /*
      *  + ACCUMULATE FLUXES ON CELLS
      */
+    /*
     std::size_t leftCellRawId  = leftCellRawIds[tid];
     std::size_t rightCellRawId = rightCellRawIds[tid];
 
     double *leftRHS  = cellRHS + 5 * leftCellRawId;
     double *rightRHS = cellRHS + 5 * rightCellRawId;
-    for (int k = 0; k < N_FIELDS; ++k) {
+    for (int k = 0; k < 5; ++k) {
       double interfaceContribution = interfaceArea * interfaceFluxes[k];
       atomicAdd(leftRHS + k,  - interfaceContribution);
       atomicAdd(rightRHS + k,   interfaceContribution);
     }
-
+    */
     // Exit point
     return;
 
