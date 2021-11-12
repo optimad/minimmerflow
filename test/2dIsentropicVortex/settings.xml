@@ -9,7 +9,7 @@
     <discretization>
         <space>
             <order>1</order>
-            <nCells>64</nCells>
+            <nCells>1024</nCells>
         </space>
         <time>
             <CFL>0.45</CFL>

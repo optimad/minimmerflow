@@ -58,7 +58,7 @@ void computation(int argc, char *argv[])
 #endif
 
     // Parse command line arguments
-    int kernelType = 0;
+    int kernelType = 1;
     // if (argc > 0 )
     //{
     //  kernelType = atoi( argv[0] );    
