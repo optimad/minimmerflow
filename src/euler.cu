@@ -420,7 +420,6 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t 
     // Update cell residuals
     std::size_t leftCellRawId  = leftCellRawIds[i];
     std::size_t rightCellRawId = rightCellRawIds[i];
-
     double *leftRHS  = cellRHS + N_FIELDS * leftCellRawId;
     double *rightRHS = cellRHS + N_FIELDS * rightCellRawId;
     for (int k = 0; k < N_FIELDS; ++k) {

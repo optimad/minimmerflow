@@ -58,11 +58,11 @@ void computation(int argc, char *argv[])
 #endif
 
     // Parse command line arguments
-    int kernelType = 0;
-    if (argc > 0 )
-    {
-      kernelType = atoi( argv[0] );    
-    };
+    int kernelType = 1;
+    // if (argc > 0 )
+    //{
+    //  kernelType = atoi( argv[0] );    
+    // };
     // Initialize logger
     log::manager().initialize(log::COMBINED, "minimmerflow", true, ".", nProcessors, rank);
 #if ENABLE_DEBUG==1
@@ -608,6 +608,7 @@ int main(int argc, char *argv[])
     //
     // Computation
     //
+    std::cout << "Parametri in ingresso :: " << argv[0] << std::endl;
     computation(argc, argv);
 
     //

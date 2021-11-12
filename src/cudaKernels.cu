@@ -1,5 +1,63 @@
 #include "cudaKernels.h"
 
+typedef unsigned long long int uint64_cu;
+
+
+__device__ void dev_atomicMax_Mirco(const double value, double * const maxValue)                                                              
+{   
+    if (*maxValue >= value) {                                                                                                           
+        return;                                                                                                                         
+    }                                                                                                                                   
+    
+    uint64_cu oldMaxValue = *((uint64_cu *) maxValue);                                                                                        
+    uint64_cu assumedMaxValue;                                                                                                             
+    do {
+        assumedMaxValue = oldMaxValue;
+        if (__longlong_as_double(assumedMaxValue) >= value) {                                                                           
+            break;                                                                                                                      
+        }                                                                                                                               
+        
+        oldMaxValue = atomicCAS((uint64_cu *) maxValue, assumedMaxValue, __double_as_longlong(value));                                     
+    } while (assumedMaxValue != oldMaxValue);                                                                                           
+}                                                                                                                                       
+
+/**
+ * Compute the maximum of double-precision floating point values.                                                                       
+ *
+ * \param value is the value that is compared in order to determine the maximum                                                         
+ * \param nElements is the number of the elements that will be compared
+ * \param[in,out] maxValue is the address of the reference value which might                                                            
+ * get updated with the maximum                                                                                                         
+ */
+__device__ void dev_reduceMax_Mirco(const double value, const size_t nElements, double *maxValue)                                             
+{   
+    extern __shared__ double blockValues[];                                                                                             
+    
+    // Get thread and global ids                                                                                                        
+    int tid = threadIdx.x;
+    int gid = (blockDim.x * blockIdx.x) + tid;                                                                                          
+    
+    // Put thread value in the array that stores block values                                                                           
+    blockValues[tid] = value;                                                                                                           
+    __syncthreads();                                                                                                                    
+    
+    // Evaluate the maximum of each block 
+    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {                                                                             
+        if (tid < s && gid < nElements) {
+            blockValues[tid] = max(blockValues[tid], blockValues[tid + s]);                                                             
+        }
+        __syncthreads();                                                                                                                
+    }                                                                                                                                   
+    
+    // Evaluate the maximum among different blocks                                                                                      
+    if (tid == 0) {
+        dev_atomicMax_Mirco(blockValues[0], maxValue);                                                                                        
+    }                                                                                                                                   
+}                                                                                                                                       
+
+
+
+
 
 __global__ void dev_Mirco00_UniformUpdateRHS
 (
@@ -153,14 +211,11 @@ __global__ void dev_Mirco00_UniformUpdateRHS
     /*
      *  + REDUCE MAXIMUM EIGENVALUE
      */
-    /*
-    dev_reduceMax(interfaceMaxEig, nInterfaces, maxEig);
-    */
+    dev_reduceMax_Mirco(interfaceMaxEig, nInterfaces, maxEig);
 
     /*
      *  + ACCUMULATE FLUXES ON CELLS
      */
-    /*
     std::size_t leftCellRawId  = leftCellRawIds[tid];
     std::size_t rightCellRawId = rightCellRawIds[tid];
 
@@ -171,7 +226,6 @@ __global__ void dev_Mirco00_UniformUpdateRHS
       atomicAdd(leftRHS + k,  - interfaceContribution);
       atomicAdd(rightRHS + k,   interfaceContribution);
     }
-    */
     // Exit point
     return;
 
