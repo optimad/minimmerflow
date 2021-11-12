@@ -327,7 +327,7 @@ __global__ void dev_evalInterfaceValues(std::size_t nInterfaces, const std::size
     const double *meanValues = cellValues + N_FIELDS * cellRawId;
 
     // Reconstruct interface values
-    double *reconstructedValues = interfaceValues + N_FIELDS * i;
+    double *reconstructedValues = interfaceValues + 16 * i;
     reconstruction::dev_eval(order, interfaceCentroid, meanValues, reconstructedValues);
 }
 
@@ -368,7 +368,7 @@ __global__ void dev_evalInterfaceBCs(std::size_t nInterfaces, const std::size_t 
     const double *innerValues = cellValues + N_FIELDS * cellRawId;
 
     // Evaluate boundary values
-    double *boundaryValues = interfaceValues + N_FIELDS * i;
+    double *boundaryValues = interfaceValues + 16 * i;
     dev_evalInterfaceBCValues(interfaceCentroid, interfaceNormal, problemType, interfaceBC, innerValues, boundaryValues);
 }
 
@@ -469,8 +469,8 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, const std::size_t
     const int boundarySign = boundarySigns[i];
 
     // Evaluate the conservative fluxes
-    const double *fluidReconstruction   = fluidReconstructions   + N_FIELDS * i;
-    const double *virtualReconstruction = virtualReconstructions + N_FIELDS * i;
+    const double *fluidReconstruction   = fluidReconstructions   + 16 * i;
+    const double *virtualReconstruction = virtualReconstructions + 16 * i;
 
     double interfaceFluxes[N_FIELDS];
     for (int k = 0; k < N_FIELDS; ++k) {

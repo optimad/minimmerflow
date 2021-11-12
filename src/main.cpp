@@ -58,7 +58,7 @@ void computation(int argc, char *argv[])
 #endif
 
     // Parse command line arguments
-    int kernelType = 1;
+    int kernelType = 0;
     // if (argc > 0 )
     //{
     //  kernelType = atoi( argv[0] );    
@@ -393,7 +393,7 @@ void computation(int argc, char *argv[])
     int step = 0;
     double t = tMin;
     double nextSave = tMin;
-    while (t < tMax) {
+    while ( step < 1) {
         log::cout() << std::endl;
         log::cout() << "Step n. " << step << std::endl;
 
