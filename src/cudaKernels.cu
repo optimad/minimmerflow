@@ -3,57 +3,57 @@
 typedef unsigned long long int uint64_cu;
 
 
-__device__ void dev_atomicMax_Mirco(const double value, double * const maxValue)                                                              
-{   
-    if (*maxValue >= value) {                                                                                                           
-        return;                                                                                                                         
-    }                                                                                                                                   
-    
-    uint64_cu oldMaxValue = *((uint64_cu *) maxValue);                                                                                        
-    uint64_cu assumedMaxValue;                                                                                                             
+__device__ void dev_atomicMax_Mirco(const double value, double * const maxValue)
+{
+    if (*maxValue >= value) {
+        return;
+    }
+
+    uint64_cu oldMaxValue = *((uint64_cu *) maxValue);
+    uint64_cu assumedMaxValue;
     do {
         assumedMaxValue = oldMaxValue;
-        if (__longlong_as_double(assumedMaxValue) >= value) {                                                                           
-            break;                                                                                                                      
-        }                                                                                                                               
-        
-        oldMaxValue = atomicCAS((uint64_cu *) maxValue, assumedMaxValue, __double_as_longlong(value));                                     
-    } while (assumedMaxValue != oldMaxValue);                                                                                           
-}                                                                                                                                       
+        if (__longlong_as_double(assumedMaxValue) >= value) {
+            break;
+        }
+
+        oldMaxValue = atomicCAS((uint64_cu *) maxValue, assumedMaxValue, __double_as_longlong(value));
+    } while (assumedMaxValue != oldMaxValue);
+}
 
 /**
- * Compute the maximum of double-precision floating point values.                                                                       
+ * Compute the maximum of double-precision floating point values.
  *
- * \param value is the value that is compared in order to determine the maximum                                                         
+ * \param value is the value that is compared in order to determine the maximum
  * \param nElements is the number of the elements that will be compared
- * \param[in,out] maxValue is the address of the reference value which might                                                            
- * get updated with the maximum                                                                                                         
+ * \param[in,out] maxValue is the address of the reference value which might
+ * get updated with the maximum
  */
-__device__ void dev_reduceMax_Mirco(const double value, const size_t nElements, double *maxValue)                                             
-{   
-    extern __shared__ double blockValues[];                                                                                             
-    
-    // Get thread and global ids                                                                                                        
+__device__ void dev_reduceMax_Mirco(const double value, const size_t nElements, double *maxValue)
+{
+    extern __shared__ double blockValues[];
+
+    // Get thread and global ids
     int tid = threadIdx.x;
-    int gid = (blockDim.x * blockIdx.x) + tid;                                                                                          
-    
-    // Put thread value in the array that stores block values                                                                           
-    blockValues[tid] = value;                                                                                                           
-    __syncthreads();                                                                                                                    
-    
-    // Evaluate the maximum of each block 
-    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {                                                                             
+    int gid = (blockDim.x * blockIdx.x) + tid;
+
+    // Put thread value in the array that stores block values
+    blockValues[tid] = value;
+    __syncthreads();
+
+    // Evaluate the maximum of each block
+    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
         if (tid < s && gid < nElements) {
-            blockValues[tid] = max(blockValues[tid], blockValues[tid + s]);                                                             
+            blockValues[tid] = max(blockValues[tid], blockValues[tid + s]);
         }
-        __syncthreads();                                                                                                                
-    }                                                                                                                                   
-    
-    // Evaluate the maximum among different blocks                                                                                      
+        __syncthreads();
+    }
+
+    // Evaluate the maximum among different blocks
     if (tid == 0) {
-        dev_atomicMax_Mirco(blockValues[0], maxValue);                                                                                        
-    }                                                                                                                                   
-}                                                                                                                                       
+        dev_atomicMax_Mirco(blockValues[0], maxValue);
+    }
+}
 
 
 
@@ -111,8 +111,8 @@ __global__ void dev_Mirco00_UniformUpdateRHS
     const double nz = interfaceNormal[2];
 
     // Evaluate the conservative fluxes
-    const double* leftReconstruction  = leftReconstructions  + 16 * tid;
-    const double* rightReconstruction = rightReconstructions + 16 * tid;
+    const double* leftReconstruction  = leftReconstructions  + 5 * tid;
+    const double* rightReconstruction = rightReconstructions + 5 * tid;
 
     /*
      *  + LEFT FLUX
@@ -163,7 +163,7 @@ __global__ void dev_Mirco00_UniformUpdateRHS
     const double rm1 = rightReconstruction[1]; // right mumentum along x
     rk  = rm1*rm1;
     const  double rm2 = rightReconstruction[2]; // right mumentum along y
-    rk += rm2*rm2; 
+    rk += rm2*rm2;
     const double rm3 = rightReconstruction[3]; // right mumentum along z
     rk += rm3*rm3;
     const double re  = rightReconstruction[4]; // right total energy

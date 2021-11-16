@@ -1,0 +1,7 @@
+This branch is used to test the difference between teh original kernel "dev_UniformUpdateRHS" and a version of the same kernel with the following modifications:
+
+1) All the sub-kernels have been unrolled into a single kernel
+2) The constant memory used to access addresses have been removed
+3) The global data are loaded and saved into local const memory
+
+Profiling results are saved into the "res" folder
