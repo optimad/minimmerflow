@@ -1,0 +1,9 @@
+This branch is used to test the difference between the original kernel "dev_UniformUpdateRHS" and a version of the same kernel with the following modifications.
+The aim of this repo is to test the influence of the stride in the left and right reconstruction.
+
+1) All the sub-kernels have been unrolled into a single kernel
+2) The constant memory used to access addresses have been removed
+3) The global data are loaded and saved into local const memory
+4) the stride of the data is 16 instead of 5 (length of line cache).
+
+Profiling results are saved into the "res" folder
