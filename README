@@ -1,7 +1,6 @@
-This branch is used to test the difference between teh original kernel "dev_UniformUpdateRHS" and a version of the same kernel with the following modifications:
+This branch is used to test the difference between the unrolled kernel "dev_UniformUpdateRHS" and a version of the same kernel with indices in the arrays defined through contant memory variables:
 
-1) All the sub-kernels have been unrolled into a single kernel
-2) The constant memory used to access addresses have been removed
-3) The global data are loaded and saved into local const memory
+1) Added indices as variables in constant memory
+
 
 Profiling results are saved into the "res" folder

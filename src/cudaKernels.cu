@@ -1,4 +1,5 @@
 #include "cudaKernels.h"
+#include "constants.hcu"
 
 typedef unsigned long long int uint64_cu;
 
@@ -86,10 +87,10 @@ __global__ void dev_Mirco00_UniformUpdateRHS
 
 
     // Gas constants
-    const double g  = 1.4;
-    const double gm1 = 0.4;
-    const double rgm1 = 2.5;
-    const double gg = 0.4/2.0;
+    const double g  = DEV_GAMMA;
+    const double gm1 = DEV_GAMMA-1.0;
+    const double rgm1 = 1.0 / gm1;
+    const double gg = gm1/2.0;
 
 
     // Get interface information
@@ -111,21 +112,21 @@ __global__ void dev_Mirco00_UniformUpdateRHS
     const double nz = interfaceNormal[2];
 
     // Evaluate the conservative fluxes
-    const double* leftReconstruction  = leftReconstructions  + 5 * tid;
-    const double* rightReconstruction = rightReconstructions + 5 * tid;
+    const double* leftReconstruction  = leftReconstructions  + N_FIELDS * tid;
+    const double* rightReconstruction = rightReconstructions + N_FIELDS * tid;
 
     /*
      *  + LEFT FLUX
      */
-    const double lr  = leftReconstruction[0]; // left rho
+    const double lr  = leftReconstruction[DEV_FID_RHO]; // left rho
     const double lir = 1.0/lr;                // left specific volume
-    const double lm1 = leftReconstruction[1]; // left momentum along x
+    const double lm1 = leftReconstruction[DEV_FID_RHO_U]; // left momentum along x
     lk  = lm1*lm1;
-    const double lm2 = leftReconstruction[2]; // left momentum along y
+    const double lm2 = leftReconstruction[DEV_FID_RHO_V]; // left momentum along y
     lk += lm2*lm2;
-    const double lm3 = leftReconstruction[3]; // left momentum along z
+    const double lm3 = leftReconstruction[DEV_FID_RHO_W]; // left momentum along z
     lk += lm3*lm3;
-    const double le  = leftReconstruction[4]; // left total energy
+    const double le  = leftReconstruction[DEV_FID_RHO_E]; // left total energy
 
     // compute left kinetic energy
     lk *= (lir*lir);
@@ -158,15 +159,15 @@ __global__ void dev_Mirco00_UniformUpdateRHS
     /*
      *  + RIGHT FLUX
      */
-    const double rr  = rightReconstruction[0]; // right rho
+    const double rr  = rightReconstruction[DEV_FID_RHO]; // right rho
     const double rir = 1.0/rr;                 // right specific volume
-    const double rm1 = rightReconstruction[1]; // right mumentum along x
+    const double rm1 = rightReconstruction[DEV_FID_RHO_U]; // right mumentum along x
     rk  = rm1*rm1;
-    const  double rm2 = rightReconstruction[2]; // right mumentum along y
+    const  double rm2 = rightReconstruction[DEV_FID_RHO_V]; // right mumentum along y
     rk += rm2*rm2;
-    const double rm3 = rightReconstruction[3]; // right mumentum along z
+    const double rm3 = rightReconstruction[DEV_FID_RHO_W]; // right mumentum along z
     rk += rm3*rm3;
-    const double re  = rightReconstruction[4]; // right total energy
+    const double re  = rightReconstruction[DEV_FID_RHO_E]; // right total energy
 
     // compute right kinetic energy
     rk *= (rir*rir);
@@ -219,9 +220,9 @@ __global__ void dev_Mirco00_UniformUpdateRHS
     std::size_t leftCellRawId  = leftCellRawIds[tid];
     std::size_t rightCellRawId = rightCellRawIds[tid];
 
-    double *leftRHS  = cellRHS + 5 * leftCellRawId;
-    double *rightRHS = cellRHS + 5 * rightCellRawId;
-    for (int k = 0; k < 5; ++k) {
+    double *leftRHS  = cellRHS + N_FIELDS * leftCellRawId;
+    double *rightRHS = cellRHS + N_FIELDS * rightCellRawId;
+    for (int k = 0; k < N_FIELDS; ++k) {
       double interfaceContribution = interfaceArea * interfaceFluxes[k];
       atomicAdd(leftRHS + k,  - interfaceContribution);
       atomicAdd(rightRHS + k,   interfaceContribution);
