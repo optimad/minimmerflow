@@ -57,6 +57,64 @@ __device__ void dev_reduceMax_Mirco(const double value, const size_t nElements, 
 }
 
 
+__device__ __forceinline__ void devFlux
+(
+  const double* __restrict__ ww,
+        double* __restrict__ ff,
+        double* __restrict__ lambda,
+        double g,
+        double gm1,
+        double rgm1,
+        double gg,
+        double nx,
+        double ny,
+        double nz
+)
+{
+  double k;
+  double un;
+  const double r  = ww[DEV_FID_RHO];   // rho
+  const double ir = 1.0/r;           // specific volume
+  const double m1 = ww[DEV_FID_RHO_U]; // momentum along x
+  k  = m1*m1;
+  const double m2 = ww[DEV_FID_RHO_V]; // momentum along y
+  k += m2*m2;
+  const double m3 = ww[DEV_FID_RHO_W]; // momentum along z
+  k += m3*m3;
+  const double e  = ww[DEV_FID_RHO_E]; // total energy
+
+  // compute left kinetic energy
+  k *= (ir*ir);
+
+  // left primitive variables
+  const double T = (2*e*ir -k)*gg; // temperature
+  const double u = m1*ir;           // velocity along x
+  un = u*nx;
+  const double v = m2*ir;           // velocity along y
+  un += v*ny;
+  const double w = m3*ir;           // velocity along z
+  un += w*nz;
+  const double p = r*T;             // pressure
+
+  // left speed of sound
+  const double a  = sqrt( g*T );
+  const double eto = rgm1*p + 0.5*r*k;
+
+  // left mass flux
+  const double mf  = r*un;
+
+  // left fluxes
+  ff[DEV_FID_RHO]   = mf;
+  ff[DEV_FID_RHO_U] = mf * u + p*nx;
+  ff[DEV_FID_RHO_V] = mf * v + p*ny;
+  ff[DEV_FID_RHO_W] = mf * w + p*nz;
+  ff[DEV_FID_RHO_E] = un*(eto+p);
+  *lambda = fabs(un) + a;
+
+  // Exit point
+  return;
+};
+
 
 
 
@@ -80,8 +138,7 @@ __global__ void dev_Mirco00_UniformUpdateRHS
     int k;
     double interfaceFluxes[5];
     double interfaceMaxEig;
-    double lk;
-    double lun;
+
     double rk;
     double run;
 
@@ -112,101 +169,29 @@ __global__ void dev_Mirco00_UniformUpdateRHS
     const double nz = interfaceNormal[2];
 
     // Evaluate the conservative fluxes
-    const double* leftReconstruction  = leftReconstructions  + N_FIELDS * tid;
-    const double* rightReconstruction = rightReconstructions + N_FIELDS * tid;
+    const double* lw = leftReconstructions  + N_FIELDS * tid;
+    const double* rw = rightReconstructions + N_FIELDS * tid;
+
+    // Local arrays
+    double lf[N_FIELDS]; // Left flux
+    double rf[N_FIELDS]; // Right flux
+    double llambda;      // Left  max eigenvalue
+    double rlambda;      // Right max eigenvalue
 
     /*
-     *  + LEFT FLUX
+     *  + Compute fluxes
      */
-    const double lr  = leftReconstruction[DEV_FID_RHO]; // left rho
-    const double lir = 1.0/lr;                // left specific volume
-    const double lm1 = leftReconstruction[DEV_FID_RHO_U]; // left momentum along x
-    lk  = lm1*lm1;
-    const double lm2 = leftReconstruction[DEV_FID_RHO_V]; // left momentum along y
-    lk += lm2*lm2;
-    const double lm3 = leftReconstruction[DEV_FID_RHO_W]; // left momentum along z
-    lk += lm3*lm3;
-    const double le  = leftReconstruction[DEV_FID_RHO_E]; // left total energy
-
-    // compute left kinetic energy
-    lk *= (lir*lir);
-
-    // left primitive variables
-    const double lT = (2*le*lir -lk)*gg; // left temperature
-    const double lu = lm1*lir;           // left velocity along x
-    lun = lu*nx;
-    const double lv = lm2*lir;           // left velocity along y
-    lun += lv*ny;
-    const double lw = lm3*lir;           // left velocity along z
-    lun += lw*nz;
-    const double lp = lr*lT;             // left pressure
-
-    // left speed of sound
-    const double la  = sqrt( g*lT );
-    const double leto = rgm1*lp + 0.5*lr*lk;
-
-    // left mass flux
-    const double lmf  = lr*lun;
-
-    // left fluxes
-    const double lf0 = lmf;
-    const double lf1 = lmf * lu + lp*nx;
-    const double lf2 = lmf * lv + lp*ny;
-    const double lf3 = lmf * lw + lp*nz;
-    const double lf4 = lun*(leto+lp);
-    const double llambda = fabs(lun) + la;
-
-    /*
-     *  + RIGHT FLUX
-     */
-    const double rr  = rightReconstruction[DEV_FID_RHO]; // right rho
-    const double rir = 1.0/rr;                 // right specific volume
-    const double rm1 = rightReconstruction[DEV_FID_RHO_U]; // right mumentum along x
-    rk  = rm1*rm1;
-    const  double rm2 = rightReconstruction[DEV_FID_RHO_V]; // right mumentum along y
-    rk += rm2*rm2;
-    const double rm3 = rightReconstruction[DEV_FID_RHO_W]; // right mumentum along z
-    rk += rm3*rm3;
-    const double re  = rightReconstruction[DEV_FID_RHO_E]; // right total energy
-
-    // compute right kinetic energy
-    rk *= (rir*rir);
-
-    // right primitive variables
-    const double rT = (2*re*rir -rk)*gg; // right temperature
-    const double ru = rm1*rir;           // right velocity along x
-    run = ru*nx;
-    const double rv = rm2*rir;           // right velocity along y
-    run += rv*ny;
-    const double rw = rm3*rir;           // right velocity along z
-    run += rw*nz;
-    const double rp = rr*rT;             // right pressure
-
-
-    // right speed of sound
-    const double ra  = sqrt( g*rT );
-    const double reto = rgm1*rp + 0.5*rr*rk;
-
-    // right mass flux
-    const double rmf  = rr*run;
-
-    // right fluxes
-    const double rf0 = rmf;
-    const double rf1 = rmf * ru + rp*nx;
-    const double rf2 = rmf * rv + rp*ny;
-    const double rf3 = rmf * rw + rp*nz;
-    const double rf4 = run*(reto+rp);
-
-    const double rlambda = fabs(run) + ra;
+    devFlux( lw, lf, &llambda, g, gm1, rgm1, gg, nx, ny, nz );
+    devFlux( rw, rf, &rlambda, g, gm1, rgm1, gg, nx, ny, nz );
 
 
     interfaceMaxEig = fmax( llambda, rlambda );
 
-    interfaceFluxes[0] = 0.5*( rf0-lf0 ) - interfaceMaxEig*(rr -lr );
-    interfaceFluxes[1] = 0.5*( rf1-lf1 ) - interfaceMaxEig*(rm1-lm1);
-    interfaceFluxes[2] = 0.5*( rf2-lf2 ) - interfaceMaxEig*(rm2-lm2);
-    interfaceFluxes[3] = 0.5*( rf3-lf3 ) - interfaceMaxEig*(rm3-lm3);
-    interfaceFluxes[4] = 0.5*( rf4-lf4 ) - interfaceMaxEig*(re -le );
+    for ( int i=0; i<N_FIELDS; i++ )
+    {
+      interfaceFluxes[0] = 0.5*( rf[i] - lf[i] ) - 
+               interfaceMaxEig*( rw[i] - lw[i] );
+    };
 
 
     /*

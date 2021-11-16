@@ -1,6 +1,7 @@
 This branch is used to test the difference between the unrolled kernel "dev_UniformUpdateRHS" and a version of the same kernel with indices in the arrays defined through contant memory variables:
 
 1) Added indices as variables in constant memory
+2) Added nested calls to internal dev_functions
 
 
 Profiling results are saved into the "res" folder
