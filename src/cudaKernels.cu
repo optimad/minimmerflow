@@ -1,4 +1,5 @@
 #include "cudaKernels.h"
+#include "constants.hcu"
 
 typedef unsigned long long int uint64_cu;
 
@@ -59,9 +60,64 @@ __device__ void dev_reduceMax_Mirco(const double value, const size_t nElements, 
 
 
 
+
+
+
+__global__ void dev_Mirco00_evalInterfaceValues
+(
+        std::size_t nInterfaces,
+        std::size_t cellStride,
+  const std::size_t *interfaceRawIds,
+  const double      *interfaceCentroids,
+  const std::size_t *cellRawIds, 
+  const double      *cellValues,
+        int         order, 
+        double      *interfaceValues
+)
+{
+    // Get interface information
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= nInterfaces) {
+        return;
+    }
+
+    const std::size_t interfaceRawId = interfaceRawIds[i];
+    const double *interfaceCentroid = interfaceCentroids + 3 * interfaceRawId;
+
+    // Cell information
+    const std::size_t cellRawId = cellRawIds[i];
+    const double *c_rho = cellValues + N_FIELDS * cellRawId;
+    const double *c_mx  = c_rho + 1;
+    const double *c_my  = c_mx  + 1;
+    const double *c_mz  = c_my  + 1;
+    const double *c_e   = c_mz  + 1;
+
+    // Reconstruct interface values
+    double* i_rho = interfaceValues + i;
+    double* i_mx  = i_rho + cellStride;
+    double* i_my  = i_mx  + cellStride;
+    double* i_mz  = i_my  + cellStride;
+    double* i_e   = i_mz  + cellStride;
+
+    // Reconstruct the variables
+    *i_rho = *c_rho;
+    *i_mx  = *c_mx;
+    *i_my  = *c_my;
+    *i_mz  = *c_mz;
+    *i_e   = *c_e;
+
+    return;
+};
+
+
+
+
+
+
 __global__ void dev_Mirco00_UniformUpdateRHS
 (
         std::size_t  nInterfaces,
+        std::size_t  cellStride,
   const std::size_t * __restrict__ interfaceRawIds,
   const double      * __restrict__ interfaceNormals,
   const double      * __restrict__ interfaceAreas,
@@ -111,21 +167,21 @@ __global__ void dev_Mirco00_UniformUpdateRHS
     const double nz = interfaceNormal[2];
 
     // Evaluate the conservative fluxes
-    const double* leftReconstruction  = leftReconstructions  + 5 * tid;
-    const double* rightReconstruction = rightReconstructions + 5 * tid;
+    const double* leftReconstruction  = leftReconstructions  + tid;
+    const double* rightReconstruction = rightReconstructions + tid;
 
     /*
      *  + LEFT FLUX
      */
-    const double lr  = leftReconstruction[0]; // left rho
+    const double lr  = *(leftReconstruction); // left rho
     const double lir = 1.0/lr;                // left specific volume
-    const double lm1 = leftReconstruction[1]; // left momentum along x
+    const double lm1 = *(leftReconstruction + cellStride); // left momentum along x
     lk  = lm1*lm1;
-    const double lm2 = leftReconstruction[2]; // left momentum along y
+    const double lm2 = *(leftReconstruction + 2*cellStride); // left momentum along y
     lk += lm2*lm2;
-    const double lm3 = leftReconstruction[3]; // left momentum along z
+    const double lm3 = *(leftReconstruction + 3*cellStride); // left momentum along z
     lk += lm3*lm3;
-    const double le  = leftReconstruction[4]; // left total energy
+    const double le  = *(leftReconstruction + 4*cellStride); // left total energy
 
     // compute left kinetic energy
     lk *= (lir*lir);
@@ -158,15 +214,15 @@ __global__ void dev_Mirco00_UniformUpdateRHS
     /*
      *  + RIGHT FLUX
      */
-    const double rr  = rightReconstruction[0]; // right rho
+    const double rr  = *(rightReconstruction); // right rho
     const double rir = 1.0/rr;                 // right specific volume
-    const double rm1 = rightReconstruction[1]; // right mumentum along x
+    const double rm1 = *(rightReconstruction + cellStride); // right mumentum along x
     rk  = rm1*rm1;
-    const  double rm2 = rightReconstruction[2]; // right mumentum along y
+    const  double rm2 = *(rightReconstruction + 2*cellStride); // right mumentum along y
     rk += rm2*rm2;
-    const double rm3 = rightReconstruction[3]; // right mumentum along z
+    const double rm3 = *(rightReconstruction + 3*cellStride); // right mumentum along z
     rk += rm3*rm3;
-    const double re  = rightReconstruction[4]; // right total energy
+    const double re  = *(rightReconstruction + 4*cellStride); // right total energy
 
     // compute right kinetic energy
     rk *= (rir*rir);

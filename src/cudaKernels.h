@@ -4,6 +4,7 @@
 __global__ void dev_Mirco00_UniformUpdateRHS
 (
         std::size_t  nInterfaces,
+        std::size_t cellStride,
   const std::size_t * __restrict__ interfaceRawIds,
   const double      * __restrict__ interfaceNormals,
   const double      * __restrict__ interfaceAreas,
@@ -17,5 +18,16 @@ __global__ void dev_Mirco00_UniformUpdateRHS
 
 
 
+__global__ void dev_Mirco00_evalInterfaceValues
+(
+        std::size_t nInterfaces,
+        std::size_t cellStride,
+  const std::size_t *interfaceRawIds,
+  const double      *interfaceCentroids,
+  const std::size_t *cellRawIds, 
+  const double      *cellValues,
+        int         order, 
+        double      *interfaceValues
+);
 
 #endif

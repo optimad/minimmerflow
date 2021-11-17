@@ -25,9 +25,14 @@
 #ifndef __MINIMMERFLOW_CONSTANTS_HPP__
 #define __MINIMMERFLOW_CONSTANTS_HPP__
 
+#include <cstddef>
+
+// std::size_t computeStride( std::size_t sz, std::size_t exp );
+
 // Constants
 #define N_FIELDS 5
 #define N_STRIDE 5
+#define ALIGN_EXP 4
 
 const int FID_P = 0;
 const int FID_U = 1;

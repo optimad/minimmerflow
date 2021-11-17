@@ -33,6 +33,20 @@ using namespace bitpit;
  * computation info.
  */
 
+
+std::size_t computeStrideAAA( std::size_t sz, std::size_t exp )
+{
+  unsigned long int len=sz;
+  unsigned long int n=exp;
+  unsigned long int pow2m1;
+  unsigned long int res;
+  pow2m1 = ~((~(res & 0))<<n); // 2^n - 1
+  res = len + pow2m1 - 1;       // sz + 2^n - 1
+  res &= ~pow2m1;              // Estrazione del più piccolo multiplo esatto di "2^n" maggiore di "sz"
+  return (std::size_t)res;
+};
+
+
 /*!
  * Creates a new info.
  *
@@ -180,8 +194,9 @@ void ComputationInfo::_extract()
     }
 
     // Initialize storage for reconstructions
-    m_solvedInterfaceLeftReconstructions.resize(N_STRIDE * std::max(nSolvedUniformInterfaces, nSolvedBoundaryInterfaces));
-    m_solvedInterfaceRightReconstructions.resize(N_STRIDE * std::max(nSolvedUniformInterfaces, nSolvedBoundaryInterfaces));
+    std::size_t asize = computeStrideAAA( std::max(nSolvedUniformInterfaces, nSolvedBoundaryInterfaces), ALIGN_EXP );
+    m_solvedInterfaceLeftReconstructions.resize(N_STRIDE * asize );
+    m_solvedInterfaceRightReconstructions.resize(N_STRIDE * asize );
     // m_solvedInterfaceLeftRightReconstructions.resize( N_STRIDE * std::max(nSolvedUniformInterfaces, nSolvedBoundaryInterfaces));
 }
 

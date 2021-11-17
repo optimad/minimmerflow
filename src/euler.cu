@@ -518,6 +518,20 @@ void cuda_resetRHS(ScalarPiercedStorage<double> *cellsRHS)
     cellsRHS->cuda_fillDevice(0.);
 }
 
+
+
+std::size_t computeStrideBBB( std::size_t sz, std::size_t exp )
+{
+  unsigned long int len=sz;
+  unsigned long int n=exp;
+  unsigned long int pow2m1;
+  unsigned long int res;
+  pow2m1 = ~((~(res & 0))<<n); // 2^n - 1
+  res = len + pow2m1 - 1;       // sz + 2^n - 1
+  res &= ~pow2m1;              // Estrazione del più piccolo multiplo esatto di "2^n" maggiore di "sz"
+  return (std::size_t)res;
+};
+
 /*!
  * Update cell RHS.
  *
@@ -569,18 +583,23 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     int nUniformBlocks = (nSolvedUniformInterfaces + UNIFORM_BLOCK_SIZE - 1) / UNIFORM_BLOCK_SIZE;
     int uniformSharedMemorySize = UNIFORM_BLOCK_SIZE * sizeof(double);
 
-    // Evaluate interface values
-    dev_evalInterfaceValues<<<nUniformBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds, devInterfaceCentroids,
-                                                                                             devUniformOwnerRawIds, devCellConservatives, order, devLeftReconstructions);
 
-    dev_evalInterfaceValues<<<nUniformBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds, devInterfaceCentroids,
-                                                                                             devUniformNeighRawIds, devCellConservatives, order, devRightReconstructions);
+    std::size_t asize = computeStrideBBB( nSolvedUniformInterfaces, ALIGN_EXP );
+
 
     // Evaluate fluxes
     switch (kernelType)
     {
 	    case 0:
 		    {
+
+                // Evaluate interface values
+                dev_evalInterfaceValues<<<nUniformBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds, devInterfaceCentroids,
+                                                                                                         devUniformOwnerRawIds, devCellConservatives, order, devLeftReconstructions);
+
+                dev_evalInterfaceValues<<<nUniformBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds, devInterfaceCentroids,
+                                                                                                         devUniformNeighRawIds, devCellConservatives, order, devRightReconstructions);
+
 			    std::cout << "Call default kernel" << std::endl;
  			    dev_uniformUpdateRHS<<<nUniformBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds,
                         			                                                                  devInterfaceNormals, devInterfaceAreas,
@@ -592,8 +611,16 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
 	    case 1:
 		    {
 		    
+
+                // Evaluate interface values
+                dev_Mirco00_evalInterfaceValues<<<nUniformBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, asize, devUniformInterfaceRawIds, devInterfaceCentroids,
+                                                                                                         devUniformOwnerRawIds, devCellConservatives, order, devLeftReconstructions);
+
+                dev_Mirco00_evalInterfaceValues<<<nUniformBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, asize, devUniformInterfaceRawIds, devInterfaceCentroids,
+                                                                                                         devUniformNeighRawIds, devCellConservatives, order, devRightReconstructions);
+
 			    std::cout << "Call Mirco 00 kernel" << std::endl;
- 			    dev_Mirco00_UniformUpdateRHS<<<nUniformBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, devUniformInterfaceRawIds,
+ 			    dev_Mirco00_UniformUpdateRHS<<<nUniformBlocks, UNIFORM_BLOCK_SIZE, uniformSharedMemorySize>>>(nSolvedUniformInterfaces, asize, devUniformInterfaceRawIds,
                         			                                                                  devInterfaceNormals, devInterfaceAreas,
                                                 			                                          devUniformOwnerRawIds, devUniformNeighRawIds,
                                                                         			                  devLeftReconstructions, devRightReconstructions,
@@ -601,6 +628,8 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
 			    break;
 		    }
     }
+
+#if 0
     //
     // Process boundary interfaces
     //
@@ -634,7 +663,7 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
                                                                                               devBoundaryFluidRawIds, devBoundaryInterfaceSigns,
                                                                                               devLeftReconstructions, devRightReconstructions,
                                                                                               devCellsRHS, devMaxEig);
-
+#endif
     //
     // Update host memory
     //
