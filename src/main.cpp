@@ -192,6 +192,17 @@ void computation(int argc, char *argv[])
         log::cout() << "+++ mesh.partition() DONE.\n";
     }
 #endif
+    mesh.write();
+
+    // Adaption
+    std::vector<adaption::Info> adaptionData;
+    mesh.markCellForRefinement(0);
+    bool trackAdaptation = true;
+    adaptionData = mesh.adaptionPrepare(trackAdaptation);
+    bool squeeshPatchStorage = false;
+    adaptionData = mesh.adaptionAlter(trackAdaptation, squeeshPatchStorage);
+    mesh.adaptionCleanup();
+    mesh.write();
 
     log_memory_status();
 
@@ -601,7 +612,7 @@ void computation(int argc, char *argv[])
 //            diskTime += clock() - diskStart;
 //            nextSave += (tMax - tMin) / nSaves;
 //        }
-      
+
         nvtxRangePop();
         nvtxRangePop();
 
