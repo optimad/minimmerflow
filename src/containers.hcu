@@ -22,7 +22,7 @@
  *
 \*---------------------------------------------------------------------------*/
 
-#ifndef __MINIMMERFLOW_CONTAINERS_HU
+#ifndef __MINIMMERFLOW_CONTAINERS_HCU__
 #define __MINIMMERFLOW_CONTAINERS_HCU__
 
 namespace containers {
