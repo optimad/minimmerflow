@@ -26,6 +26,7 @@
 #define __MINIMMERFLOW_EULER_HCU__
 
 #include "constants.hcu"
+#include "containers.hcu"
 #include "utils.hcu"
 
 #include "euler.hpp"
@@ -36,29 +37,38 @@ __device__ void dev_atomicMax(const double value, double * const maxValue);
 
 __device__ void dev_reduceMax(const double value, const size_t nElements, double *maxValue);
 
-__device__ void dev_evalFluxes(const double *conservative, const double *n, double *fluxes, double *lambda);
+__device__ void dev_evalFluxes(const DeviceCollectionDataConstCursor<double> &conservative,
+                               const DeviceStridedDataConstCursor<double> &normal,
+                               double *fluxes, double *lambda);
 
-__device__ void dev_evalSplitting(const double *conservativeL, const double *conservativeR, const double *n, double *fluxes, double *lambda);
+__device__ void dev_evalSplitting(const DeviceCollectionDataConstCursor<double> &conservativeL, const DeviceCollectionDataConstCursor<double> &conservativeR,
+                                  const DeviceStridedDataConstCursor<double> &normal, double *fluxes, double *lambda);
 
-__device__ void dev_evalInterfaceBCValues(const double *point, const double *normal,
-                                          int problemType, int BCType, const double *innerValues,
-                                          double *boundaryValues);
+__device__ void dev_evalInterfaceBCValues(int problemType, int BCType,
+                                          const DeviceStridedDataConstCursor<double> &point,
+                                          const DeviceStridedDataConstCursor<double> &normal,
+                                          const DeviceCollectionDataConstCursor<double> &innerValues,
+                                          DeviceCollectionDataCursor<double> *boundaryValues);
 
-__device__ void dev_evalFreeFlowBCValues(const double *point, const double *normal,
-                                         const double *info, const double *innerValues,
-                                         double *boundaryValues);
+__device__ void dev_evalFreeFlowBCValues(const DeviceStridedDataConstCursor<double> &point,
+                                         const DeviceStridedDataConstCursor<double> &normal,
+                                         const double *info, const DeviceCollectionDataConstCursor<double> &innerValues,
+                                         DeviceCollectionDataCursor<double> *boundaryValues);
 
-__device__ void dev_evalReflectingBCValues(const double *point, const double *normal,
-                                           const double *info, const double *innerValues,
-                                           double *boundaryValues);
+__device__ void dev_evalReflectingBCValues(const DeviceStridedDataConstCursor<double> &point,
+                                           const DeviceStridedDataConstCursor<double> &normal,
+                                           const double *info, const DeviceCollectionDataConstCursor<double> &innerValues,
+                                           DeviceCollectionDataCursor<double> *boundaryValues);
 
-__device__ void dev_evalWallBCValues(const double *point, const double *normal,
-                                     const double *info, const double *innerValues,
-                                     double *boundaryValues);
+__device__ void dev_evalWallBCValues(const DeviceStridedDataConstCursor<double> &point,
+                                     const DeviceStridedDataConstCursor<double> &normal,
+                                     const double *info, const DeviceCollectionDataConstCursor<double> &innerValues,
+                                     DeviceCollectionDataCursor<double> *boundaryValues);
 
-__device__ void dev_evalDirichletBCValues(const double *point, const double *normal,
-                                          const double *info, const double *innerValues,
-                                          double *boundaryValues);
+__device__ void dev_evalDirichletBCValues(const DeviceStridedDataConstCursor<double> &point,
+                                          const DeviceStridedDataConstCursor<double> &normal,
+                                          const double *info, const DeviceCollectionDataConstCursor<double> &innerValues,
+                                          DeviceCollectionDataCursor<double> *boundaryValues);
 
 __global__ void dev_evalInterfaceValues(std::size_t nInterfaces, const std::size_t *interfaceRawIds, const double *interfaceCentroids,
                                         const std::size_t *cellRawIds, const double * const *cellValues,

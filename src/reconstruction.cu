@@ -22,6 +22,7 @@
  *
 \*---------------------------------------------------------------------------*/
 
+#include "containers.cu"
 #include "reconstruction.hcu"
 
 namespace reconstruction {
@@ -34,7 +35,8 @@ namespace reconstruction {
  * \param means are the mean values of the fields
  * \param[out] values on output will contain the reconstructed values
  */
-__device__ void dev_eval(int order, const double *point, const double *means, double *values)
+__device__ void dev_eval(int order, const DeviceStridedDataConstCursor<double> &point,
+                         const DeviceCollectionDataConstCursor<double> &means, DeviceCollectionDataCursor<double> *values)
 {
     switch (order) {
 
@@ -56,12 +58,13 @@ __device__ void dev_eval(int order, const double *point, const double *means, do
  * \param means are the mean values of the fields
  * \param[out] values on output will contain the reconstructed values
  */
-__device__ void dev_eval_1(const double *point, const double *means, double *values)
+__device__ void dev_eval_1(const DeviceStridedDataConstCursor<double> &point,
+                           const DeviceCollectionDataConstCursor<double> &means, DeviceCollectionDataCursor<double> *values)
 {
     BITPIT_UNUSED(point);
 
     for (int i = 0; i < N_FIELDS; ++i) {
-        values[i] = means[i];
+        (*values)[i] = means[i];
     }
 }
 

@@ -22,6 +22,7 @@
  *
 \*---------------------------------------------------------------------------*/
 
+#include "containers.cu"
 #include "euler.hcu"
 #include "problem.hcu"
 #include "reconstruction.hcu"
@@ -102,44 +103,57 @@ __device__ void dev_reduceMax(const double value, const size_t nElements, double
  * \param[out] fluxes on output will contain the conservative fluxes
  * \param[out] lambda on output will contain the maximum eigenvalue
  */
-__device__ void dev_evalFluxes(const double *conservative, const double *n,
+__device__ void dev_evalFluxes(const DeviceCollectionDataConstCursor<double> &conservative,
+                               const DeviceStridedDataConstCursor<double> &normal,
                                double *fluxes, double *lambda)
 {
     // Compute variables
     double primitive[N_FIELDS];
     ::utils::dev_conservative2primitive(conservative, primitive);
 
+    double rho = conservative[DEV_FID_RHO];
+    double p   = primitive[DEV_FID_P];
+
+    double nx = normal[0];
+    double ny = normal[1];
+    double nz = normal[2];
+
     double u = primitive[DEV_FID_U];
     double v = primitive[DEV_FID_V];
     double w = primitive[DEV_FID_W];
 
-    double vel2 = u * u + v * v + w * w;
-    double un   = ::utils::dev_normalVelocity(primitive, n);
-    double a    = std::sqrt(DEV_GAMMA * primitive[DEV_FID_T]);
+    double un = ::utils::dev_normalVelocity(u, v, w, nx, ny, nz);
 
-    double p = primitive[DEV_FID_P];
+    double T = primitive[DEV_FID_T];
+    double a = std::sqrt(DEV_GAMMA * T);
+
+    // Evaluate maximum eigenvalue
+    *lambda = std::abs(un) + a;
+
+    // Maxx flux
+    double massFlux = rho * un;
+
+    // Energy flux
+    double eto = p / (DEV_GAMMA - 1.) + 0.5 * rho * (u * u + v * v + w * w);
+
+    fluxes[DEV_FID_EQ_E] = un * (eto + p);
+
+    // Continuity flux
+    fluxes[DEV_FID_EQ_C] = massFlux;
+
+    // Momentum flux
+    fluxes[DEV_FID_EQ_M_X] = massFlux * u + p * nx;
+    fluxes[DEV_FID_EQ_M_Y] = massFlux * v + p * ny;
+    fluxes[DEV_FID_EQ_M_Z] = massFlux * w + p * nz;
+
+    // Check consistency of fluid dynamic state
     if (p < 0.) {
         printf("***** Negative pressure (%f) in flux computation!\n", p);
     }
 
-    double rho = conservative[DEV_FID_RHO];
     if (rho < 0.) {
        printf("***** Negative density (%f) in flux computation!\n", rho);
     }
-
-    double eto = p / (DEV_GAMMA - 1.) + 0.5 * rho * vel2;
-
-    // Compute fluxes
-    double massFlux = rho * un;
-
-    fluxes[DEV_FID_EQ_C]   = massFlux;
-    fluxes[DEV_FID_EQ_M_X] = massFlux * u + p * n[0];
-    fluxes[DEV_FID_EQ_M_Y] = massFlux * v + p * n[1];
-    fluxes[DEV_FID_EQ_M_Z] = massFlux * w + p * n[2];
-    fluxes[DEV_FID_EQ_E]   = un * (eto + p);
-
-    // Evaluate maximum eigenvalue
-    *lambda = std::abs(un) + a;
 }
 
 /*!
@@ -151,16 +165,17 @@ __device__ void dev_evalFluxes(const double *conservative, const double *n,
  * \param[out] fluxes on output will contain the conservative fluxes
  * \param[out] lambda on output will contain the maximum eigenvalue
  */
-__device__ void dev_evalSplitting(const double *conservativeL, const double *conservativeR, const double *n, double *fluxes, double *lambda)
+__device__ void dev_evalSplitting(const DeviceCollectionDataConstCursor<double> &conservativeL, const DeviceCollectionDataConstCursor<double> &conservativeR,
+                                  const DeviceStridedDataConstCursor<double> &normal, double *fluxes, double *lambda)
 {
     // Fluxes
     double fL[N_FIELDS];
     double lambdaL;
-    dev_evalFluxes(conservativeL, n, fL, &lambdaL);
+    dev_evalFluxes(conservativeL, normal, fL, &lambdaL);
 
     double fR[N_FIELDS];
     double lambdaR;
-    dev_evalFluxes(conservativeR, n, fR, &lambdaR);
+    dev_evalFluxes(conservativeR, normal, fR, &lambdaR);
 
     // Splitting
     *lambda = max(lambdaR, lambdaL);
@@ -179,16 +194,17 @@ __device__ void dev_evalSplitting(const double *conservativeL, const double *con
  * \param innerValues are the inner innerValues values
  * \param[out] boundaryValues are the boundary values
  */
-__device__ void dev_evalFreeFlowBCValues(const double *point, const double *normal,
-                                         double *info, const double *innerValues,
-                                         double *boundaryValues)
+__device__ void dev_evalFreeFlowBCValues(const DeviceStridedDataConstCursor<double> &point,
+                                         const DeviceStridedDataConstCursor<double> &normal,
+                                         const double *info, const DeviceCollectionDataConstCursor<double> &innerValues,
+                                         DeviceCollectionDataCursor<double> *boundaryValues)
 {
     BITPIT_UNUSED(point);
     BITPIT_UNUSED(normal);
     BITPIT_UNUSED(info);
 
     for (int i = 0; i < N_FIELDS; ++i) {
-        boundaryValues[i] = innerValues[i];
+        (*boundaryValues)[i] = innerValues[i];
     }
 }
 
@@ -201,9 +217,10 @@ __device__ void dev_evalFreeFlowBCValues(const double *point, const double *norm
  * \param innerValues are the inner innerValues values
  * \param[out] boundaryValues are the boundary values
  */
-__device__ void dev_evalReflectingBCValues(const double *point, const double *normal,
-                                           double *info, const double *innerValues,
-                                           double *boundaryValues)
+__device__ void dev_evalReflectingBCValues(const DeviceStridedDataConstCursor<double> &point,
+                                           const DeviceStridedDataConstCursor<double> &normal,
+                                           const double *info, const DeviceCollectionDataConstCursor<double> &innerValues,
+                                           DeviceCollectionDataCursor<double> *boundaryValues)
 {
     BITPIT_UNUSED(point);
     BITPIT_UNUSED(info);
@@ -211,11 +228,19 @@ __device__ void dev_evalReflectingBCValues(const double *point, const double *no
     double primitive[N_FIELDS];
     ::utils::dev_conservative2primitive(innerValues, primitive);
 
-    double u_n = ::utils::dev_normalVelocity(primitive, normal);
+    double nx = normal[0];
+    double ny = normal[1];
+    double nz = normal[2];
 
-    primitive[FID_U] -= 2 * u_n * normal[0];
-    primitive[FID_V] -= 2 * u_n * normal[1];
-    primitive[FID_W] -= 2 * u_n * normal[2];
+    double u = primitive[DEV_FID_U];
+    double v = primitive[DEV_FID_V];
+    double w = primitive[DEV_FID_W];
+
+    double un = ::utils::dev_normalVelocity(u, v, w, nx, ny, nz);
+
+    primitive[FID_U] -= 2 * un * nx;
+    primitive[FID_V] -= 2 * un * ny;
+    primitive[FID_W] -= 2 * un * nz;
 
     ::utils::dev_primitive2conservative(primitive, boundaryValues);
 }
@@ -229,9 +254,10 @@ __device__ void dev_evalReflectingBCValues(const double *point, const double *no
  * \param innerValues are the inner innerValues values
  * \param[out] boundaryValues are the boundary values
  */
-__device__ void dev_evalWallBCValues(const double *point, const double *normal,
-                                     double *info, const double *innerValues,
-                                     double *boundaryValues)
+__device__ void dev_evalWallBCValues(const DeviceStridedDataConstCursor<double> &point,
+                                     const DeviceStridedDataConstCursor<double> &normal,
+                                     const double *info, const DeviceCollectionDataConstCursor<double> &innerValues,
+                                     DeviceCollectionDataCursor<double> *boundaryValues)
 {
     BITPIT_UNUSED(point);
     BITPIT_UNUSED(info);
@@ -248,9 +274,10 @@ __device__ void dev_evalWallBCValues(const double *point, const double *normal,
  * \param innerValues are the inner innerValues values
  * \param[out] boundaryValues are the boundary values
  */
-__device__ void dev_evalDirichletBCValues(const double *point, const double *normal,
-                                          double *info, const double *innerValues,
-                                          double *boundaryValues)
+__device__ void dev_evalDirichletBCValues(const DeviceStridedDataConstCursor<double> &point,
+                                          const DeviceStridedDataConstCursor<double> &normal,
+                                          const double *info, const DeviceCollectionDataConstCursor<double> &innerValues,
+                                          DeviceCollectionDataCursor<double> *boundaryValues)
 {
     BITPIT_UNUSED(point);
     BITPIT_UNUSED(normal);
@@ -262,16 +289,18 @@ __device__ void dev_evalDirichletBCValues(const double *point, const double *nor
 /*!
  * Computes the boundary values for the specified interface.
  *
- * \param point is the point where the boundary condition should be applied
- * \param normal is the normal needed for evaluating the boundary condition
  * \param problemType is the type of problem being solved
  * \param BCType is the type of boundary condition to apply
+ * \param point is the point where the boundary condition should be applied
+ * \param normal is the normal needed for evaluating the boundary condition
  * \param innerValues are the inner innerValues values
  * \param[out] boundaryValues are the boundary values
  */
-__device__ void dev_evalInterfaceBCValues(const double *point, const double *normal,
-                                          int problemType, int BCType, const double *innerValues,
-                                          double *boundaryValues)
+__device__ void dev_evalInterfaceBCValues(int problemType, int BCType,
+                                          const DeviceStridedDataConstCursor<double> &point,
+                                          const DeviceStridedDataConstCursor<double> &normal,
+                                          const DeviceCollectionDataConstCursor<double> &innerValues,
+                                          DeviceCollectionDataCursor<double> *boundaryValues)
 {
     double info[BC_INFO_SIZE];
     problem::dev_getBorderBCInfo(problemType, BCType, point, normal, info);
@@ -319,23 +348,15 @@ __global__ void dev_evalInterfaceValues(std::size_t nInterfaces, const std::size
     }
 
     const std::size_t interfaceRawId = interfaceRawIds[i];
-    const double *interfaceCentroid = interfaceCentroids + 3 * interfaceRawId;
+    DeviceStridedDataConstCursor<double> interfaceCentroid(interfaceCentroids, interfaceRawId, 3);
 
     // Cell information
     const std::size_t cellRawId = cellRawIds[i];
-
-    double meanValues[N_FIELDS];
-    for (int k = 0; k < N_FIELDS; ++k) {
-        meanValues[k] = *(cellValues[k] + cellRawId);
-    }
+    DeviceCollectionDataConstCursor<double> meanValues(cellValues, cellRawId);
 
     // Reconstruct interface values
-    double reconstructedValues[N_FIELDS];
-    reconstruction::dev_eval(order, interfaceCentroid, meanValues, reconstructedValues);
-    for (int k = 0; k < N_FIELDS; ++k) {
-        double *interfaceValue = interfaceValues[k] + i;
-        *interfaceValue = reconstructedValues[k];
-    }
+    DeviceCollectionDataCursor<double> reconstructedValues(interfaceValues, i);
+    reconstruction::dev_eval(order, interfaceCentroid, meanValues, &reconstructedValues);
 }
 
 /*!
@@ -354,7 +375,7 @@ __global__ void dev_evalInterfaceValues(std::size_t nInterfaces, const std::size
  * \param[out] interfaceValues are the interface values
  */
 __global__ void dev_evalInterfaceBCs(std::size_t nInterfaces, const std::size_t *interfaceRawIds, const int *interfaceBCs,
-		                     const double *interfaceNormals, const double *interfaceCentroids, 
+		                             const double *interfaceNormals, const double *interfaceCentroids,
                                      const std::size_t *cellRawIds, const double * const *cellValues,
                                      int problemType, int order, double **interfaceValues)
 {
@@ -367,24 +388,16 @@ __global__ void dev_evalInterfaceBCs(std::size_t nInterfaces, const std::size_t 
     const int interfaceBC = interfaceBCs[i];
 
     const std::size_t interfaceRawId = interfaceRawIds[i];
-    const double *interfaceCentroid = interfaceCentroids + 3 * interfaceRawId;
-    const double *interfaceNormal   = interfaceNormals + 3 * interfaceRawId;
+    DeviceStridedDataConstCursor<double> interfaceCentroid(interfaceCentroids, interfaceRawId, 3);
+    DeviceStridedDataConstCursor<double> interfaceNormal(interfaceNormals, interfaceRawId, 3);
 
     // Cell information
     const std::size_t cellRawId = cellRawIds[i];
-
-    double innerValues[N_FIELDS];
-    for (int k = 0; k < N_FIELDS; ++k) {
-        innerValues[k] = *(cellValues[k] + cellRawId);
-    }
+    DeviceCollectionDataConstCursor<double> innerValues(cellValues, cellRawId);
 
     // Evaluate boundary values
-    double boundaryValues[N_FIELDS];
-    dev_evalInterfaceBCValues(interfaceCentroid, interfaceNormal, problemType, interfaceBC, innerValues, boundaryValues);
-    for (int k = 0; k < N_FIELDS; ++k) {
-        double *interfaceValue = interfaceValues[k] + i;
-        *interfaceValue = boundaryValues[k];
-    }
+    DeviceCollectionDataCursor<double> boundaryValues(interfaceValues, i);
+    dev_evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, interfaceNormal, innerValues, &boundaryValues);
 }
 
 /*!
@@ -414,20 +427,16 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t 
     }
 
     const std::size_t interfaceRawId = interfaceRawIds[i];
-
-    // Info about the interface
-    const double *interfaceNormal = interfaceNormals + 3 * interfaceRawId;
-    const double interfaceArea    = interfaceAreas[interfaceRawId];
-
+    DeviceStridedDataConstCursor<double> interfaceNormal(interfaceNormals, interfaceRawId, 3);
+    DeviceStridedDataConstCursor<double> interfaceArea(interfaceAreas, interfaceRawId);
 
     // Evaluate the conservative fluxes
-    double leftReconstruction[N_FIELDS];
-    double rightReconstruction[N_FIELDS];
+    DeviceCollectionDataConstCursor<double> leftReconstruction(leftReconstructions, i);
+    DeviceCollectionDataConstCursor<double> rightReconstruction(rightReconstructions, i);
+
     double interfaceFluxes[N_FIELDS];
     for (int k = 0; k < N_FIELDS; ++k) {
-        leftReconstruction[k]  = *(leftReconstructions[k] + i);
-        rightReconstruction[k] = *(rightReconstructions[k] + i);
-        interfaceFluxes[k]     = 0.;
+        interfaceFluxes[k] = 0.;
     }
 
     double interfaceMaxEig;
@@ -438,14 +447,15 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t 
     std::size_t leftCellRawId  = leftCellRawIds[i];
     std::size_t rightCellRawId = rightCellRawIds[i];
 
+    DeviceCollectionDataCursor<double> leftRHS(cellRHS, leftCellRawId);
+    DeviceCollectionDataCursor<double> rightRHS(cellRHS, rightCellRawId);
+
+    double interfaceCoefficient = interfaceArea[0];
     for (int k = 0; k < N_FIELDS; ++k) {
-        double *leftRHS  = cellRHS[k] + leftCellRawId;
-        double *rightRHS = cellRHS[k] + rightCellRawId;
+        double interfaceContribution = interfaceCoefficient * interfaceFluxes[k];
 
-        double interfaceContribution = interfaceArea * interfaceFluxes[k];
-
-        atomicAdd(leftRHS,  - interfaceContribution);
-        atomicAdd(rightRHS,   interfaceContribution);
+        atomicAdd(leftRHS.data(k),  - interfaceContribution);
+        atomicAdd(rightRHS.data(k),   interfaceContribution);
     }
 
     // Update maximum eigenvalue
@@ -479,22 +489,19 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, const std::size_t
     }
 
     const std::size_t interfaceRawId = interfaceRawIds[i];
-
-    // Info about the interface
-    const double *interfaceNormal = interfaceNormals + 3 * interfaceRawId;
-    const double interfaceArea    = interfaceAreas[interfaceRawId];
+    DeviceStridedDataConstCursor<double> interfaceNormal(interfaceNormals, interfaceRawId, 3);
+    DeviceStridedDataConstCursor<double> interfaceArea(interfaceAreas, interfaceRawId);
 
     // Info abount the bounday
     const int boundarySign = boundarySigns[i];
 
     // Evaluate the conservative fluxes
-    double fluidReconstruction[N_FIELDS];
-    double virtualReconstruction[N_FIELDS];
+    DeviceCollectionDataConstCursor<double> fluidReconstruction(fluidReconstructions, i);
+    DeviceCollectionDataConstCursor<double> virtualReconstruction(virtualReconstructions, i);
+
     double interfaceFluxes[N_FIELDS];
     for (int k = 0; k < N_FIELDS; ++k) {
-        fluidReconstruction[k]   = *(fluidReconstructions[k] + i);
-        virtualReconstruction[k] = *(virtualReconstructions[k] + i);
-        interfaceFluxes[k]       = 0.;
+        interfaceFluxes[k] = 0.;
     }
 
     double interfaceMaxEig;
@@ -503,10 +510,14 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, const std::size_t
 
     // Update residual of fluid cell
     std::size_t fluidCellRawId = fluidCellRawIds[i];
-    for (int k = 0; k < N_FIELDS; ++k) {
-        double *fluidRHS = cellRHS[k] + fluidCellRawId;
 
-        atomicAdd(fluidRHS, - boundarySign * interfaceArea * interfaceFluxes[k]);
+    DeviceCollectionDataCursor<double> fluidCellRHS(cellRHS, fluidCellRawId);
+
+    double interfaceCoefficient = boundarySign * interfaceArea[0];
+    for (int k = 0; k < N_FIELDS; ++k) {
+        double interfaceContribution = interfaceCoefficient * interfaceFluxes[k];
+
+        atomicAdd(&(fluidCellRHS[k]), - interfaceContribution);
     }
 
     // Update maximum eigenvalue

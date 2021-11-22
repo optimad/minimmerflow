@@ -23,6 +23,7 @@
 \*---------------------------------------------------------------------------*/
 
 #include "constants.hcu"
+#include "containers.cu"
 #include "utils.hcu"
 
 namespace utils {
@@ -30,13 +31,17 @@ namespace utils {
 /*!
  * Calculates normal velocity from primitive variables.
  *
- * \param fields are the fields
- * \param n is the normal vector
+ * \param u is the x-component of the velocity vector
+ * \param v is the y-component of the velocity vector
+ * \param w is the z-component of the velocity vector
+ * \param nx is the x-component of the normal vector
+ * \param ny is the y-component of the normal vector
+ * \param nz is the z-component of the normal vector
  * \result The normal velocity.
  */
-__device__ double dev_normalVelocity(const double *fields, const double *n)
+__device__ double dev_normalVelocity(double u, double v, double w, double nx, double ny, double nz)
 {
-    return (fields[DEV_FID_U] * n[0] + fields[DEV_FID_V] * n[1] + fields[DEV_FID_W] * n[2]);
+    return (u * nx + v * ny + w * nz);
 }
 
 /*!
@@ -45,21 +50,35 @@ __device__ double dev_normalVelocity(const double *fields, const double *n)
  * \param c are the conservative variables
  * \param[out] p are the primitive variables
  */
-__device__ void dev_conservative2primitive(const double *c, double *p)
+__device__ void dev_conservative2primitive(const DeviceCollectionDataConstCursor<double> & __restrict__ c, double * __restrict__ p)
 {
-    // Kinetic energy
-    double K = (c[DEV_FID_RHO_U]*c[DEV_FID_RHO_U] + c[DEV_FID_RHO_V]*c[DEV_FID_RHO_V] + c[DEV_FID_RHO_W]*c[DEV_FID_RHO_W])/(c[DEV_FID_RHO]*c[DEV_FID_RHO]);
+    // Density
+    double rho = c[DEV_FID_RHO];
 
-    // Temperature
-    p[DEV_FID_T] = (2.0*c[DEV_FID_RHO_E]/c[DEV_FID_RHO] - K) / (2.0 / (DEV_GAMMA - 1.0));
+    double rho_inv  = 1. / rho;
+    double rho2_inv = rho_inv * rho_inv;
 
     // Velocity
-    p[DEV_FID_U] = c[DEV_FID_RHO_U] / c[DEV_FID_RHO];
-    p[DEV_FID_V] = c[DEV_FID_RHO_V] / c[DEV_FID_RHO];
-    p[DEV_FID_W] = c[DEV_FID_RHO_W] / c[DEV_FID_RHO];
+    double rho_u = c[DEV_FID_RHO_U];
+    double rho_v = c[DEV_FID_RHO_V];
+    double rho_w = c[DEV_FID_RHO_W];
+
+    p[DEV_FID_U] = rho_u * rho_inv;
+    p[DEV_FID_V] = rho_v * rho_inv;
+    p[DEV_FID_W] = rho_w * rho_inv;
+
+    double K = 0.5 * (rho_u * rho_u + rho_v * rho_v + rho_w * rho_w) * rho2_inv;
+
+    // Temperature
+    double rho_e = c[DEV_FID_RHO_E];
+
+    double e = rho_e * rho_inv;
+    double T = (e - K) * (DEV_GAMMA - 1.0);
+
+    p[DEV_FID_T] = T;
 
     // Pressure
-    p[DEV_FID_P] = c[DEV_FID_RHO] * p[DEV_FID_T];
+    p[DEV_FID_P] = rho * T;
 }
 
 /*!
@@ -68,18 +87,34 @@ __device__ void dev_conservative2primitive(const double *c, double *p)
  * \param p are the primitive variables
  * \param[out] c are the conservative variables
  */
-__device__ void dev_primitive2conservative(const double *p, double *c)
+__device__ void dev_primitive2conservative(const double * __restrict__ p, DeviceCollectionDataCursor<double> * __restrict__ c)
 {
-    // Density
-    c[DEV_FID_RHO] = p[DEV_FID_P] / p[DEV_FID_T];
+    // Continuity
+    double T   = p[DEV_FID_T];
+    double rho = p[DEV_FID_P] / T;
+
+    (*c)[DEV_FID_RHO] = rho;
 
     // Momentum
-    c[DEV_FID_RHO_U] = c[DEV_FID_RHO] * p[DEV_FID_U];
-    c[DEV_FID_RHO_V] = c[DEV_FID_RHO] * p[DEV_FID_V];
-    c[DEV_FID_RHO_W] = c[DEV_FID_RHO] * p[DEV_FID_W];
+    double u  = p[DEV_FID_U];
+    double u2 = u * u;
+
+    (*c)[DEV_FID_RHO_U] = rho * u;
+
+    double v  = p[DEV_FID_V];
+    double v2 = v * v;
+
+    (*c)[DEV_FID_RHO_V] = rho * v;
+
+    double w  = p[DEV_FID_W];
+    double w2 = w * w;
+
+    (*c)[DEV_FID_RHO_W] = rho * w;
 
     // Total energy
-    c[DEV_FID_RHO_E] = c[DEV_FID_RHO] * p[DEV_FID_T] / (DEV_GAMMA - 1.0) + 0.5*c[DEV_FID_RHO]*(p[DEV_FID_U]*p[DEV_FID_U] + p[DEV_FID_V]*p[DEV_FID_V] + p[DEV_FID_W]*p[DEV_FID_W]);
+    double K = 0.5 * (u2 + v2 + w2);
+
+    (*c)[DEV_FID_RHO_E] = rho * (T / (DEV_GAMMA - 1.0) + K);
 }
 
 }
