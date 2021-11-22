@@ -295,4 +295,310 @@ void BaseStorageCollection<storage_t>::cuda_fillDevice(const dev_value_type &val
     }
 }
 
+/*!
+ * Constructor
+ */
+template<typename value_t>
+__device__ DeviceCollectionDataCursor<value_t>::DeviceCollectionDataCursor()
+    : DeviceCollectionDataCursor(nullptr, 0)
+{
+}
+
+/*!
+ * Constructor
+ *
+ * \param collectionData is a pointer the data of the collection
+ * \param offset is the offset that shouldd be used to access the data
+ */
+template<typename value_t>
+__device__ DeviceCollectionDataCursor<value_t>::DeviceCollectionDataCursor(value_t **collectionData, std::size_t offset)
+    : m_collectionData(collectionData), m_offset(offset)
+{
+}
+
+/*!
+ * Set the cursor.
+ *
+ * \param offset is the offset that shouldd be used to access the data
+ */
+template<typename value_t>
+__device__ void DeviceCollectionDataCursor<value_t>::set(std::size_t offset)
+{
+    m_offset = offset;
+}
+
+/*!
+ * Set the cursor.
+ *
+ * \param collectionData is a pointer the data of the collection
+ * \param offset is the offset that shouldd be used to access the data
+ */
+template<typename value_t>
+__device__ void DeviceCollectionDataCursor<value_t>::set(value_t **collectionData, std::size_t offset)
+{
+    set(offset);
+
+    m_collectionData = collectionData;
+}
+
+/*!
+ * Return a reference to the data pointed by the cursor.
+ *
+ * \param index is the index of the storage
+ * \result A reference to the data pointed by the cursor.
+ */
+template<typename value_t>
+__device__ value_t & DeviceCollectionDataCursor<value_t>::operator[](int index)
+{
+    return *(m_collectionData[index] + m_offset);
+}
+
+/*!
+ * Return a constant reference to the data pointed by the cursor.
+ *
+ * \param index is the index of the storage
+ * \result A constant reference to the data pointed by the cursor.
+ */
+template<typename value_t>
+__device__ const value_t & DeviceCollectionDataCursor<value_t>::operator[](int index) const
+{
+    return *(m_collectionData[index] + m_offset);
+}
+
+/*!
+ * Return a pointer to the data pointed by the cursor.
+ *
+ * \param index is the index of the storage
+ * \result A pointer to the data pointed by the cursor.
+ */
+template<typename value_t>
+__device__ value_t * DeviceCollectionDataCursor<value_t>::data(int index)
+{
+    return (m_collectionData[index] + m_offset);
+}
+
+/*!
+ * Return a constant pointer to the data pointed by the cursor.
+ *
+ * \param index is the index of the storage
+ * \result A constant pointer to the data pointed by the cursor.
+ */
+template<typename value_t>
+__device__ const value_t * DeviceCollectionDataCursor<value_t>::data(int index) const
+{
+    return (m_collectionData[index] + m_offset);
+}
+
+/*!
+ * Constructor
+ */
+template<typename value_t>
+__device__ DeviceCollectionDataConstCursor<value_t>::DeviceCollectionDataConstCursor()
+    : DeviceCollectionDataConstCursor(nullptr, 0)
+{
+}
+
+/*!
+ * Constructor
+ *
+ * \param collectionData is a pointer the data of the collection
+ * \param offset is the offset that shouldd be used to access the data
+ */
+template<typename value_t>
+__device__ DeviceCollectionDataConstCursor<value_t>::DeviceCollectionDataConstCursor(const value_t * const *collectionData, std::size_t offset)
+    : m_collectionData(collectionData), m_offset(offset)
+{
+}
+
+/*!
+ * Set the cursor.
+ *
+ * \param offset is the offset that shouldd be used to access the data
+ */
+template<typename value_t>
+__device__ void DeviceCollectionDataConstCursor<value_t>::set(std::size_t offset)
+{
+    m_offset = offset;
+}
+
+/*!
+ * Set the cursor.
+ *
+ * \param collectionData is a pointer the data of the collection
+ * \param offset is the offset that shouldd be used to access the data
+ */
+template<typename value_t>
+__device__ void DeviceCollectionDataConstCursor<value_t>::set(const value_t * const *collectionData, std::size_t offset)
+{
+    set(offset);
+
+    m_collectionData = collectionData;
+}
+
+/*!
+ * Return a constant reference to the data pointed by the cursor.
+ *
+ * \param index is the index of the storage
+ * \result A constant reference to the data pointed by the cursor.
+ */
+template<typename value_t>
+__device__ const value_t & DeviceCollectionDataConstCursor<value_t>::operator[](int index) const
+{
+    return *(m_collectionData[index] + m_offset);
+}
+
+/*!
+ * Return a constant reference to the data pointed by the cursor.
+ *
+ * \param index is the index of the storage
+ * \result A constant reference to the data pointed by the cursor.
+ */
+template<typename value_t>
+__device__ const value_t * DeviceCollectionDataConstCursor<value_t>::data(int index) const
+{
+    return (m_collectionData[index] + m_offset);
+}
+
+/*!
+ * Constructor
+ */
+template<typename value_t>
+__device__ DeviceStridedDataCursor<value_t>::DeviceStridedDataCursor()
+    : DeviceStridedDataCursor(nullptr, 0, 0)
+{
+}
+
+/*!
+ * Constructor
+ *
+ * \param collectionData is a pointer the data of the collection
+ * \param offset is the offset that shouldd be used to access the data
+ * \param stride is the stride that should be used to accesst the data
+ */
+template<typename value_t>
+__device__ DeviceStridedDataCursor<value_t>::DeviceStridedDataCursor(value_t *collectionData, std::size_t offset, int stride)
+    : m_data(collectionData + stride * offset)
+{
+}
+
+/*!
+ * Set the cursor.
+ *
+ * \param collectionData is a pointer the data of the collection
+ * \param offset is the offset that shouldd be used to access the data
+ * \param stride is the stride that should be used to accesst the data
+ */
+template<typename value_t>
+__device__ void DeviceStridedDataCursor<value_t>::set(value_t *collectionData, std::size_t offset, int stride)
+{
+    m_data = collectionData + stride * offset;
+}
+
+/*!
+ * Return a reference to the data pointed by the cursor.
+ *
+ * \param index is the index of the storage
+ * \result A reference to the data pointed by the cursor.
+ */
+template<typename value_t>
+__device__ value_t & DeviceStridedDataCursor<value_t>::operator[](int index)
+{
+    return *(m_data + index);
+}
+
+/*!
+ * Return a constant reference to the data pointed by the cursor.
+ *
+ * \param index is the index of the storage
+ * \result A constant reference to the data pointed by the cursor.
+ */
+template<typename value_t>
+__device__ const value_t & DeviceStridedDataCursor<value_t>::operator[](int index) const
+{
+    return *(m_data + index);
+}
+
+/*!
+ * Return a pointer to the data pointed by the cursor.
+ *
+ * \param index is the index of the storage
+ * \result A pointer to the data pointed by the cursor.
+ */
+template<typename value_t>
+__device__ value_t * DeviceStridedDataCursor<value_t>::data(int index)
+{
+    return (m_data + index);
+}
+
+/*!
+ * Return a constant reference to the data pointed by the cursor.
+ *
+ * \param index is the index of the storage
+ * \result A constant reference to the data pointed by the cursor.
+ */
+template<typename value_t>
+__device__ const value_t * DeviceStridedDataCursor<value_t>::data(int index) const
+{
+    return (m_data + index);
+}
+
+/*!
+ * Constructor
+ */
+template<typename value_t>
+__device__ DeviceStridedDataConstCursor<value_t>::DeviceStridedDataConstCursor()
+    : DeviceStridedDataConstCursor(nullptr, 0, 0)
+{
+}
+
+/*!
+ * Constructor
+ *
+ * \param collectionData is a pointer the data of the collection
+ * \param offset is the offset that shouldd be used to access the data
+ * \param stride is the stride that should be used to accesst the data
+ */
+template<typename value_t>
+__device__ DeviceStridedDataConstCursor<value_t>::DeviceStridedDataConstCursor(const value_t *collectionData, std::size_t offset, int stride)
+    : m_data(collectionData + stride * offset)
+{
+}
+
+/*!
+ * Set the cursor.
+ *
+ * \param collectionData is a pointer the data of the collection
+ * \param offset is the offset that shouldd be used to access the data
+ * \param stride is the stride that should be used to accesst the data
+ */
+template<typename value_t>
+__device__ void DeviceStridedDataConstCursor<value_t>::set(const value_t *collectionData, std::size_t offset, int stride)
+{
+    m_data = collectionData + stride * offset;
+}
+
+/*!
+ * Return a constant reference to the data pointed by the cursor.
+ *
+ * \param index is the index of the storage
+ * \result A constant reference to the data pointed by the cursor.
+ */
+template<typename value_t>
+__device__ const value_t & DeviceStridedDataConstCursor<value_t>::operator[](int index) const
+{
+    return *(m_data + index);
+}
+
+/*!
+ * Return a constant pointer to the data pointed by the cursor.
+ *
+ * \param index is the index of the storage
+ * \result A constant pointer to the data pointed by the cursor.
+ */
+template<typename value_t>
+__device__ const value_t * DeviceStridedDataConstCursor<value_t>::data(int index) const
+{
+    return (m_data + index);
+}
+
 #endif

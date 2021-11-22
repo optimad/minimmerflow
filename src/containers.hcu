@@ -25,11 +25,93 @@
 #ifndef __MINIMMERFLOW_CONTAINERS_HCU__
 #define __MINIMMERFLOW_CONTAINERS_HCU__
 
+#include "containers.hpp"
+
 namespace containers {
 
 template<typename dev_value_t>
 __global__ void dev_setValue(std::size_t nElements, dev_value_t value, dev_value_t *data);
 
 }
+
+template<typename value_t>
+class DeviceCollectionDataCursor
+{
+public:
+    __device__ DeviceCollectionDataCursor();
+    __device__ DeviceCollectionDataCursor(value_t **data, std::size_t offset);
+
+    __device__ void set(std::size_t offset);
+    __device__ void set(value_t **data, std::size_t offset);
+
+    __device__ value_t & operator[](int index);
+    __device__ const value_t & operator[](int index) const;
+
+    __device__ value_t * data(int index);
+    __device__ const value_t * data(int index) const;
+
+private:
+    value_t **m_collectionData;
+    std::size_t m_offset;
+
+};
+
+template<typename value_t>
+class DeviceCollectionDataConstCursor
+{
+public:
+    __device__ DeviceCollectionDataConstCursor();
+    __device__ DeviceCollectionDataConstCursor(const value_t * const *data, std::size_t offset);
+
+    __device__ void set(std::size_t offset);
+    __device__ void set(const value_t * const *data, std::size_t offset);
+
+    __device__ const value_t & operator[](int index) const;
+
+    __device__ const value_t * data(int index) const;
+
+private:
+    const value_t * const *m_collectionData;
+    std::size_t m_offset;
+
+};
+
+template<typename value_t>
+class DeviceStridedDataCursor
+{
+public:
+    __device__ DeviceStridedDataCursor();
+    __device__ DeviceStridedDataCursor(value_t *data, std::size_t offset, int stride = 1);
+
+    __device__ void set(value_t *data, std::size_t offset, int stride = 1);
+
+    __device__ value_t & operator[](int index);
+    __device__ const value_t & operator[](int index) const;
+
+    __device__ value_t * data(int index);
+    __device__ const value_t * data(int index) const;
+
+private:
+    value_t *m_data;
+
+};
+
+template<typename value_t>
+class DeviceStridedDataConstCursor
+{
+public:
+    __device__ DeviceStridedDataConstCursor();
+    __device__ DeviceStridedDataConstCursor(const value_t *data, std::size_t offset, int stride = 1);
+
+    __device__ void set(const value_t *data, std::size_t offset, int stride = 1);
+
+    __device__ const value_t & operator[](int index) const;
+
+    __device__ const value_t * data(int index) const;
+
+private:
+    const value_t *m_data;
+
+};
 
 #endif

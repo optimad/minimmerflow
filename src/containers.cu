@@ -67,3 +67,19 @@ template class StorageCollection<int>;
 template class StorageCollection<std::size_t>;
 template class StorageCollection<double>;
 template class StorageCollection<std::array<double, 3>, double>;
+
+template class DeviceCollectionDataCursor<int>;
+template class DeviceCollectionDataCursor<std::size_t>;
+template class DeviceCollectionDataCursor<double>;
+
+template class DeviceCollectionDataConstCursor<int>;
+template class DeviceCollectionDataConstCursor<std::size_t>;
+template class DeviceCollectionDataConstCursor<double>;
+
+template class DeviceStridedDataCursor<int>;
+template class DeviceStridedDataCursor<std::size_t>;
+template class DeviceStridedDataCursor<double>;
+
+template class DeviceStridedDataConstCursor<int>;
+template class DeviceStridedDataConstCursor<std::size_t>;
+template class DeviceStridedDataConstCursor<double>;
