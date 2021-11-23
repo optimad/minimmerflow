@@ -47,7 +47,9 @@ MeshGeometricalInfo::MeshGeometricalInfo(VolumeKernel *patch)
  * \param extractInfo constrols if mesh information will be extracted
  */
 MeshGeometricalInfo::MeshGeometricalInfo(VolumeKernel *patch, bool extractInfo)
-    : PatchInfo(patch)
+    : PatchInfo(patch),
+      m_cellCentroids(3),
+      m_interfaceCentroids(3), m_interfaceNormals(3), m_interfaceTangents(3)
 {
     m_volumePatch = dynamic_cast<const VolumeKernel *>(patch);
     if (!m_volumePatch) {
@@ -78,12 +80,16 @@ void MeshGeometricalInfo::_init()
 {
     m_cellVolumes.setStaticKernel(&m_volumePatch->getCells());
     m_cellSizes.setStaticKernel(&m_volumePatch->getCells());
-    m_cellCentroids.setStaticKernel(&m_volumePatch->getCells());
+    for (int d = 0; d < 3; ++d) {
+        m_cellCentroids[d].setStaticKernel(&m_volumePatch->getCells());
+    }
 
     m_interfaceAreas.setStaticKernel(&m_volumePatch->getInterfaces());
-    m_interfaceCentroids.setStaticKernel(&m_volumePatch->getInterfaces());
-    m_interfaceNormals.setStaticKernel(&m_volumePatch->getInterfaces());
-    m_interfaceTangents.setStaticKernel(&m_volumePatch->getInterfaces());
+    for (int d = 0; d < 3; ++d) {
+        m_interfaceCentroids[d].setStaticKernel(&m_volumePatch->getInterfaces());
+        m_interfaceNormals[d].setStaticKernel(&m_volumePatch->getInterfaces());
+        m_interfaceTangents[d].setStaticKernel(&m_volumePatch->getInterfaces());
+    }
 }
 
 /*!
@@ -105,7 +111,10 @@ void MeshGeometricalInfo::_extract()
 
         m_cellVolumes.rawSet(cellRawId, m_volumePatch->evalCellVolume(cellId));
         m_cellSizes.rawSet(cellRawId, m_volumePatch->evalCellSize(cellId));
-        m_cellCentroids.rawSet(cellRawId, m_volumePatch->evalCellCentroid(cellId));
+        const std::array<double, 3> &cellCentroid = m_volumePatch->evalCellCentroid(cellId);
+        for (int d = 0; d < 3; ++d) {
+            m_cellCentroids[d].rawSet(cellRawId, cellCentroid[d]);
+        }
     }
 
     // Evaluate interface data
@@ -114,9 +123,15 @@ void MeshGeometricalInfo::_extract()
         std::size_t interfaceRawId = interfaceItr.getRawIndex();
 
         m_interfaceAreas.rawSet(interfaceRawId, m_volumePatch->evalInterfaceArea(interfaceId));
-        m_interfaceCentroids.rawSet(interfaceRawId, m_volumePatch->evalInterfaceCentroid(interfaceId));
-        m_interfaceNormals.rawSet(interfaceRawId, m_volumePatch->evalInterfaceNormal(interfaceId));
-        m_interfaceTangents.rawSet(interfaceRawId, {{1., 0, 0}});
+
+        const std::array<double, 3> &interfaceCentroid = m_volumePatch->evalInterfaceCentroid(interfaceId);
+        const std::array<double, 3> &interfaceNormal   = m_volumePatch->evalInterfaceNormal(interfaceId);
+        const std::array<double, 3> interfaceTangent   = {{1., 0, 0}};
+        for (int d = 0; d < 3; ++d) {
+            m_interfaceCentroids[d].rawSet(interfaceRawId, interfaceCentroid[d]);
+            m_interfaceNormals[d].rawSet(interfaceRawId, interfaceNormal[d]);
+            m_interfaceTangents[d].rawSet(interfaceRawId, interfaceTangent[d]);
+        }
     }
 }
 
@@ -215,45 +230,77 @@ PiercedStorage<double, long> & MeshGeometricalInfo::getCellSizes()
 }
 
 /*!
- * Gets the centroid of the specified cell.
+ * Gets the requested centroid component for the specified interface.
  *
  * \param id is the id of the cell
- * \result The centroid of the specified cell.
+ * \param component is the requested component
+ * \result The requested centroid component for the specified interface.
  */
-const std::array<double, 3> & MeshGeometricalInfo::getCellCentroid(long id) const
+double MeshGeometricalInfo::getCellCentroid(long id, int component) const
 {
-    return m_cellCentroids.at(id);
+    return m_cellCentroids[component].at(id);
 }
 
 /*!
- * Gets the centroid of the cell at the specified raw position.
+ * Gets the centroid of the given cell.
+ *
+ * \param id is the id of the cell
+ * \param component is the requested component
+ * \result The centroid of the specified cell.
+ */
+std::array<double, 3> MeshGeometricalInfo::getCellCentroid(long id) const
+{
+    std::size_t rawCellId = m_patch->getCells().find(id).getRawIndex();
+
+    return rawGetCellCentroid(rawCellId);
+}
+
+/*!
+ * Gets the requested centroid component for the specified interface.
  *
  * \param pos is the raw position of the item
+ * \param component is the requested component
+ * \result The requested centroid component for the specified interface.
+ */
+double MeshGeometricalInfo::rawGetCellCentroid(size_t pos, int component) const
+{
+    return m_cellCentroids[component].rawAt(pos);
+}
+
+/*!
+ * Gets the centroid of the given cell.
+ *
+ * \param pos is the raw position of the item
+ * \param component is the requested component
  * \result The centroid of the specified cell.
  */
-const std::array<double, 3> & MeshGeometricalInfo::rawGetCellCentroid(size_t pos) const
+std::array<double, 3> MeshGeometricalInfo::rawGetCellCentroid(size_t pos) const
 {
-    return m_cellCentroids.rawAt(pos);
+    return {{m_cellCentroids[0].rawAt(pos), m_cellCentroids[1].rawAt(pos), m_cellCentroids[2].rawAt(pos)}};
 }
 
 /*!
- * Gets a constant reference to the cell centroid storage.
+ * Gets a constant reference to the cell centroid storage for the given
+ * component.
  *
+ * \param component is the requested component
  * \result A constant reference to the cell centroid storage.
  */
-const PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getCellCentroids() const
+const bitpit::PiercedStorage<double, long> & MeshGeometricalInfo::getCellCentroids(int component) const
 {
-    return m_cellCentroids;
+    return m_cellCentroids[component];
 }
 
 /*!
- * Gets a reference to the cell centroid storage.
+ * Gets a constant reference to the cell centroid storage for the given
+ * component.
  *
+ * \param component is the requested component
  * \result A reference to the cell centroid storage.
  */
-PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getCellCentroids()
+bitpit::PiercedStorage<double, long> & MeshGeometricalInfo::getCellCentroids(int component)
 {
-    return m_cellCentroids;
+    return m_cellCentroids[component];
 }
 
 /*!
@@ -299,127 +346,230 @@ PiercedStorage<double, long> & MeshGeometricalInfo::getInterfaceAreas()
 }
 
 /*!
+ * Gets the requested centroid component for the specified interface.
+ *
+ * \param id is the id of the interface
+ * \param component is the requested component
+ * \result The requested centroid component for the specified interface.
+ */
+double MeshGeometricalInfo::getInterfaceCentroid(long id, int component) const
+{
+    return m_interfaceCentroids[component].at(id);
+}
+
+/*!
  * Gets the centroid of the specified interface.
  *
  * \param id is the id of the interface
+ * \param component is the requested component
  * \result The centroid of the specified interface.
  */
-const std::array<double, 3> & MeshGeometricalInfo::getInterfaceCentroid(long id) const
+std::array<double, 3> MeshGeometricalInfo::getInterfaceCentroid(long id) const
 {
-    return m_interfaceCentroids.at(id);
+    std::size_t rawInterfaceId = m_patch->getInterfaces().find(id).getRawIndex();
+
+    return rawGetInterfaceCentroid(rawInterfaceId);
 }
 
 /*!
- * Gets the centroid of the interface at the specified raw position.
+ * Gets the requested centroid component for the specified interface.
  *
  * \param pos is the raw position of the item
+ * \param component is the requested component
+ * \result The requested centroid component for the specified interface.
+ */
+double MeshGeometricalInfo::rawGetInterfaceCentroid(size_t pos, int component) const
+{
+    return m_interfaceCentroids[component].rawAt(pos);
+}
+
+/*!
+ * Gets the centroid of the specified interface.
+ *
+ * \param pos is the raw position of the item
+ * \param component is the requested component
  * \result The centroid of the specified interface.
  */
-const std::array<double, 3> & MeshGeometricalInfo::rawGetInterfaceCentroid(size_t pos) const
+std::array<double, 3> MeshGeometricalInfo::rawGetInterfaceCentroid(size_t pos) const
 {
-    return m_interfaceCentroids.rawAt(pos);
+    return {{m_interfaceCentroids[0].rawAt(pos), m_interfaceCentroids[1].rawAt(pos), m_interfaceCentroids[2].rawAt(pos)}};
 }
 
 /*!
- * Gets a constant reference to the interface centroid storage.
+ * Gets a constant reference to the storage for the interface centroids along
+ * the given direction.
  *
- * \result A constant reference to the interface centroid storage.
+ * \param component is the requested component
+ * \result A constant reference to the storage for the interface centroids
+ * along the given direction.
  */
-const PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInterfaceCentroids() const
+const bitpit::PiercedStorage<double, long> & MeshGeometricalInfo::getInterfaceCentroids(int component) const
 {
-    return m_interfaceCentroids;
+    return m_interfaceCentroids[component];
 }
 
 /*!
- * Gets a reference to the interface centroid storage.
+ * Gets a reference to the storage for the interface centroids along the given
+ * direction.
  *
- * \result A reference to the interface centroid storage.
+ * \param component is the requested component
+ * \result A reference to the storage for the interface centroids along the
+ * given direction.
  */
-PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInterfaceCentroids()
+bitpit::PiercedStorage<double, long> & MeshGeometricalInfo::getInterfaceCentroids(int component)
 {
-    return m_interfaceCentroids;
+    return m_interfaceCentroids[component];
+}
+
+/*!
+ * Gets the requested normal component for the specified interface.
+ *
+ * \param id is the id of the interface
+ * \param component is the requested component
+ * \result The requested normal component for the specified interface.
+ */
+double MeshGeometricalInfo::getInterfaceNormal(long id, int component) const
+{
+    return m_interfaceNormals[component].at(id);
 }
 
 /*!
  * Gets the normal of the specified interface.
  *
  * \param id is the id of the interface
+ * \param component is the requested component
  * \result The normal of the specified interface.
  */
-const std::array<double, 3> & MeshGeometricalInfo::getInterfaceNormal(long id) const
+std::array<double, 3> MeshGeometricalInfo::getInterfaceNormal(long id) const
 {
-    return m_interfaceNormals.at(id);
+    std::size_t rawInterfaceId = m_patch->getInterfaces().find(id).getRawIndex();
+
+    return rawGetInterfaceNormal(rawInterfaceId);
 }
 
 /*!
- * Gets the normal of the interface at the specified raw position.
+ * Gets the requested normal component for the specified interface.
  *
  * \param pos is the raw position of the item
+ * \param component is the requested component
+ * \result The requested normal component for the specified interface.
+ */
+double MeshGeometricalInfo::rawGetInterfaceNormal(size_t pos, int component) const
+{
+    return m_interfaceNormals[component].rawAt(pos);
+}
+
+/*!
+ * Gets the normal of the specified interface.
+ *
+ * \param pos is the raw position of the item
+ * \param component is the requested component
  * \result The normal of the specified interface.
  */
-const std::array<double, 3> & MeshGeometricalInfo::rawGetInterfaceNormal(size_t pos) const
+std::array<double, 3> MeshGeometricalInfo::rawGetInterfaceNormal(size_t pos) const
 {
-    return m_interfaceNormals.rawAt(pos);
+    return {{m_interfaceNormals[0].rawAt(pos), m_interfaceNormals[1].rawAt(pos), m_interfaceNormals[2].rawAt(pos)}};
+
 }
 
 /*!
- * Gets a constant reference to the interface normal storage.
+ * Gets a constant reference to the storage for the interface normal along
+ * the given direction.
  *
- * \result A constant reference to the interface normal storage.
+ * \param component is the requested component
+ * \result A constant reference to the storage for the interface normal along
+ * the given direction.
  */
-const PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInterfaceNormals() const
+const bitpit::PiercedStorage<double, long> & MeshGeometricalInfo::getInterfaceNormals(int component) const
 {
-    return m_interfaceNormals;
+    return m_interfaceNormals[component];
 }
 
 /*!
- * Gets a reference to the interface normal storage.
+ * Gets a reference to the storage for the interface normal along the given
+ * direction.
  *
- * \result A reference to the interface normal storage.
+ * \param component is the requested component
+ * \result A reference to the storage for the interface normal along the given
+ * direction.
  */
-PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInterfaceNormals()
+bitpit::PiercedStorage<double, long> & MeshGeometricalInfo::getInterfaceNormals(int component)
 {
-    return m_interfaceNormals;
+    return m_interfaceNormals[component];
+}
+
+/*!
+ * Gets the requested tangent component for the specified interface.
+ *
+ * \param id is the id of the interface
+ * \param component is the requested component
+ * \result The requested tangent component for the specified interface.
+ */
+double MeshGeometricalInfo::getInterfaceTangent(long id, int component) const
+{
+    return m_interfaceTangents[component].at(id);
 }
 
 /*!
  * Gets the tangent of the specified interface.
  *
  * \param id is the id of the interface
- * \result The tangent of the specified interface.
+ * \param component is the requested component
+ * \result The requested tangent component for the specified interface.
  */
-const std::array<double, 3> & MeshGeometricalInfo::getInterfaceTangent(long id) const
+std::array<double, 3> MeshGeometricalInfo::getInterfaceTangent(long id) const
 {
-    return m_interfaceTangents.at(id);
+    std::size_t rawInterfaceId = m_patch->getInterfaces().find(id).getRawIndex();
+
+    return rawGetInterfaceTangent(rawInterfaceId);
 }
 
 /*!
- * Gets the tangent of the interface at the specified raw position.
+ * Gets the requested tangent component for the specified interface.
  *
  * \param pos is the raw position of the item
+ * \param component is the requested component
+ * \result The requested tangent component for the specified interface.
+ */
+double MeshGeometricalInfo::rawGetInterfaceTangent(size_t pos, int component) const
+{
+    return m_interfaceTangents[component].rawAt(pos);
+}
+
+/*!
+ * Gets the tangent of the specified interface.
+ *
+ * \param pos is the raw position of the item
+ * \param component is the requested component
  * \result The tangent of the specified interface.
  */
-const std::array<double, 3> & MeshGeometricalInfo::rawGetInterfaceTangent(size_t pos) const
+std::array<double, 3> MeshGeometricalInfo::rawGetInterfaceTangent(size_t pos) const
 {
-    return m_interfaceTangents.rawAt(pos);
+    return {{m_interfaceTangents[0].rawAt(pos), m_interfaceTangents[1].rawAt(pos), m_interfaceTangents[2].rawAt(pos)}};
 }
 
 /*!
- * Gets a constant reference to the interface tangent storage.
+ * Gets a constant reference to the storage for the interface tangent along
+ * the given direction.
  *
- * \result A constant reference to the interface tangent storage.
+ * \param component is the requested component
+ * \result A constant reference to the storage for the interface tangents along
+ * the given direction.
  */
-const PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInterfaceTangents() const
+const bitpit::PiercedStorage<double, long> & MeshGeometricalInfo::getInterfaceTangents(int component) const
 {
-    return m_interfaceTangents;
+    return m_interfaceTangents[component];
 }
 
 /*!
- * Gets a reference to the interface tangent storage.
+ * Gets a reference to the storage for the interface tangent along the given
+ * direction.
  *
- * \result A reference to the interface tangent storage.
+ * \param component is the requested component
+ * \result A reference to the storage for the interface tangents along the
+ * given direction.
  */
-PiercedStorage<std::array<double, 3>, long> & MeshGeometricalInfo::getInterfaceTangents()
+bitpit::PiercedStorage<double, long> & MeshGeometricalInfo::getInterfaceTangents(int component)
 {
-    return m_interfaceTangents;
+    return m_interfaceTangents[component];
 }

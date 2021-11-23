@@ -38,55 +38,49 @@ __device__ void dev_atomicMax(const double value, double * const maxValue);
 __device__ void dev_reduceMax(const double value, const size_t nElements, double *maxValue);
 
 __device__ void dev_evalFluxes(const DeviceCollectionDataConstCursor<double> &conservative,
-                               const DeviceStridedDataConstCursor<double> &normal,
-                               double *fluxes, double *lambda);
+                               const double *normal, double *fluxes, double *lambda);
 
 __device__ void dev_evalSplitting(const DeviceCollectionDataConstCursor<double> &conservativeL, const DeviceCollectionDataConstCursor<double> &conservativeR,
-                                  const DeviceStridedDataConstCursor<double> &normal, double *fluxes, double *lambda);
+                                  const double *normal, double *fluxes, double *lambda);
 
 __device__ void dev_evalInterfaceBCValues(int problemType, int BCType,
-                                          const DeviceStridedDataConstCursor<double> &point,
-                                          const DeviceStridedDataConstCursor<double> &normal,
+                                          const double *point, const double *normal,
                                           const DeviceCollectionDataConstCursor<double> &innerValues,
                                           DeviceCollectionDataCursor<double> *boundaryValues);
 
-__device__ void dev_evalFreeFlowBCValues(const DeviceStridedDataConstCursor<double> &point,
-                                         const DeviceStridedDataConstCursor<double> &normal,
+__device__ void dev_evalFreeFlowBCValues(const double *point, const double *normal,
                                          const double *info, const DeviceCollectionDataConstCursor<double> &innerValues,
                                          DeviceCollectionDataCursor<double> *boundaryValues);
 
-__device__ void dev_evalReflectingBCValues(const DeviceStridedDataConstCursor<double> &point,
-                                           const DeviceStridedDataConstCursor<double> &normal,
+__device__ void dev_evalReflectingBCValues(const double *point, const double *normal,
                                            const double *info, const DeviceCollectionDataConstCursor<double> &innerValues,
                                            DeviceCollectionDataCursor<double> *boundaryValues);
 
-__device__ void dev_evalWallBCValues(const DeviceStridedDataConstCursor<double> &point,
-                                     const DeviceStridedDataConstCursor<double> &normal,
+__device__ void dev_evalWallBCValues(const double *point, const double *normal,
                                      const double *info, const DeviceCollectionDataConstCursor<double> &innerValues,
                                      DeviceCollectionDataCursor<double> *boundaryValues);
 
-__device__ void dev_evalDirichletBCValues(const DeviceStridedDataConstCursor<double> &point,
-                                          const DeviceStridedDataConstCursor<double> &normal,
+__device__ void dev_evalDirichletBCValues(const double *point, const double *normal,
                                           const double *info, const DeviceCollectionDataConstCursor<double> &innerValues,
                                           DeviceCollectionDataCursor<double> *boundaryValues);
 
-__global__ void dev_evalInterfaceValues(std::size_t nInterfaces, const std::size_t *interfaceRawIds, const double *interfaceCentroids,
+__global__ void dev_evalInterfaceValues(std::size_t nInterfaces, const std::size_t *interfaceRawIds, const double * const *interfaceCentroids,
                                         const std::size_t *cellRawIds, const double * const *cellValues,
                                         int order, double **interfaceValues);
 
 __global__ void dev_evalInterfaceBCs(std::size_t nInterfaces, const std::size_t *interfaceRawIds, const int *interfaceBCs,
-                                     const double *interfaceNormals, const double *interfaceCentroids, 
+                                     const double * const *interfaceNormals, const double * const *interfaceCentroids,
                                      const std::size_t *cellRawIds, const double * const *cellValues,
                                      int problemType, int order, double **interfaceValues);
 
 __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, const std::size_t *interfaceRawIds,
-                                     const double *interfaceNormals, const double *interfaceAreas,
+                                     const double * const *interfaceNormals, const double *interfaceAreas,
                                      const std::size_t *leftCellRawIds, const std::size_t *rightCellRawIds,
                                      const double * const *leftReconstructions, const double * const *rightReconstructions,
                                      double **cellRHS, double *maxEig);
 
 __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, const std::size_t *interfaceRawIds,
-                                      const double *interfaceNormals, const double *interfaceAreas,
+                                      const double * const *interfaceNormals, const double *interfaceAreas,
                                       const std::size_t *fluidCellRawIds, const int *boundarySigns,
                                       const double * const *fluidReconstructions, const double * const *virtualReconstructions,
                                       double **cellRHS, double *maxEig);

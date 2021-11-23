@@ -26,15 +26,11 @@
 #define __MINIMMERFLOW_PROBLEM_HCU__
 
 #include "constants.hpp"
-#include "containers.hcu"
 #include "mesh_info.hpp"
 
 namespace problem {
 
-__device__ void dev_getBorderBCInfo(int problemType, int BCType,
-                                    const DeviceStridedDataConstCursor<double> &point,
-                                    const DeviceStridedDataConstCursor<double> &normal,
-                                    double *info);
+__device__ void dev_getBorderBCInfo(int problemType, int BCType, const double *point, const double *normal, double *info);
 
 }
 

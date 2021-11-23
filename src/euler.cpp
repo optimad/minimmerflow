@@ -191,8 +191,8 @@ void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInf
         // Info about the interface
         const std::size_t interfaceRawId = solvedUniformInterfaceRawIds[i];
         const double interfaceArea = computationInfo.rawGetInterfaceArea(interfaceRawId);
-        const std::array<double, 3> &interfaceNormal = computationInfo.rawGetInterfaceNormal(interfaceRawId);
-        const std::array<double, 3> &interfaceCentroid = computationInfo.rawGetInterfaceCentroid(interfaceRawId);
+        const std::array<double, 3> interfaceNormal = computationInfo.rawGetInterfaceNormal(interfaceRawId);
+        const std::array<double, 3> interfaceCentroid = computationInfo.rawGetInterfaceCentroid(interfaceRawId);
 
         // Info about the interface owner
         std::size_t ownerRawId = solvedUniformInterfaceOwnerRawIds[i];
@@ -239,8 +239,8 @@ void updateRHS(problem::ProblemType problemType, ComputationInfo &computationInf
         const std::size_t interfaceRawId = solvedBoundaryInterfaceRawIds[i];
         const double interfaceArea = computationInfo.rawGetInterfaceArea(interfaceRawId);
         const int interfaceSign = solvedBoundaryInterfaceSigns[i];
-        const std::array<double, 3> &interfaceNormal = computationInfo.rawGetInterfaceNormal(interfaceRawId);
-        const std::array<double, 3> &interfaceCentroid = computationInfo.rawGetInterfaceCentroid(interfaceRawId);
+        const std::array<double, 3> interfaceNormal = computationInfo.rawGetInterfaceNormal(interfaceRawId);
+        const std::array<double, 3> interfaceCentroid = computationInfo.rawGetInterfaceCentroid(interfaceRawId);
         int interfaceBC = solvedBoundaryInterfaceBCs[i];
 
         // Info about the interface fluid cell

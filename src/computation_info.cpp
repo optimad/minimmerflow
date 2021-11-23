@@ -81,7 +81,7 @@ void ComputationInfo::_extract()
     for (VolumeKernel::CellConstIterator cellItr = m_patch->cellConstBegin(); cellItr != m_patch->cellConstEnd(); ++cellItr) {
         std::size_t cellRawId = cellItr.getRawIndex();
         const Cell &cell = *cellItr;
-        const std::array<double, 3> &cellCentroid = rawGetCellCentroid(cellRawId);
+        const std::array<double, 3> cellCentroid = rawGetCellCentroid(cellRawId);
 
         // Identify solve method
         bool isSolved = body::isPointFluid(cellCentroid);
@@ -203,8 +203,8 @@ bool ComputationInfo::isInterfaceBoundary(const Interface &interface) const
 
     long ownerId = interface.getOwner();
 
-    const std::array<double, 3> &cellCentroid  = getCellCentroid(ownerId);
-    const std::array<double, 3> &neighCentroid = getCellCentroid(neighId);
+    const std::array<double, 3> cellCentroid  = getCellCentroid(ownerId);
+    const std::array<double, 3> neighCentroid = getCellCentroid(neighId);
 
     bool isOwnerFluid = body::isPointFluid(cellCentroid);
     bool isNeighFluid = body::isPointFluid(neighCentroid);

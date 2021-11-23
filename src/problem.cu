@@ -39,10 +39,7 @@ namespace problem {
  * \param normal is the normal needed for evaluating the boundary condition
  * \param[out] info on output will contain the needed information
  */
-__device__ void dev_getBorderBCInfo(int problemType, int BCType,
-                                    const DeviceStridedDataConstCursor<double> &point,
-                                    const DeviceStridedDataConstCursor<double> &normal,
-                                    double *info)
+__device__ void dev_getBorderBCInfo(int problemType, int BCType, const double *point, const double *normal, double *info)
 {
     BITPIT_UNUSED(point);
     BITPIT_UNUSED(normal);

@@ -233,7 +233,12 @@ void evalCellInitalConservatives(ProblemType problemType, long cellId, const Mes
  */
 void evalCellExactConservatives(ProblemType problemType, long cellId, const MeshGeometricalInfo &meshInfo, double t, double *conservatives)
 {
-    problem::evalExactConservatives(problemType, meshInfo.getDimension(), meshInfo.getCellCentroid(cellId), t, conservatives);
+    std::array<double, 3> cellCentroid;
+    for (int d = 0; d < 3; ++d) {
+        cellCentroid[d] = meshInfo.getCellCentroid(cellId, d);
+    }
+
+    problem::evalExactConservatives(problemType, meshInfo.getDimension(), cellCentroid, t, conservatives);
 }
 
 /*!
@@ -421,10 +426,10 @@ int getBorderBCType(ProblemType problemType, long id, const MeshGeometricalInfo 
 
     case (PROBLEM_FFSTEP):
     {
-        std::array<double, 3> faceCentroid = meshInfo.getInterfaceCentroid(id);
-        if (faceCentroid[0] < 1e-10) {
+        double faceCentroidX = meshInfo.getInterfaceCentroid(id, 0);
+        if (faceCentroidX < 1e-10) {
             return BC_DIRICHLET;
-        } else if (faceCentroid[0] > 3.2 - 1e-10) {
+        } else if (faceCentroidX > 3.2 - 1e-10) {
             return BC_FREE_FLOW;
         } else {
             return BC_REFLECTING;

@@ -111,9 +111,9 @@ const double * MeshGeometricalInfo::cuda_getCellSizeDevData() const
  *
  * \result A pointer to the cell centroid CUDA data storage.
  */
-double * MeshGeometricalInfo::cuda_getCellCentroidDevData()
+double ** MeshGeometricalInfo::cuda_getCellCentroidDevData()
 {
-    return m_cellCentroids.cuda_deviceData();
+    return m_cellCentroids.cuda_deviceCollectionData();
 }
 
 /*!
@@ -121,9 +121,9 @@ double * MeshGeometricalInfo::cuda_getCellCentroidDevData()
  *
  * \result A constant pointer to the cell centroid CUDA data storage.
  */
-const double * MeshGeometricalInfo::cuda_getCellCentroidDevData() const
+const double * const * MeshGeometricalInfo::cuda_getCellCentroidDevData() const
 {
-    return m_cellCentroids.cuda_deviceData();
+    return m_cellCentroids.cuda_deviceCollectionData();
 }
 
 /*!
@@ -151,9 +151,9 @@ const double * MeshGeometricalInfo::cuda_getInterfaceAreaDevData() const
  *
  * \result A pointer to the interface centroid CUDA data storage.
  */
-double * MeshGeometricalInfo::cuda_getInterfaceCentroidDevData()
+double ** MeshGeometricalInfo::cuda_getInterfaceCentroidDevData()
 {
-    return m_interfaceCentroids.cuda_deviceData();
+    return m_interfaceCentroids.cuda_deviceCollectionData();
 }
 
 /*!
@@ -161,9 +161,9 @@ double * MeshGeometricalInfo::cuda_getInterfaceCentroidDevData()
  *
  * \result A constant pointer to the interface centroid CUDA data storage.
  */
-const double * MeshGeometricalInfo::cuda_getInterfaceCentroidDevData() const
+const double * const * MeshGeometricalInfo::cuda_getInterfaceCentroidDevData() const
 {
-    return m_interfaceCentroids.cuda_deviceData();
+    return m_interfaceCentroids.cuda_deviceCollectionData();
 }
 
 /*!
@@ -171,9 +171,9 @@ const double * MeshGeometricalInfo::cuda_getInterfaceCentroidDevData() const
  *
  * \result A pointer to the interface normal CUDA data storage.
  */
-double * MeshGeometricalInfo::cuda_getInterfaceNormalDevData()
+double ** MeshGeometricalInfo::cuda_getInterfaceNormalDevData()
 {
-    return m_interfaceNormals.cuda_deviceData();
+    return m_interfaceNormals.cuda_deviceCollectionData();
 }
 
 /*!
@@ -181,9 +181,9 @@ double * MeshGeometricalInfo::cuda_getInterfaceNormalDevData()
  *
  * \result A constant pointer to the interface normal CUDA data storage.
  */
-const double * MeshGeometricalInfo::cuda_getInterfaceNormalDevData() const
+const double * const * MeshGeometricalInfo::cuda_getInterfaceNormalDevData() const
 {
-    return m_interfaceNormals.cuda_deviceData();
+    return m_interfaceNormals.cuda_deviceCollectionData();
 }
 
 /*!
@@ -191,9 +191,9 @@ const double * MeshGeometricalInfo::cuda_getInterfaceNormalDevData() const
  *
  * \result A pointer to the interface tangent CUDA data storage.
  */
-double * MeshGeometricalInfo::cuda_getInterfaceTangentDevData()
+double ** MeshGeometricalInfo::cuda_getInterfaceTangentDevData()
 {
-    return m_interfaceTangents.cuda_deviceData();
+    return m_interfaceTangents.cuda_deviceCollectionData();
 }
 
 /*!
@@ -201,7 +201,7 @@ double * MeshGeometricalInfo::cuda_getInterfaceTangentDevData()
  *
  * \result A constant pointer to the interface tangent CUDA data storage.
  */
-const double * MeshGeometricalInfo::cuda_getInterfaceTangentDevData() const
+const double * const * MeshGeometricalInfo::cuda_getInterfaceTangentDevData() const
 {
-    return m_interfaceTangents.cuda_deviceData();
+    return m_interfaceTangents.cuda_deviceCollectionData();
 }
