@@ -48,3 +48,22 @@ template class ValueStorage<std::size_t>;
 template class ValueStorage<double>;
 template class ValueStorage<std::array<double, 3>, double>;
 
+template class BaseStorageCollection<ValuePiercedStorage<int, int>>;
+template class BaseStorageCollection<ValuePiercedStorage<std::size_t, std::size_t>>;
+template class BaseStorageCollection<ValuePiercedStorage<double, double>>;
+template class BaseStorageCollection<ValuePiercedStorage<std::array<double, 3>, double>>;
+
+template class BaseStorageCollection<ValueStorage<int, int>>;
+template class BaseStorageCollection<ValueStorage<std::size_t, std::size_t>>;
+template class BaseStorageCollection<ValueStorage<double, double>>;
+template class BaseStorageCollection<ValueStorage<std::array<double, 3>, double>>;
+
+template class PiercedStorageCollection<int, int>;
+template class PiercedStorageCollection<std::size_t, std::size_t>;
+template class PiercedStorageCollection<double, double>;
+template class PiercedStorageCollection<std::array<double, 3>, double>;
+
+template class StorageCollection<int>;
+template class StorageCollection<std::size_t>;
+template class StorageCollection<double>;
+template class StorageCollection<std::array<double, 3>, double>;

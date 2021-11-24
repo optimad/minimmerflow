@@ -207,4 +207,92 @@ std::size_t ValueStorage<value_t, dev_value_t>::cuda_deviceDataSize(std::size_t 
     return (count * static_cast<double>(sizeof(value_t)) / sizeof(dev_value_t));
 }
 
+/*!
+ * Allocate cuda memory.
+ */
+template<typename storage_t>
+void BaseStorageCollection<storage_t>::cuda_allocateDevice()
+{
+    CUDA_ERROR_CHECK(cudaMalloc((void **) &m_deviceDataCollection, m_storages.size() * sizeof(dev_value_type)));
+
+    std::size_t nStorages = m_storages.size();
+    for (std::size_t k = 0; k < nStorages; ++k) {
+        storage_t &storage = m_storages[k];
+        storage.cuda_allocateDevice();
+
+        dev_value_type *storageDEviceData = storage.cuda_deviceData();
+        CUDA_ERROR_CHECK(cudaMemcpy(m_deviceDataCollection + k, &storageDEviceData, sizeof(dev_value_type *), cudaMemcpyHostToDevice));
+    }
+}
+
+/*!
+ * Free cuda memory.
+ */
+template<typename storage_t>
+void BaseStorageCollection<storage_t>::cuda_freeDevice()
+{
+    for (auto &storage : m_storages) {
+        storage.cuda_freeDevice();
+    }
+
+    CUDA_ERROR_CHECK(cudaFree(m_deviceDataCollection));
+}
+
+/*!
+ * Update host data using device data.
+ */
+template<typename storage_t>
+void BaseStorageCollection<storage_t>::cuda_updateHost()
+{
+    for (auto &storage : m_storages) {
+        storage.cuda_updateHost();
+    }
+}
+
+/*!
+ * Update device data using host data.
+ */
+template<typename storage_t>
+void BaseStorageCollection<storage_t>::cuda_updateDevice()
+{
+    for (auto &storage : m_storages) {
+        storage.cuda_updateDevice();
+    }
+}
+
+/*!
+ * Gets a pointer to the device data collection.
+ *
+ * \result A pointer to the device data collection.
+ */
+template<typename storage_t>
+BaseStorageCollection<storage_t>::dev_value_type ** BaseStorageCollection<storage_t>::cuda_deviceCollectionData()
+{
+    return m_deviceDataCollection;
+}
+
+/*!
+ * Gets a constant pointer to the device data collection.
+ *
+ * \result A constant pointer to the device data collection.
+ */
+template<typename storage_t>
+const BaseStorageCollection<storage_t>::dev_value_type * const * BaseStorageCollection<storage_t>::cuda_deviceCollectionData() const
+{
+    return m_deviceDataCollection;
+}
+
+/*!
+ * Fill the container with the specified value.
+ *
+ * \param value is the value that will be used to fille the container
+ */
+template<typename storage_t>
+void BaseStorageCollection<storage_t>::cuda_fillDevice(const dev_value_type &value)
+{
+    for (auto &storage : m_storages) {
+        storage.cuda_fillDevice(value);
+    }
+}
+
 #endif

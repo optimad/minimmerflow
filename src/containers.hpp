@@ -145,4 +145,96 @@ extern template class ValueStorage<std::size_t, std::size_t>;
 extern template class ValueStorage<double, double>;
 extern template class ValueStorage<std::array<double, 3>, double>;
 
+template<typename storage_t>
+class BaseStorageCollection
+{
+
+public:
+    typedef storage_t storage_type;
+    typedef typename storage_t::dev_value_type dev_value_type;
+
+    const storage_t & operator[](std::size_t index) const;
+    storage_t & operator[](std::size_t index);
+
+#if ENABLE_CUDA
+    void cuda_allocateDevice();
+    void cuda_freeDevice();
+
+    void cuda_updateHost();
+    void cuda_updateDevice();
+
+    dev_value_type ** cuda_deviceCollectionData();
+    const dev_value_type * const * cuda_deviceCollectionData() const;
+
+    void cuda_fillDevice(const dev_value_type &value);
+#endif
+
+protected:
+    template<typename... Args>
+    BaseStorageCollection(std::size_t nStorages, Args&&... args);
+
+private:
+    std::vector<storage_t> m_storages;
+
+    dev_value_type **m_deviceDataCollection;
+
+};
+
+// Avoid implicit instantiation
+extern template class BaseStorageCollection<ValuePiercedStorage<int, int>>;
+extern template class BaseStorageCollection<ValuePiercedStorage<std::size_t, std::size_t>>;
+extern template class BaseStorageCollection<ValuePiercedStorage<double, double>>;
+extern template class BaseStorageCollection<ValuePiercedStorage<std::array<double, 3>, double>>;
+
+extern template class BaseStorageCollection<ValueStorage<int, int>>;
+extern template class BaseStorageCollection<ValueStorage<std::size_t, std::size_t>>;
+extern template class BaseStorageCollection<ValueStorage<double, double>>;
+extern template class BaseStorageCollection<ValueStorage<std::array<double, 3>, double>>;
+
+template<typename value_t, typename dev_value_t = value_t, typename id_t = long>
+class PiercedStorageCollection : public BaseStorageCollection<ValuePiercedStorage<value_t, dev_value_t>>
+{
+
+public:
+    PiercedStorageCollection(std::size_t nStorages);
+    PiercedStorageCollection(std::size_t nStorages, bitpit::PiercedKernel<id_t> *kernel);
+
+};
+
+template<typename value_t>
+using ScalarPiercedStorageCollection = PiercedStorageCollection<value_t>;
+
+template<typename value_t>
+using VectorPiercedStorageCollection = PiercedStorageCollection<std::array<value_t, 3>, value_t>;
+
+// Avoid implicit instantiation
+extern template class PiercedStorageCollection<int, int>;
+extern template class PiercedStorageCollection<std::size_t, std::size_t>;
+extern template class PiercedStorageCollection<double, double>;
+extern template class PiercedStorageCollection<std::array<double, 3>, double>;
+
+template<typename value_t, typename dev_value_t = value_t>
+class StorageCollection : public BaseStorageCollection<ValueStorage<value_t, dev_value_t>>
+{
+
+public:
+    StorageCollection(std::size_t nStorages);
+
+};
+
+template<typename value_t>
+using ScalarStorageCollection = StorageCollection<value_t>;
+
+template<typename value_t>
+using VectorStorageCollection = StorageCollection<std::array<value_t, 3>, value_t>;
+
+// Avoid implicit instantiation
+extern template class StorageCollection<int>;
+extern template class StorageCollection<std::size_t>;
+extern template class StorageCollection<double>;
+extern template class StorageCollection<std::array<double, 3>, double>;
+
+// Include template definitions
+#include "containers.tpp"
+
 #endif
