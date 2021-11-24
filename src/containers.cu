@@ -22,6 +22,9 @@
  *
 \*---------------------------------------------------------------------------*/
 
+#ifndef __MINIMMERFLOW_CONTAINERS_CU__
+#define __MINIMMERFLOW_CONTAINERS_CU__
+
 #include "containers.hcu"
 
 // Include template implementation
@@ -83,3 +86,5 @@ template class DeviceStridedDataCursor<double>;
 template class DeviceStridedDataConstCursor<int>;
 template class DeviceStridedDataConstCursor<std::size_t>;
 template class DeviceStridedDataConstCursor<double>;
+
+#endif
