@@ -27,22 +27,50 @@
 
 #include "constants.hpp"
 #include "containers.hcu"
-#include "computation_info.hpp"
-#include "mesh_info.hpp"
-#include "problem.hpp"
-#include "storage.hpp"
-
-#include <bitpit_voloctree.hpp>
-
-#include <array>
+#include "containers.cu"
 
 namespace reconstruction {
 
-__device__ void dev_eval(int order, const double *point, const DeviceCollectionDataConstCursor<double> &means,
-                         DeviceSharedArray<double> *values);
+/*!
+ * Evaluate the reconstruction are the specified point.
+ *
+ * \param order is the order
+ * \param point is the point where the reconstruction will be evaluated
+ * \param means are the mean values of the fields
+ * \param[out] values on output will contain the reconstructed values
+ */
+__device__ __forceinline__ void dev_eval_1(const double *point, const DeviceCollectionDataConstCursor<double> &means,
+                                           DeviceSharedArray<double> *values)
+{
+    BITPIT_UNUSED(point);
 
-__device__ void dev_eval_1(const double *point, const DeviceCollectionDataConstCursor<double> &means,
-                           DeviceSharedArray<double> *values);
+    for (int i = 0; i < N_FIELDS; ++i) {
+        (*values)[i] = means[i];
+    }
+}
+
+/*!
+ * Evaluate the reconstruction are the specified point.
+ *
+ * \param order is the order
+ * \param point is the point where the reconstruction will be evaluated
+ * \param means are the mean values of the fields
+ * \param[out] values on output will contain the reconstructed values
+ */
+__device__ __forceinline__ void dev_eval(int order, const double *point, const DeviceCollectionDataConstCursor<double> &means,
+                                         DeviceSharedArray<double> *values)
+{
+    switch (order) {
+
+    case (1):
+        dev_eval_1(point, means, values);
+        break;
+
+    default:
+        break;
+
+    }
+}
 
 }
 
