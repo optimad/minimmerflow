@@ -45,9 +45,6 @@ void ComputationInfo::cuda_initialize()
     m_solvedBoundaryInterfaceFluidRawIds.cuda_allocateDevice();
     m_solvedBoundaryInterfaceSigns.cuda_allocateDevice();
 
-    m_solvedInterfaceLeftReconstructions.cuda_allocateDevice();
-    m_solvedInterfaceRightReconstructions.cuda_allocateDevice();
-
     // Copy data to the device
     m_cellSolveMethods.cuda_updateDevice();
 
@@ -82,9 +79,6 @@ void ComputationInfo::cuda_finalize()
     m_solvedBoundaryInterfaceRawIds.cuda_freeDevice();
     m_solvedBoundaryInterfaceFluidRawIds.cuda_freeDevice();
     m_solvedBoundaryInterfaceSigns.cuda_freeDevice();
-
-    m_solvedInterfaceLeftReconstructions.cuda_freeDevice();
-    m_solvedInterfaceRightReconstructions.cuda_freeDevice();
 }
 
 /*!

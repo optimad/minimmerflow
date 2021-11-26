@@ -68,11 +68,6 @@ public:
     const int * cuda_getSolvedBoundaryInterfaceSignDevData() const;
 #endif
 
-    ScalarStorageCollection<double> & getSolvedInterfaceLeftReconstructions();
-    const ScalarStorageCollection<double> & getSolvedInterfaceLeftReconstructions() const;
-    ScalarStorageCollection<double> & getSolvedInterfaceRightReconstructions();
-    const ScalarStorageCollection<double> & getSolvedInterfaceRightReconstructions() const;
-
 #if ENABLE_CUDA
     void cuda_initialize() override;
     void cuda_finalize() override;
@@ -92,9 +87,6 @@ protected:
     ScalarStorage<std::size_t> m_solvedBoundaryInterfaceRawIds;
     ScalarStorage<std::size_t> m_solvedBoundaryInterfaceFluidRawIds;
     ScalarStorage<int> m_solvedBoundaryInterfaceSigns;
-
-    ScalarStorageCollection<double> m_solvedInterfaceLeftReconstructions;
-    ScalarStorageCollection<double> m_solvedInterfaceRightReconstructions;
 
     void _init() override;
     void _reset() override;

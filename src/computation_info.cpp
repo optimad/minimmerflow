@@ -39,9 +39,7 @@ using namespace bitpit;
  * \param patch is patch from which the informations will be extracted
  */
 ComputationInfo::ComputationInfo(VolumeKernel *patch)
-    : MeshGeometricalInfo(patch, false),
-      m_solvedInterfaceLeftReconstructions(N_FIELDS),
-      m_solvedInterfaceRightReconstructions(N_FIELDS)
+    : MeshGeometricalInfo(patch, false)
 {
     ComputationInfo::_init();
 
@@ -180,12 +178,6 @@ void ComputationInfo::_extract()
 
         }
     }
-
-    // Initialize storage for reconstructions
-    for (int k = 0; k < N_FIELDS; ++k) {
-        m_solvedInterfaceLeftReconstructions[k].resize(std::max(nSolvedUniformInterfaces, nSolvedBoundaryInterfaces));
-        m_solvedInterfaceRightReconstructions[k].resize(std::max(nSolvedUniformInterfaces, nSolvedBoundaryInterfaces));
-    }
 }
 
 /*!
@@ -300,44 +292,4 @@ const ScalarStorage<std::size_t> & ComputationInfo::getSolvedBoundaryInterfaceFl
 const ScalarStorage<int> & ComputationInfo::getSolvedBoundaryInterfaceSigns() const
 {
     return m_solvedBoundaryInterfaceSigns;
-}
-
-/*!
- * Gets a reference to the left interface reconstructions storage.
- *
- * \result A reference to the left interface reconstructions storage.
- */
-ScalarStorageCollection<double> & ComputationInfo::getSolvedInterfaceLeftReconstructions()
-{
-    return m_solvedInterfaceLeftReconstructions;
-}
-
-/*!
- * Gets a constant reference to the left interface reconstructions storage.
- *
- * \result A constant reference to the left interface reconstructions storage.
- */
-const ScalarStorageCollection<double> & ComputationInfo::getSolvedInterfaceLeftReconstructions() const
-{
-    return m_solvedInterfaceLeftReconstructions;
-}
-
-/*!
- * Gets a reference to the right interface reconstructions storage.
- *
- * \result A reference to the right interface reconstructions storage.
- */
-ScalarStorageCollection<double> & ComputationInfo::getSolvedInterfaceRightReconstructions()
-{
-    return m_solvedInterfaceRightReconstructions;
-}
-
-/*!
- * Gets a constant reference to the right interface reconstructions storage.
- *
- * \result A constant reference to the right interface reconstructions storage.
- */
-const ScalarStorageCollection<double> & ComputationInfo::getSolvedInterfaceRightReconstructions() const
-{
-    return m_solvedInterfaceRightReconstructions;
 }

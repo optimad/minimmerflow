@@ -36,7 +36,7 @@ namespace reconstruction {
  * \param[out] values on output will contain the reconstructed values
  */
 __device__ void dev_eval(int order, const double *point, const DeviceCollectionDataConstCursor<double> &means,
-                         DeviceCollectionDataCursor<double> *values)
+                         DeviceSharedArray<double> *values)
 {
     switch (order) {
 
@@ -59,7 +59,7 @@ __device__ void dev_eval(int order, const double *point, const DeviceCollectionD
  * \param[out] values on output will contain the reconstructed values
  */
 __device__ void dev_eval_1(const double *point, const DeviceCollectionDataConstCursor<double> &means,
-                           DeviceCollectionDataCursor<double> *values)
+                           DeviceSharedArray<double> *values)
 {
     BITPIT_UNUSED(point);
 
