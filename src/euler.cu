@@ -107,9 +107,6 @@ __device__ void dev_reduceMax(const double value, const size_t nElements,
 __device__ void dev_evalFluxes(const DeviceSharedArray<double> &conservative, const double *normal,
                                DeviceSharedArray<double> *fluxes, double *lambda)
 {
-    // Get conservative variables
-    double rho = conservative[DEV_FID_RHO];
-
     // Compute primitive variables
     //
     // To reduce the usage of shared memory, primitive fields are evaluated on
@@ -118,8 +115,9 @@ __device__ void dev_evalFluxes(const DeviceSharedArray<double> &conservative, co
 
     ::utils::dev_conservative2primitive(conservative, &primitive);
 
-    double p = primitive[DEV_FID_P];
+    // Speed of sound
     double T = primitive[DEV_FID_T];
+    double a = std::sqrt(DEV_GAMMA * T);
 
     // Compute normal velocity
     double nx = normal[0];
@@ -133,34 +131,34 @@ __device__ void dev_evalFluxes(const DeviceSharedArray<double> &conservative, co
     double un = ::utils::dev_normalVelocity(u, v, w, nx, ny, nz);
 
     // Evaluate maximum eigenvalue
-    double a = std::sqrt(DEV_GAMMA * T);
-
     *lambda = std::abs(un) + a;
 
     // Energy flux
-    double eto = p / (DEV_GAMMA - 1.) + 0.5 * rho * (u * u + v * v + w * w);
+    double p = primitive[DEV_FID_P];
+    if (p < 0.) {
+        printf("***** Negative pressure (%f) in flux computation!\n", p);
+    }
+
+    double rho = conservative[DEV_FID_RHO];
+    if (rho < 0.) {
+       printf("***** Negative density (%f) in flux computation!\n", rho);
+    }
+
+    double K   = 0.5 * (u * u + v * v + w * w);
+    double eto = p / (DEV_GAMMA - 1.) + K * rho;
 
     (*fluxes)[DEV_FID_EQ_E] = un * (eto + p);
 
     // Maxx flux
     double massFlux = rho * un;
 
-    // Continuity flux
-    (*fluxes)[DEV_FID_EQ_C] = massFlux;
-
     // Momentum flux
     (*fluxes)[DEV_FID_EQ_M_X] = massFlux * u + p * nx;
     (*fluxes)[DEV_FID_EQ_M_Y] = massFlux * v + p * ny;
     (*fluxes)[DEV_FID_EQ_M_Z] = massFlux * w + p * nz;
 
-    // Check consistency of fluid dynamic state
-    if (p < 0.) {
-        printf("***** Negative pressure (%f) in flux computation!\n", p);
-    }
-
-    if (rho < 0.) {
-       printf("***** Negative density (%f) in flux computation!\n", rho);
-    }
+    // Continuity flux
+    (*fluxes)[DEV_FID_EQ_C] = massFlux;
 }
 
 /*!
