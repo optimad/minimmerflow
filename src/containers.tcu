@@ -601,4 +601,111 @@ __device__ const value_t * DeviceStridedDataConstCursor<value_t>::data(int index
     return (m_data + index);
 }
 
+/*!
+ * Constructor
+ */
+template<typename value_t>
+__device__ DeviceProxyArray<value_t>::DeviceProxyArray()
+    : DeviceProxyArray(nullptr, 0, 0)
+{
+}
+
+/*!
+ * Constructor
+ *
+ * \param data is a pointer to the shared data
+ * \param offset is the offset to be used when accessing the data
+ * \param stride is the stride to be used when accessing the data
+ */
+template<typename value_t>
+__device__ DeviceProxyArray<value_t>::DeviceProxyArray(value_t *data, std::size_t offset, int stride)
+    : m_data(data + offset), m_stride(stride)
+{
+}
+
+/*!
+ * Set the array.
+ *
+ * \param data is a pointer to the shared data
+ * \param offset is the offset to be used when accessing the data
+ * \param stride is the stride to be used when accessing the data
+ */
+template<typename value_t>
+__device__ void DeviceProxyArray<value_t>::set(value_t *data, std::size_t offset, int stride)
+{
+    m_data   = data + offset;
+    m_stride = stride;
+}
+
+/*!
+ * Return a reference to the specified item.
+ *
+ * \param index is the index of the item
+ * \result A reference to the specified item.
+ */
+template<typename value_t>
+__device__ value_t & DeviceProxyArray<value_t>::operator[](int index)
+{
+    return m_data[m_stride * index];
+}
+
+/*!
+ * Return a constant reference to the specified item.
+ *
+ * \param index is the index of the item
+ * \result A constant reference to the specified item.
+ */
+template<typename value_t>
+__device__ const value_t & DeviceProxyArray<value_t>::operator[](int index) const
+{
+    return m_data[m_stride * index];
+}
+
+/*!
+ * Evaluates the size of the shared storage, expressed in number of elements,
+ * needed to store the requested number of elements.
+ *
+ * \param size is the number of items elements will be stored in the array
+ * \result Returns the size of the shared storage expressed in number of
+ * elements.
+ */
+template<typename value_t>
+__device__ int DeviceSharedArray<value_t>::evaluateSharedSize(int size)
+{
+    int nThreads = blockDim.x * blockDim.y * blockDim.z;
+
+    return (nThreads * size);
+}
+
+/*!
+ * Constructor
+ */
+template<typename value_t>
+__device__ DeviceSharedArray<value_t>::DeviceSharedArray()
+    : DeviceSharedArray(nullptr)
+{
+}
+
+/*!
+ * Constructor
+ *
+ * \param data is a pointer to the shared array
+ */
+template<typename value_t>
+__device__ DeviceSharedArray<value_t>::DeviceSharedArray(value_t *data)
+    : DeviceProxyArray<value_t>(data, threadIdx.x, blockDim.x * blockDim.y * blockDim.z)
+{
+}
+
+/*!
+ * Set the array.
+ *
+ * \param data is a pointer to the shared data
+ */
+template<typename value_t>
+__device__ void DeviceSharedArray<value_t>::set(value_t *data)
+{
+    DeviceProxyArray<value_t>::set(data, threadIdx.x, blockDim.x * blockDim.y * blockDim.z);
+}
+
 #endif

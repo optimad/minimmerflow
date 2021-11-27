@@ -114,4 +114,71 @@ private:
 
 };
 
+/**
+ * \ingroup containers
+ *
+ * Allow to access data of arrays stored on the device.
+ */
+
+template<typename value_t>
+class DeviceProxyArray
+{
+
+public:
+    __device__ DeviceProxyArray();
+    __device__ DeviceProxyArray(value_t *data, std::size_t offset, int stride = 1);
+
+    __device__ void set(value_t *data, std::size_t offset, int stride = 1);
+
+    __device__ value_t & operator[](int index);
+    __device__ const value_t & operator[](int index) const;
+
+protected:
+    value_t *m_data;
+    int m_stride;
+
+};
+
+/**
+ * \ingroup containers
+ * \class DeviceSharedArray
+ *
+ * Allow to access data stored fa arrays stored in shared memory.
+ *
+ * Shared memory has 32 banks that are organized such that successive 32-bit
+ * words map to successive banks. One efficient way to store an array in shared
+ * memory is to logically assign the elements of an array to the threads of the
+ * thread block so that all elements of our new virtual private array for each
+ * thread are stored in its own shared memory bank. Here the first BLOCK_SIZE
+ * elements of the shared memory array contain all 0-index elements of the
+ * private arrays for all threads of the thread block. The next BLOCK_SIZE
+ * elements of the shared memory array contain all 1-index elements of the
+ * private arrays, and so on. In this way we ensure that the whole virtual
+ * private array of thread 0 falls into shared memory bank 0, the array of
+ * thread 1 falls into bank 1, and so on. Thread 32—which is the first thread
+ * in the next warp—will occupy bank 0 again but there will be no shared memory
+ * bank conflicts with thread 0 (or any other bank 0 thread) since they belong
+ * to different warps and therefore will never read at the same instant.
+ * This can be achived setting the stride to the block size and the offset to
+ * the id of the current thread.
+ *
+ * See:
+ *
+ *  https://developer.nvidia.com/blog/fast-dynamic-indexing-private-arrays-cuda
+ */
+
+template<typename value_t>
+class DeviceSharedArray : public DeviceProxyArray<value_t>
+{
+
+public:
+    __device__ static int evaluateSharedSize(int size);
+
+    __device__ DeviceSharedArray();
+    __device__ DeviceSharedArray(value_t *data);
+
+    __device__ void set(value_t *data);
+
+};
+
 #endif
