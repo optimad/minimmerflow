@@ -22,7 +22,7 @@
  *
 \*---------------------------------------------------------------------------*/
 
-#include <containers.hpp>
+#include "containers.hpp"
 
 #if ENABLE_CUDA == 0
 // Explicit instantiation

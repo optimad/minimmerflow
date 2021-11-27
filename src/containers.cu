@@ -22,7 +22,7 @@
  *
 \*---------------------------------------------------------------------------*/
 
-#include <containers.hpp>
+#include "containers.hcu"
 
 // Include template implementation
 #include <containers.tcu>
