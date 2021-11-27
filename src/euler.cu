@@ -180,8 +180,7 @@ __device__ void dev_evalSplitting(const DeviceSharedArray<double> &conservativeL
     // To reduce the usage of shared memory, fluxes are temporary evaluated on
     // the storage that will hold the interface fluxes and then copied on a
     // local array.
-    double lambdaL;
-    dev_evalFluxes(conservativeL, normal, fluxes, &lambdaL);
+    dev_evalFluxes(conservativeL, normal, fluxes, lambda);
 
     double fL[N_FIELDS];
     for (int k = 0; k < N_FIELDS; ++k) {
@@ -194,12 +193,11 @@ __device__ void dev_evalSplitting(const DeviceSharedArray<double> &conservativeL
     // storage that will hold the interface fluxes.
     double lambdaR;
     dev_evalFluxes(conservativeR, normal, fluxes, &lambdaR);
+    *lambda = max(lambdaR, *lambda);
 
     DeviceSharedArray<double> &fR = *fluxes;
 
     // Splitting
-    *lambda = max(lambdaR, lambdaL);
-
     for (int k = 0; k < N_FIELDS; ++k) {
         (*fluxes)[k] = 0.5 * ((fR[k] + fL[k]) - (*lambda) * (conservativeR[k] - conservativeL[k]));
     }
