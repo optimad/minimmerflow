@@ -162,7 +162,8 @@ __device__ void dev_evalFluxes(const DeviceSharedArray<double> &conservative, co
 }
 
 /*!
- * Computes approximate Riemann solver (Local Lax Friedrichs) for compressible perfect gas.
+ * Solve the given Riemann problem using the Local Lax Friedrichs approximate
+ * solver.
  *
  * \param conservativeL is the left conservative state
  * \param conservativeR is the right conservative state
@@ -170,8 +171,8 @@ __device__ void dev_evalFluxes(const DeviceSharedArray<double> &conservative, co
  * \param[out] fluxes on output will contain the conservative fluxes
  * \param[out] lambda on output will contain the maximum eigenvalue
  */
-__device__ void dev_evalSplitting(const DeviceSharedArray<double> &conservativeL, const DeviceSharedArray<double> &conservativeR,
-                                  const double *normal, DeviceSharedArray<double> *fluxes, double *lambda)
+__device__ void dev_solveRiemann(const DeviceSharedArray<double> &conservativeL, const DeviceSharedArray<double> &conservativeR,
+                                 const double *normal, DeviceSharedArray<double> *fluxes, double *lambda)
 {
     // Fluxes on the left side
     //
@@ -442,7 +443,7 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, int reconstruction
 
     double interfaceMaxEig;
 
-    dev_evalSplitting(leftInterfaceConservatives, rightInterfaceConservatives, interfaceNormal, &interfaceFluxes, &interfaceMaxEig);
+    dev_solveRiemann(leftInterfaceConservatives, rightInterfaceConservatives, interfaceNormal, &interfaceFluxes, &interfaceMaxEig);
 
     //
     // Update cell residuals
@@ -552,7 +553,7 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, int problemType, 
 
     double interfaceMaxEig;
 
-    dev_evalSplitting(fluidInterfaceConservatives, virtualInterfaceConservatives, interfaceNormal, &interfaceFluxes, &interfaceMaxEig);
+    dev_solveRiemann(fluidInterfaceConservatives, virtualInterfaceConservatives, interfaceNormal, &interfaceFluxes, &interfaceMaxEig);
 
     //
     // Update cell residuals
