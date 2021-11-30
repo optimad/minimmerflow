@@ -133,24 +133,24 @@ __device__ void dev_evalFluxes(const DeviceSharedArray<double> &conservative, co
     // Evaluate maximum eigenvalue
     *lambda = std::abs(un) + a;
 
+    // Mass flux
+    double rho = conservative[DEV_FID_RHO];
+    if (rho < 0.) {
+       printf("***** Negative density (%f) in flux computation!\n", rho);
+    }
+
+    double massFlux = rho * un;
+
     // Energy flux
     double p = primitive[DEV_FID_P];
     if (p < 0.) {
         printf("***** Negative pressure (%f) in flux computation!\n", p);
     }
 
-    double rho = conservative[DEV_FID_RHO];
-    if (rho < 0.) {
-       printf("***** Negative density (%f) in flux computation!\n", rho);
-    }
-
-    double K   = 0.5 * (u * u + v * v + w * w);
-    double eto = p / (DEV_GAMMA - 1.) + K * rho;
+    double rho_K = 0.5 * rho * (u * u + v * v + w * w);
+    double eto   = p / (DEV_GAMMA - 1.) + rho_K;
 
     (*fluxes)[DEV_FID_EQ_E] = un * (eto + p);
-
-    // Maxx flux
-    double massFlux = rho * un;
 
     // Momentum flux
     (*fluxes)[DEV_FID_EQ_M_X] = massFlux * u + p * nx;
