@@ -125,17 +125,17 @@ class DeviceProxyArray
 {
 
 public:
-    __device__ DeviceProxyArray();
+    __device__ DeviceProxyArray(int stride = 1);
     __device__ DeviceProxyArray(value_t *data, std::size_t offset, int stride = 1);
 
-    __device__ void set(value_t *data, std::size_t offset, int stride = 1);
+    __device__ void set(value_t *data, std::size_t offset);
 
     __device__ value_t & operator[](int index);
     __device__ const value_t & operator[](int index) const;
 
 protected:
     value_t *m_data;
-    int m_stride;
+    const int m_stride;
 
 };
 

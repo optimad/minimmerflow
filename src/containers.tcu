@@ -603,10 +603,12 @@ __device__ const value_t * DeviceStridedDataConstCursor<value_t>::data(int index
 
 /*!
  * Constructor
+ *
+ * \param stride is the stride to be used when accessing the data
  */
 template<typename value_t>
-__device__ DeviceProxyArray<value_t>::DeviceProxyArray()
-    : DeviceProxyArray(nullptr, 0, 0)
+__device__ DeviceProxyArray<value_t>::DeviceProxyArray(int stride)
+    : DeviceProxyArray(nullptr, 0, stride)
 {
 }
 
@@ -631,10 +633,9 @@ __device__ DeviceProxyArray<value_t>::DeviceProxyArray(value_t *data, std::size_
  * \param stride is the stride to be used when accessing the data
  */
 template<typename value_t>
-__device__ void DeviceProxyArray<value_t>::set(value_t *data, std::size_t offset, int stride)
+__device__ void DeviceProxyArray<value_t>::set(value_t *data, std::size_t offset)
 {
-    m_data   = data + offset;
-    m_stride = stride;
+    m_data = data + offset;
 }
 
 /*!
@@ -682,7 +683,7 @@ __device__ int DeviceSharedArray<value_t>::evaluateSharedSize(int size)
  */
 template<typename value_t>
 __device__ DeviceSharedArray<value_t>::DeviceSharedArray()
-    : DeviceSharedArray(nullptr)
+    : DeviceSharedArray(nullptr, 0, blockDim.x * blockDim.y * blockDim.z)
 {
 }
 
@@ -705,7 +706,7 @@ __device__ DeviceSharedArray<value_t>::DeviceSharedArray(value_t *data)
 template<typename value_t>
 __device__ void DeviceSharedArray<value_t>::set(value_t *data)
 {
-    DeviceProxyArray<value_t>::set(data, threadIdx.x, blockDim.x * blockDim.y * blockDim.z);
+    DeviceProxyArray<value_t>::set(data, threadIdx.x);
 }
 
 #endif
