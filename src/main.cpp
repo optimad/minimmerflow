@@ -31,6 +31,8 @@
 #include "solver_writer.hpp"
 #include "utils.hpp"
 #include "memory.hpp"
+#include "fieldMapper.hpp"
+#include "mesh_adaptation.hpp"
 
 #include <bitpit_IO.hpp>
 #include <bitpit_voloctree.hpp>
@@ -192,16 +194,6 @@ void computation(int argc, char *argv[])
         log::cout() << "+++ mesh.partition() DONE.\n";
     }
 #endif
-    mesh.write();
-
-    // Adaption
-    std::vector<adaption::Info> adaptionData;
-    mesh.markCellForRefinement(0);
-    bool trackAdaptation = true;
-    adaptionData = mesh.adaptionPrepare(trackAdaptation);
-    bool squeeshPatchStorage = false;
-    adaptionData = mesh.adaptionAlter(trackAdaptation, squeeshPatchStorage);
-    mesh.adaptionCleanup();
     mesh.write();
 
     log_memory_status();
@@ -410,6 +402,16 @@ void computation(int argc, char *argv[])
 
     log_memory_status();
 
+    // Adaption
+    ScalarStorage<std::size_t> previousIDs;
+    ScalarStorage<std::size_t> currentIDs;
+    mesh_adaptation::meshAdaptation(mesh, previousIDs, currentIDs);
+
+    // Map fields
+    fieldMapper::mapFields(previousIDs, currentIDs, cellRHS, cellConservatives,
+                          cellPrimitives, cellConservativesWork,
+                          computationInfo);
+
     // Start computation
     log::cout() << std::endl;
     log::cout() << "Starting computation..."  << std::endl;
@@ -420,8 +422,8 @@ void computation(int argc, char *argv[])
 
     int step = 0;
     double t = tMin;
-//    double nextSave = tMin;
-    while (t < tMax && step < 8) {
+//  double nextSave = tMin;
+    while (t < tMax && step < 2) {
         log::cout() << std::endl;
         log::cout() << "Step n. " << step << std::endl;
 
