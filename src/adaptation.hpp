@@ -22,19 +22,37 @@
  *
 \*---------------------------------------------------------------------------*/
 
-#ifndef __MINIMMERFLOW_MESHADAPTATION_HPP__
-#define __MINIMMERFLOW_MESHADAPTATION_HPP__
+#ifndef __MINIMMERFLOW_ADAPTATION_HPP__
+#define __MINIMMERFLOW_ADAPTATION_HPP__
 
 #include "containers.hpp"
+#include "computation_info.hpp"
 #include <bitpit_voloctree.hpp>
 
-namespace mesh_adaptation {
+namespace adaptation {
 
 void markCellsForRefinement(bitpit::VolOctree &mesh);
 
 void meshAdaptation(bitpit::VolOctree &mesh,
                     ScalarStorage<std::size_t> &previousIDs,
                     ScalarStorage<std::size_t> &currentIDs);
+
+#if ENABLE_CUDA
+void cuda_mapField(std::size_t *previousIDs, std::size_t *currentIDs,
+                   double *field);
+#endif
+
+void cpu_mapField(ScalarStorage<std::size_t> &previousIDs,
+                  ScalarStorage<std::size_t> &currentIDs,
+                  ScalarPiercedStorage<double> &field);
+
+void mapFields(ScalarStorage<std::size_t> &previousIDs,
+               ScalarStorage<std::size_t> &currentIDs,
+               ScalarPiercedStorage<double> &cellRHS,
+               ScalarPiercedStorage<double> &cellConservatives,
+               ScalarPiercedStorage<double> &cellPrimitives,
+               ScalarPiercedStorage<double> &cellConservativesWork,
+               ComputationInfo &computationInfo);
 
 }
 

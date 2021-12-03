@@ -22,33 +22,26 @@
  *
 \*---------------------------------------------------------------------------*/
 
-#ifndef __MINIMMERFLOW_FIELDMAPPER_HPP__
-#define __MINIMMERFLOW_FIELDMAPPER_HPP__
+#include "adaptation.hcu"
 
-#include "computation_info.hpp"
-#include "containers.hpp"
-#include <bitpit_voloctree.hpp>
+namespace adaptation {
 
-namespace fieldMapper {
-
-#if ENABLE_CUDA
-void cuda_mapField(std::size_t *previousIDs, std::size_t *currentIDs,
-                   double *field);
-#endif
-
-void cpu_mapField(ScalarStorage<std::size_t> &previousIDs,
-              ScalarStorage<std::size_t> &currentIDs,
-              ScalarPiercedStorage<double> &field);
-
-void mapFields(ScalarStorage<std::size_t> &previousIDs,
-               ScalarStorage<std::size_t> &currentIDs,
-               ScalarPiercedStorage<double> &cellRHS,
-               ScalarPiercedStorage<double> &cellConservatives,
-               ScalarPiercedStorage<double> &cellPrimitives,
-               ScalarPiercedStorage<double> &cellConservativesWork,
-               ComputationInfo &computationInfo);
-
+/*
+ * Map solution from previous mesh to new one on GPU
+ *
+ * \param ids of pre-adaptation mesh
+ * \param ids of post-adaptation mesh
+ * \param[out] mapped field (on post-adaptation mesh)
+ */
+void cuda_mapField(std::size_t *previousIDs, std::size_t *currentIDs, double *field)
+{
+//    PiercedVector<double, long> previousField;
+//    for (long previousId : previousIDs) {
+////      previousField.insert(previousId, std::move(field.at(previousId)));
+//    }
+//    for (long currentId : currentIDs) {
+////      field.set(currentId, previousField.at(parentId));
+//    }
 }
 
-#endif
-
+}

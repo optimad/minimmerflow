@@ -22,11 +22,46 @@
  *
 \*---------------------------------------------------------------------------*/
 
-# include "fieldMapper.hpp"
+#include "adaptation.hpp"
 
 using namespace bitpit;
 
-namespace fieldMapper {
+namespace adaptation {
+
+void markCellsForRefinement(VolOctree &mesh)
+{
+    mesh.markCellForRefinement(0);
+}
+
+void meshAdaptation(VolOctree &mesh, ScalarStorage<std::size_t> &previousIDs,
+                    ScalarStorage<std::size_t> &currentIDs)
+{
+    std::vector<adaption::Info> adaptionData;
+    markCellsForRefinement(mesh);
+    bool trackAdaptation = true;
+    adaptionData = mesh.adaptionPrepare(trackAdaptation);
+
+    bool squeeshPatchStorage = false;
+    adaptionData = mesh.adaptionAlter(trackAdaptation, squeeshPatchStorage);
+
+    for (const adaption::Info &adaptionInfo : adaptionData) {
+        // Consider only cell refinements
+        if (adaptionInfo.entity != adaption::Entity::ENTITY_CELL) {
+            continue;
+        } else if (adaptionInfo.type != adaption::TYPE_REFINEMENT) {
+            continue;
+        }
+        // Assign data to children
+        long parentId = adaptionInfo.previous.front();
+        for (long currentId : adaptionInfo.current) {
+            previousIDs.push_back(parentId);
+            currentIDs.push_back(currentId);
+        }
+    }
+
+    mesh.adaptionCleanup();
+    mesh.write();
+}
 
 /*
  * Map solution from previous mesh to new one
@@ -61,7 +96,8 @@ void cpu_mapField(ScalarStorage<std::size_t> &previousIDs,
         const long previousID = previousIDs[i];
 //      double parentValue = field.at(previousId);
         const long currentID = currentIDs[i];
-        field[currentID] = parentValue;
+        //  TODO
+//      field[currentID] = parentValue;
     }
 }
 
@@ -90,5 +126,6 @@ void mapFields(ScalarStorage<std::size_t> &previousIDs,
     mapField(previousIDs, currentIDs, cellPrimitives);
     mapField(previousIDs, currentIDs, cellConservativesWork);
 }
+
 
 }

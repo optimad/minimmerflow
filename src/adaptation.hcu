@@ -22,26 +22,14 @@
  *
 \*---------------------------------------------------------------------------*/
 
-#include "fieldMapper.hcu"
+#ifndef __MINIMMERFLOW_ADAPTATION_HCU__
+#define __MINIMMERFLOW_ADAPTATION_HCU__
 
-namespace fieldMapper {
 
-/*
- * Map solution from previous mesh to new one on GPU
- *
- * \param ids of pre-adaptation mesh
- * \param ids of post-adaptation mesh
- * \param[out] mapped field (on post-adaptation mesh)
- */
-void cuda_mapField(std::size_t *previousIDs, std::size_t *currentIDs, double *field)
-{
-//    PiercedVector<double, long> previousField;
-//    for (long previousId : previousIDs) {
-////      previousField.insert(previousId, std::move(field.at(previousId)));
-//    }
-//    for (long currentId : currentIDs) {
-////      field.set(currentId, previousField.at(parentId));
-//    }
-}
+namespace adaptation {
+
 
 }
+
+#endif
+
