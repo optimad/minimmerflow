@@ -31,8 +31,7 @@
 #include "solver_writer.hpp"
 #include "utils.hpp"
 #include "memory.hpp"
-#include "fieldMapper.hpp"
-#include "mesh_adaptation.hpp"
+#include "adaptation.hpp"
 
 #include <bitpit_IO.hpp>
 #include <bitpit_voloctree.hpp>
@@ -210,13 +209,13 @@ void computation(int argc, char *argv[])
     computationInfo.cuda_initialize();
 #endif
 
-    const ScalarPiercedStorage<int> &cellSolveMethods = computationInfo.getCellSolveMethods();
+    ScalarPiercedStorage<int> &cellSolveMethods = computationInfo.getCellSolveMethods();
 
-    const ScalarStorage<std::size_t> &solvedCellRawIds = computationInfo.getSolvedCellRawIds();
-    const std::size_t nSolvedCells = solvedCellRawIds.size();
+    ScalarStorage<std::size_t> &solvedCellRawIds = computationInfo.getSolvedCellRawIds();
+    std::size_t nSolvedCells = solvedCellRawIds.size();
 
-    const ScalarStorage<std::size_t> &solvedBoundaryInterfaceRawIds = computationInfo.getSolvedBoundaryInterfaceRawIds();
-    const std::size_t nSolvedBoundaryInterfaces = solvedBoundaryInterfaceRawIds.size();
+    ScalarStorage<std::size_t> &solvedBoundaryInterfaceRawIds = computationInfo.getSolvedBoundaryInterfaceRawIds();
+    std::size_t nSolvedBoundaryInterfaces = solvedBoundaryInterfaceRawIds.size();
 
     log_memory_status();
 
@@ -228,6 +227,10 @@ void computation(int argc, char *argv[])
     ScalarPiercedStorage<double> cellConservatives(N_FIELDS, &mesh.getCells());
     ScalarPiercedStorage<double> cellConservativesWork(N_FIELDS, &mesh.getCells());
     ScalarPiercedStorage<double> cellRHS(N_FIELDS, &mesh.getCells());
+    cellPrimitives.setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    cellConservatives.setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    cellConservativesWork.setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED );
+    cellRHS.setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
 
 #if ENABLE_CUDA
     cellRHS.cuda_allocateDevice();
@@ -384,10 +387,68 @@ void computation(int argc, char *argv[])
 
     //mesh.write();
 
+    // Adaption (CPU-side)
+    ScalarStorage<std::size_t> previousIDs;
+    ScalarStorage<std::size_t> currentIDs;
+    adaptation::meshAdaptation(mesh, previousIDs, currentIDs);
+
+    // Resize CPU containers holding geometrical and computations-related info
+    computationInfo.postMeshAdaptation();
+#if ENABLE_CUDA
+    // Reset and copy to GPU the relevant data, if needed.
+    computationInfo.cuda_finalize();
+    computationInfo.cuda_initialize();
+
+    // Reset and copy to GPU the variables and RHS-data at cells
+    cellRHS.cuda_freeDevice();
+    cellConservatives.cuda_freeDevice();
+    cellPrimitives.cuda_freeDevice();
+    cellConservativesWork.cuda_freeDevice();
+
+    cellRHS.cuda_allocateDevice();
+    cellConservatives.cuda_allocateDevice();
+    cellPrimitives.cuda_allocateDevice();
+    cellConservativesWork.cuda_allocateDevice();
+#endif
+
+    // resize BCs related containers and give them again content
+    nSolvedCells = solvedCellRawIds.size();
+    // Find smallest cell
+    double minCellSize = std::numeric_limits<double>::max();
+    for (std::size_t i = 0; i < nSolvedCells; ++i) {
+        const std::size_t cellRawId = solvedCellRawIds[i];
+
+        minCellSize = std::min(computationInfo.rawGetCellSize(cellRawId), minCellSize);
+    }
+    nSolvedBoundaryInterfaces = solvedBoundaryInterfaceRawIds.size();
+    solvedBoundaryInterfaceBCs.resize(nSolvedBoundaryInterfaces);
+
+    for (std::size_t i = 0; i < nSolvedBoundaryInterfaces; ++i) {
+        const std::size_t interfaceRawId = solvedBoundaryInterfaceRawIds[i];
+        const Interface &interface = mesh.getInterfaces().rawAt(interfaceRawId);
+
+        bool isIntrBorder = interface.isBorder();
+        if (isIntrBorder) {
+            long interfaceId = interface.getId();
+            solvedBoundaryInterfaceBCs[i] = problem::getBorderBCType(problemType, interfaceId, computationInfo);
+        } else {
+            solvedBoundaryInterfaceBCs[i] = BC_WALL;
+        }
+    }
+
+    // Map fields
+    previousIDs.cuda_allocateDevice();
+    currentIDs.cuda_allocateDevice();
+    previousIDs.cuda_updateDevice();
+    currentIDs.cuda_updateDevice();
+    adaptation::mapFields(previousIDs, currentIDs, cellRHS, cellConservatives,
+                          cellPrimitives, cellConservativesWork,
+                          computationInfo);
+
     log_memory_status();
 
     // Find smallest cell
-    double minCellSize = std::numeric_limits<double>::max();
+    minCellSize = std::numeric_limits<double>::max();
     for (std::size_t i = 0; i < nSolvedCells; ++i) {
         const std::size_t cellRawId = solvedCellRawIds[i];
 
@@ -402,15 +463,6 @@ void computation(int argc, char *argv[])
 
     log_memory_status();
 
-    // Adaption
-    ScalarStorage<std::size_t> previousIDs;
-    ScalarStorage<std::size_t> currentIDs;
-    mesh_adaptation::meshAdaptation(mesh, previousIDs, currentIDs);
-
-    // Map fields
-    fieldMapper::mapFields(previousIDs, currentIDs, cellRHS, cellConservatives,
-                          cellPrimitives, cellConservativesWork,
-                          computationInfo);
 
     // Start computation
     log::cout() << std::endl;
