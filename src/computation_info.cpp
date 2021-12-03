@@ -53,9 +53,9 @@ void ComputationInfo::_init()
 {
     MeshGeometricalInfo::_init();
 
-    m_cellSolveMethods.setStaticKernel(&m_volumePatch->getCells());
+    m_cellSolveMethods.setDynamicKernel(&m_volumePatch->getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
 
-    m_interfaceSolveMethods.setStaticKernel(&m_volumePatch->getInterfaces());
+    m_interfaceSolveMethods.setDynamicKernel(&m_volumePatch->getInterfaces(), PiercedVector<Interface>::SYNC_MODE_JOURNALED);
 }
 
 /*!
@@ -219,11 +219,31 @@ const ScalarPiercedStorage<int> & ComputationInfo::getCellSolveMethods() const
 }
 
 /*!
+ * Gets cells solve method.
+ *
+ * \result Cells solve method.
+ */
+ScalarPiercedStorage<int> & ComputationInfo::getCellSolveMethods()
+{
+    return m_cellSolveMethods;
+}
+
+/*!
  * Gets the list of solved cells raw ids.
  *
  * \result The list of solved cells raw ids.
  */
 const ScalarStorage<std::size_t> & ComputationInfo::getSolvedCellRawIds() const
+{
+    return m_solvedCellRawIds;
+}
+
+/*!
+ * Gets the list of solved cells raw ids.
+ *
+ * \result The list of solved cells raw ids.
+ */
+ScalarStorage<std::size_t> & ComputationInfo::getSolvedCellRawIds()
 {
     return m_solvedCellRawIds;
 }
@@ -274,6 +294,16 @@ const ScalarStorage<std::size_t> & ComputationInfo::getSolvedUniformInterfaceNei
  * \result The list of solved boundary interfaces raw ids.
  */
 const ScalarStorage<std::size_t> & ComputationInfo::getSolvedBoundaryInterfaceRawIds() const
+{
+    return m_solvedBoundaryInterfaceRawIds;
+}
+
+/*!
+ * Gets the list of solved boundary interfaces raw ids.
+ *
+ * \result The list of solved boundary interfaces raw ids.
+ */
+ScalarStorage<std::size_t> & ComputationInfo::getSolvedBoundaryInterfaceRawIds()
 {
     return m_solvedBoundaryInterfaceRawIds;
 }
@@ -336,4 +366,30 @@ ScalarStorage<double> & ComputationInfo::getSolvedInterfaceRightReconstructions(
 const ScalarStorage<double> & ComputationInfo::getSolvedInterfaceRightReconstructions() const
 {
     return m_solvedInterfaceRightReconstructions;
+}
+
+/*!
+ * Clears all members of type ScalarStorage.
+ */
+void ComputationInfo::clearScalarStorages()
+{
+    m_solvedUniformInterfaceRawIds.clear();
+    m_solvedUniformInterfaceOwnerRawIds.clear();
+    m_solvedUniformInterfaceNeighRawIds.clear();
+    m_solvedBoundaryInterfaceRawIds.clear();
+    m_solvedBoundaryInterfaceSigns.clear();
+    m_solvedBoundaryInterfaceFluidRawIds.clear();
+    m_solvedInterfaceLeftReconstructions.clear();
+    m_solvedInterfaceRightReconstructions.clear();
+}
+
+/*!
+ * Prepares containers to get new sizes and content after
+ * mesh adaptation.
+ */
+void ComputationInfo::postMeshAdaptation()
+{
+    clearScalarStorages();
+
+    _extract();
 }
