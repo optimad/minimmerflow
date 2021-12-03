@@ -49,7 +49,7 @@ MeshGeometricalInfo::MeshGeometricalInfo(VolumeKernel *patch)
 MeshGeometricalInfo::MeshGeometricalInfo(VolumeKernel *patch, bool extractInfo)
     : PatchInfo(patch)
 {
-    m_volumePatch = dynamic_cast<const VolumeKernel *>(patch);
+//  m_volumePatch = dynamic_cast<const VolumeKernel *>(patch);
     if (!m_volumePatch) {
         throw std::runtime_error("Volume geometrical information can only be used with volume patches.");
     }
@@ -76,14 +76,14 @@ bitpit::VolumeKernel const & MeshGeometricalInfo::getPatch() const
  */
 void MeshGeometricalInfo::_init()
 {
-    m_cellVolumes.setStaticKernel(&m_volumePatch->getCells());
-    m_cellSizes.setStaticKernel(&m_volumePatch->getCells());
-    m_cellCentroids.setStaticKernel(&m_volumePatch->getCells());
+    m_cellVolumes.setDynamicKernel(&m_volumePatch->getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    m_cellSizes.setDynamicKernel(&m_volumePatch->getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    m_cellCentroids.setDynamicKernel(&m_volumePatch->getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
 
-    m_interfaceAreas.setStaticKernel(&m_volumePatch->getInterfaces());
-    m_interfaceCentroids.setStaticKernel(&m_volumePatch->getInterfaces());
-    m_interfaceNormals.setStaticKernel(&m_volumePatch->getInterfaces());
-    m_interfaceTangents.setStaticKernel(&m_volumePatch->getInterfaces());
+    m_interfaceAreas.setDynamicKernel(&m_volumePatch->getInterfaces(), PiercedVector<Interface>::SYNC_MODE_JOURNALED);
+    m_interfaceCentroids.setDynamicKernel(&m_volumePatch->getInterfaces(), PiercedVector<Interface>::SYNC_MODE_JOURNALED);
+    m_interfaceNormals.setDynamicKernel(&m_volumePatch->getInterfaces(), PiercedVector<Interface>::SYNC_MODE_JOURNALED);
+    m_interfaceTangents.setDynamicKernel(&m_volumePatch->getInterfaces(), PiercedVector<Interface>::SYNC_MODE_JOURNALED);
 }
 
 /*!
