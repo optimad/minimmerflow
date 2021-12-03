@@ -26,6 +26,20 @@
 
 namespace adaptation {
 
+
+void cuda_storeParentField(ScalarStorage<std::size_t> &parentIDs,
+                           ScalarStorage<double> &parentField,
+                           ScalarPiercedStorage<double> &field)
+{
+    const int BLOCK_SIZE = 256;
+    int nBlocks = (parentIDs.size() + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    dev_storeParentField<<<nBlocks, BLOCK_SIZE>>>(parentIDs.cuda_deviceData(),
+                                                  parentField.cuda_deviceData(),
+                                                  field.cuda_deviceData(),
+                                                  parentIDs.cuda_deviceDataSize());
+}
+
+
 /*
  * Map solution from previous mesh to new one on GPU
  *
@@ -33,15 +47,57 @@ namespace adaptation {
  * \param ids of post-adaptation mesh
  * \param[out] mapped field (on post-adaptation mesh)
  */
-void cuda_mapField(std::size_t *previousIDs, std::size_t *currentIDs, double *field)
+void cuda_mapField(ScalarStorage<std::size_t> &parentIDs,
+                   ScalarStorage<std::size_t> &currentIDs,
+                   ScalarStorage<double> &parentField,
+                   ScalarPiercedStorage<double> &field)
 {
-//    PiercedVector<double, long> previousField;
-//    for (long previousId : previousIDs) {
-////      previousField.insert(previousId, std::move(field.at(previousId)));
-//    }
-//    for (long currentId : currentIDs) {
-////      field.set(currentId, previousField.at(parentId));
-//    }
+
+    const std::size_t currentIDsSize = currentIDs.cuda_deviceDataSize();
+
+    const int BLOCK_SIZE = 256;
+    int nBlocks = (currentIDsSize + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    dev_mapField<<<nBlocks, BLOCK_SIZE>>>(parentIDs.cuda_deviceData(),
+                                          currentIDs.cuda_deviceData(),
+                                          parentField.cuda_deviceData(),
+                                          field.cuda_deviceData(), currentIDsSize);
 }
+
+/*
+ * Map solution from previous mesh to new one on GPU
+ *
+ * \param ids of pre-adaptation mesh
+ * \param ids of post-adaptation mesh
+ * \param[out] mapped field (on post-adaptation mesh)
+ */
+__global__ void dev_mapField(std::size_t *parentIDs, std::size_t *currentIDs,
+                             double *parentField, double *field,
+                             const std::size_t idsSize)
+{
+    // Get interface information
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= idsSize) {
+        return;
+    };
+
+    const std::size_t parentId = parentIDs[i];
+    const std::size_t currentId = currentIDs[i];
+
+    field[currentId] = parentField[parentId];
+}
+
+
+__global__ void dev_storeParentField(const size_t *parentIDs, double *parentField,
+                                     double *field, const size_t parentIDsSize)
+{
+    const size_t i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= parentIDsSize) {
+        return;
+    }
+
+    std::size_t position = parentIDs[i];
+    parentField[position] = field[position];
+}
+
 
 }

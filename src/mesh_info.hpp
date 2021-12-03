@@ -41,8 +41,10 @@ public:
 
     double getCellVolume(long id) const;
     double rawGetCellVolume(size_t pos) const;
-    const bitpit::PiercedStorage<double, long> & getCellVolumes() const;
-    bitpit::PiercedStorage<double, long> & getCellVolumes();
+//  const bitpit::PiercedStorage<double, long> & getCellVolumes() const;
+    const ScalarPiercedStorage<double> & getCellVolumes() const;
+//  bitpit::PiercedStorage<double, long> & getCellVolumes();
+    ScalarPiercedStorage<double> & getCellVolumes();
 #if ENABLE_CUDA
     double * cuda_getCellVolumeDevData();
     const double * cuda_getCellVolumeDevData() const;

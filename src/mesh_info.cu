@@ -56,6 +56,7 @@ void MeshGeometricalInfo::cuda_initialize()
 void MeshGeometricalInfo::cuda_finalize()
 {
     // Deallocate CUDA memory
+
     m_cellVolumes.cuda_freeDevice();
     m_cellSizes.cuda_freeDevice();
     m_cellCentroids.cuda_freeDevice();

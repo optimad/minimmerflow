@@ -26,7 +26,7 @@
 #define __MINIMMERFLOW_ADAPTATION_HPP__
 
 #include "containers.hpp"
-#include "computation_info.hpp"
+#include "bitpit_common.hpp"
 #include <bitpit_voloctree.hpp>
 
 namespace adaptation {
@@ -34,25 +34,43 @@ namespace adaptation {
 void markCellsForRefinement(bitpit::VolOctree &mesh);
 
 void meshAdaptation(bitpit::VolOctree &mesh,
-                    ScalarStorage<std::size_t> &previousIDs,
-                    ScalarStorage<std::size_t> &currentIDs);
+                    ScalarStorage<std::size_t> &parentIDs,
+                    ScalarStorage<std::size_t> &currentIDs,
+                    ScalarStorage<double> &parentCellRHS,
+                    ScalarStorage<double> &parentCellConservatives,
+                    ScalarStorage<double> &parentCellPrimitives,
+                    ScalarStorage<double> &parentCellConservativesWork,
+                    ScalarPiercedStorage<double> &cellRHS,
+                    ScalarPiercedStorage<double> &cellConservatives,
+                    ScalarPiercedStorage<double> &cellPrimitives,
+                    ScalarPiercedStorage<double> &cellConservativesWork);
 
 #if ENABLE_CUDA
-void cuda_mapField(std::size_t *previousIDs, std::size_t *currentIDs,
-                   double *field);
+void mapField(ScalarStorage<std::size_t> &parentIDs,
+              ScalarStorage<std::size_t> &currentIDs,
+              ScalarStorage<double> &parentField,
+              ScalarPiercedStorage<double> &field);
+
+void cuda_storeParentField(ScalarStorage<std::size_t> &parentIDs,
+                           ScalarStorage<double> &parentField,
+                           ScalarPiercedStorage<double> &field);
+
+void cuda_mapField(ScalarStorage<std::size_t> &parentIDs,
+                   ScalarStorage<std::size_t> &currentIDs,
+                   ScalarStorage<double> &parentField,
+                   ScalarPiercedStorage<double> &field);
 #endif
 
-void cpu_mapField(ScalarStorage<std::size_t> &previousIDs,
-                  ScalarStorage<std::size_t> &currentIDs,
-                  ScalarPiercedStorage<double> &field);
-
-void mapFields(ScalarStorage<std::size_t> &previousIDs,
+void mapFields(ScalarStorage<std::size_t> &parentIDs,
                ScalarStorage<std::size_t> &currentIDs,
+               ScalarStorage<double> &parentCellRHS,
+               ScalarStorage<double> &parentCellConservatives,
+               ScalarStorage<double> &parentCellPrimitives,
+               ScalarStorage<double> &parentCellConservativesWork,
                ScalarPiercedStorage<double> &cellRHS,
                ScalarPiercedStorage<double> &cellConservatives,
                ScalarPiercedStorage<double> &cellPrimitives,
-               ScalarPiercedStorage<double> &cellConservativesWork,
-               ComputationInfo &computationInfo);
+               ScalarPiercedStorage<double> &cellConservativesWork);
 
 }
 

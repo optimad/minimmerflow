@@ -23,23 +23,85 @@
 \*---------------------------------------------------------------------------*/
 
 #include "adaptation.hpp"
+#include "constants.hpp"
 
 using namespace bitpit;
 
 namespace adaptation {
-
+/*
+ * Hardcoded cell-selection for mesh refinement.
+ * TODO: See if this can be done in a better way.
+*/
 void markCellsForRefinement(VolOctree &mesh)
 {
     mesh.markCellForRefinement(0);
 }
 
-void meshAdaptation(VolOctree &mesh, ScalarStorage<std::size_t> &previousIDs,
-                    ScalarStorage<std::size_t> &currentIDs)
+/*
+ * Adapt mesh. In case of running on CPUs, map solution from previous
+ * mesh to new one. In case of GPUs, mapping is performing on them, so the
+ * correspondance between the parent and the new IDs is stored now on CPUs,
+ * so that it is copied to GPUs later.
+ *
+ * \param ids of cells to be refined, at the stabe befor the mesh adaptation
+ * \param ids of post-adaptation mesh
+ * \param parent field of RHS-of-equations at cells
+ * \param parent field of conservatives at cells
+ * \param parent field of primitives at cells
+ * \param parent field of conservativesWork at cells
+ * \param[out] field of RHS-of-equations at cells
+ * \param[out] field of conservatives at cells
+ * \param[out] field of primitives at cells
+ * \param[out] field of conservativesWork at cells
+ */
+void meshAdaptation(VolOctree &mesh, ScalarStorage<std::size_t> &parentIDs,
+                    ScalarStorage<std::size_t> &currentIDs,
+                    ScalarStorage<double> &parentCellRHS,
+                    ScalarStorage<double> &parentCellConservatives,
+                    ScalarStorage<double> &parentCellPrimitives,
+                    ScalarStorage<double> &parentCellConservativesWork,
+                    ScalarPiercedStorage<double> &cellRHS,
+                    ScalarPiercedStorage<double> &cellConservatives,
+                    ScalarPiercedStorage<double> &cellPrimitives,
+                    ScalarPiercedStorage<double> &cellConservativesWork)
 {
     std::vector<adaption::Info> adaptionData;
     markCellsForRefinement(mesh);
     bool trackAdaptation = true;
     adaptionData = mesh.adaptionPrepare(trackAdaptation);
+
+    const std::size_t cellSize = mesh.getCellCount();
+
+#if ENABLE_CUDA
+    ScalarStorage<std::size_t> tempParentIDs;
+#endif
+    for (const adaption::Info &adaptionInfo : adaptionData) {
+        // Consider only cell refinements
+        if (adaptionInfo.entity != adaption::Entity::ENTITY_CELL) {
+            continue;
+        } else if (adaptionInfo.type != adaption::TYPE_REFINEMENT) {
+            continue;
+        }
+
+        // Save parent data
+        for (long parentId : adaptionInfo.previous) {
+            for (int iField = 0; iField < N_FIELDS; iField++) {
+                long parentRawId = mesh.getVertex(parentId).getId();
+#if ENABLE_CUDA
+                tempParentIDs.push_back(parentRawId * N_FIELDS + iField);
+#else
+                parentCellRHS[parentRawId * N_FIELDS + iField] = cellRHS.at(parentId, iField);
+                parentCellConservatives[parentRawId * N_FIELDS + iField] = cellConservatives.at(parentId, iField);
+                parentCellPrimitives[parentRawId * N_FIELDS + iField] = cellPrimitives.at(parentId, iField);
+                parentCellConservativesWork[parentRawId * N_FIELDS + iField] = cellConservativesWork.at(parentId, iField);
+#endif
+            }
+        }
+    }
+#if ENABLE_CUDA
+    tempParentIDs.cuda_allocateDevice();
+    tempParentIDs.cuda_updateDevice();
+#endif
 
     bool squeeshPatchStorage = false;
     adaptionData = mesh.adaptionAlter(trackAdaptation, squeeshPatchStorage);
@@ -51,58 +113,60 @@ void meshAdaptation(VolOctree &mesh, ScalarStorage<std::size_t> &previousIDs,
         } else if (adaptionInfo.type != adaption::TYPE_REFINEMENT) {
             continue;
         }
+
         // Assign data to children
         long parentId = adaptionInfo.previous.front();
         for (long currentId : adaptionInfo.current) {
-            previousIDs.push_back(parentId);
-            currentIDs.push_back(currentId);
+            for (int iField = 0; iField < N_FIELDS; iField++) {
+                long parentRawId = mesh.getVertex(parentId).getId();
+                long currentRawId = mesh.getVertex(currentId).getId();
+#if ENABLE_CUDA
+                currentIDs.push_back(currentRawId * N_FIELDS + iField);
+                parentIDs.push_back(parentRawId * N_FIELDS + iField);
+#else
+                cellRHS.set(currentId, iField, parentCellRHS[N_FIELDS * parentRawId + iField];
+                cellConservatives.set(currentId, iField, parentCellConservatives[N_FIELDS * parentRawId + iField];
+                cellPrimitives.set(currentId, iField, parentCellPrimitives[N_FIELDS * parentRawId + iField];
+                cellConservativesWork.set(currentId, iField, parentCellConservativesWork[N_FIELDS * parentRawId + iField];
+#endif
+            }
         }
     }
 
+#if ENABLE_CUDA
+    cuda_storeParentField(tempParentIDs, parentCellRHS, cellRHS);
+    cuda_storeParentField(tempParentIDs, parentCellConservatives, cellConservatives);
+    cuda_storeParentField(tempParentIDs, parentCellPrimitives, cellPrimitives);
+    cuda_storeParentField(tempParentIDs, parentCellConservativesWork, cellConservativesWork);
+
+    tempParentIDs.cuda_freeDevice();
+#endif
     mesh.adaptionCleanup();
     mesh.write();
 }
 
 /*
- * Map solution from previous mesh to new one
+ * Map solution from previous mesh to new one, on GPUs.
+ * TODO: Implement with streams, since we do this independently for each of the
+ e four containers and we can hide data-transfer
  *
  * \param ids of pre-adaptation mesh
  * \param ids of post-adaptation mesh
  * \param[out] mapped field (on post-adaptation mesh)
  */
-void mapField(ScalarStorage<std::size_t> &previousIDs,
+void mapField(ScalarStorage<std::size_t> &parentIDs,
               ScalarStorage<std::size_t> &currentIDs,
+              ScalarStorage<double> &parentField,
               ScalarPiercedStorage<double> &field)
 {
-#if ENABLE_CUDA
-    cuda_mapField(previousIDs.data(), currentIDs.data(), field.data());
-#else
-    cpu_mapField(previousIDs, currentIDs, field);
-#endif
+    // Perform mapping
+    cuda_mapField(parentIDs, currentIDs, parentField, field);
 }
 
-/*
- * Map solution from previous mesh to new one on CPU
- *
- * \param ids of pre-adaptation mesh
- * \param ids of post-adaptation mesh
- * \param[out] mapped field (on post-adaptation mesh)
- */
-void cpu_mapField(ScalarStorage<std::size_t> &previousIDs,
-                  ScalarStorage<std::size_t> &currentIDs,
-                  ScalarPiercedStorage<double> &field)
-{
-    for (int i = 0; i < previousIDs.size(); i++) {
-        const long previousID = previousIDs[i];
-//      double parentValue = field.at(previousId);
-        const long currentID = currentIDs[i];
-        //  TODO
-//      field[currentID] = parentValue;
-    }
-}
 
 /*
- * Map solution from previous mesh to new one for flow variables
+ * Map solution from previous mesh to new one for flow variables, to be used
+ * when running with CUDA on GPUs
  *
  * \param ids of pre-adaptation mesh
  * \param ids of post-adaptation mesh
@@ -112,20 +176,36 @@ void cpu_mapField(ScalarStorage<std::size_t> &previousIDs,
  * \param[out] field of primitives at cells
  * \param[out] field of conservativesWork at cells
  */
-void mapFields(ScalarStorage<std::size_t> &previousIDs,
+void mapFields(ScalarStorage<std::size_t> &parentIDs,
                ScalarStorage<std::size_t> &currentIDs,
+               ScalarStorage<double> &parentCellRHS,
+               ScalarStorage<double> &parentCellConservatives,
+               ScalarStorage<double> &parentCellPrimitives,
+               ScalarStorage<double> &parentCellConservativesWork,
                ScalarPiercedStorage<double> &cellRHS,
                ScalarPiercedStorage<double> &cellConservatives,
                ScalarPiercedStorage<double> &cellPrimitives,
-               ScalarPiercedStorage<double> &cellConservativesWork,
-               ComputationInfo &computationInfo)
+               ScalarPiercedStorage<double> &cellConservativesWork)
 {
-    computationInfo.MeshGeometricalInfo::cuda_finalize();
-    mapField(previousIDs, currentIDs, cellRHS);
-    mapField(previousIDs, currentIDs, cellConservatives);
-    mapField(previousIDs, currentIDs, cellPrimitives);
-    mapField(previousIDs, currentIDs, cellConservativesWork);
-}
+#if ENABLE_CUDA
+    mapField(parentIDs, currentIDs, parentCellRHS, cellRHS);
+    mapField(parentIDs, currentIDs, parentCellConservatives, cellConservatives);
+    mapField(parentIDs, currentIDs, parentCellPrimitives, cellPrimitives);
+    mapField(parentIDs, currentIDs, parentCellConservativesWork, cellConservativesWork);
+#else
+    BITPIT_UNUSED(parentIDs);
+    BITPIT_UNUSED(currentIDs);
 
+    BITPIT_UNUSED(parentCellRHS);
+    BITPIT_UNUSED(parentCellConservatives);
+    BITPIT_UNUSED(parentCellPrimitives);
+    BITPIT_UNUSED(parentCellConservativesWork);
+
+    BITPIT_UNUSED(cellRHS);
+    BITPIT_UNUSED(cellConservatives);
+    BITPIT_UNUSED(cellPrimitives);
+    BITPIT_UNUSED(cellConservativesWork);
+#endif
+}
 
 }

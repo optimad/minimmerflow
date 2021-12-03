@@ -49,7 +49,7 @@ MeshGeometricalInfo::MeshGeometricalInfo(VolumeKernel *patch)
 MeshGeometricalInfo::MeshGeometricalInfo(VolumeKernel *patch, bool extractInfo)
     : PatchInfo(patch)
 {
-//  m_volumePatch = dynamic_cast<const VolumeKernel *>(patch);
+    m_volumePatch = dynamic_cast<VolumeKernel *>(patch);
     if (!m_volumePatch) {
         throw std::runtime_error("Volume geometrical information can only be used with volume patches.");
     }
@@ -76,6 +76,7 @@ bitpit::VolumeKernel const & MeshGeometricalInfo::getPatch() const
  */
 void MeshGeometricalInfo::_init()
 {
+
     m_cellVolumes.setDynamicKernel(&m_volumePatch->getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
     m_cellSizes.setDynamicKernel(&m_volumePatch->getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
     m_cellCentroids.setDynamicKernel(&m_volumePatch->getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
@@ -157,7 +158,8 @@ double MeshGeometricalInfo::rawGetCellVolume(size_t pos) const
  *
  * \result A constant reference to the cell volume storage.
  */
-const PiercedStorage<double, long> & MeshGeometricalInfo::getCellVolumes() const
+//const PiercedStorage<double, long> & MeshGeometricalInfo::getCellVolumes() const
+const ScalarPiercedStorage<double> & MeshGeometricalInfo::getCellVolumes() const
 {
     return m_cellVolumes;
 }
@@ -167,7 +169,8 @@ const PiercedStorage<double, long> & MeshGeometricalInfo::getCellVolumes() const
  *
  * \result A reference to the cell volume storage.
  */
-PiercedStorage<double, long> & MeshGeometricalInfo::getCellVolumes()
+//PiercedStorage<double, long> & MeshGeometricalInfo::getCellVolumes()
+ScalarPiercedStorage<double> & MeshGeometricalInfo::getCellVolumes()
 {
     return m_cellVolumes;
 }

@@ -51,7 +51,7 @@ ComputationInfo::ComputationInfo(VolumeKernel *patch)
  */
 void ComputationInfo::_init()
 {
-    MeshGeometricalInfo::_init();
+//  MeshGeometricalInfo::_init();
 
     m_cellSolveMethods.setDynamicKernel(&m_volumePatch->getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
 
@@ -71,6 +71,17 @@ void ComputationInfo::_reset()
  */
 void ComputationInfo::_extract()
 {
+    // In case of mesh-adaptation, clearing of the following ScalarStorages
+    // is needed, since new elements are added with push_back
+    // TODO: Find a way to make it more efficient
+    m_solvedCellRawIds.clear();
+    m_solvedUniformInterfaceRawIds.clear();
+    m_solvedUniformInterfaceOwnerRawIds.clear();
+    m_solvedUniformInterfaceNeighRawIds.clear();
+    m_solvedBoundaryInterfaceRawIds.clear();
+    m_solvedBoundaryInterfaceSigns.clear();
+    m_solvedBoundaryInterfaceFluidRawIds.clear();
+
     // Extract mesh information
     MeshGeometricalInfo::_extract();
 
@@ -373,6 +384,9 @@ const ScalarStorage<double> & ComputationInfo::getSolvedInterfaceRightReconstruc
  */
 void ComputationInfo::clearScalarStorages()
 {
+
+//  MeshGeometricalInfo::reset();
+
     m_solvedUniformInterfaceRawIds.clear();
     m_solvedUniformInterfaceOwnerRawIds.clear();
     m_solvedUniformInterfaceNeighRawIds.clear();
