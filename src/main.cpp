@@ -457,20 +457,22 @@ void computation(int argc, char *argv[])
         //
         // SECOND RK STAGE
         //
-        for (int k = 0; k < N_FIELDS; ++k) {
-            const ValuePiercedStorage<double, double> &fieldRHS = cellRHS[k];
-            const ValuePiercedStorage<double, double> &fieldConservatives = cellConservatives[k];
-            ValuePiercedStorage<double, double> *fieldConservativesWork = &(cellConservativesWork[k]);
-            for (std::size_t i = 0; i < nSolvedCells; ++i) {
-                const std::size_t cellRawId = solvedCellRawIds[i];
-
-                const double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
-                const double RHS = fieldRHS.rawAt(cellRawId);
-                const double conservative = fieldConservatives.rawAt(cellRawId);
-                double *conservativeWork = fieldConservativesWork->rawData(cellRawId);
-                *conservativeWork = conservative + dt * RHS / cellVolume;
+#pragma acc parallel loop collapse(2) present(cellVolumeHostStorage, solvedCellRawIdsHostStorage, cellConservativesHostStorageCollection, cellConservativesWorkHostStorageCollection, cellRHSHostStorageCollection)
+        for (std::size_t i = 0; i < nSolvedCells; ++i) {
+            for (int k = 0; k < N_FIELDS; ++k) {
+                const std::size_t cellRawId = solvedCellRawIdsHostStorage[i];
+                const double cellVolume = cellVolumeHostStorage[cellRawId];
+                const double RHS = cellRHSHostStorageCollection[k][cellRawId];
+                const double conservative = cellConservativesHostStorageCollection[k][cellRawId];
+                double *conservativeTmp = &cellConservativesWorkHostStorageCollection[k][cellRawId];
+                *conservativeTmp = conservative + dt * RHS / cellVolume;
             }
         }
+
+#if ENABLE_CUDA && ENABLE_MPI
+	      cellConservativesWork.cuda_updateHost();
+#endif
+
 
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
@@ -496,20 +498,21 @@ void computation(int argc, char *argv[])
         //
         // THIRD RK STAGE
         //
-        for (int k = 0; k < N_FIELDS; ++k) {
-            const ValuePiercedStorage<double, double> &fieldRHS = cellRHS[k];
-            const ValuePiercedStorage<double, double> &fieldConservatives = cellConservatives[k];
-            ValuePiercedStorage<double, double> *fieldConservativesWork = &(cellConservativesWork[k]);
-            for (std::size_t i = 0; i < nSolvedCells; ++i) {
-                const std::size_t cellRawId = solvedCellRawIds[i];
-
-                const double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
-                const double RHS = fieldRHS.rawAt(cellRawId);
-                const double conservative = fieldConservatives.rawAt(cellRawId);
-                double *conservativeWork = fieldConservativesWork->rawData(cellRawId);
+#pragma acc parallel loop collapse(2) present(cellVolumeHostStorage, solvedCellRawIdsHostStorage, cellConservativesHostStorageCollection, cellConservativesWorkHostStorageCollection, cellRHSHostStorageCollection)
+        for (std::size_t i = 0; i < nSolvedCells; ++i) {
+            for (int k = 0; k < N_FIELDS; ++k) {
+                const std::size_t cellRawId = solvedCellRawIdsHostStorage[i];
+                const double cellVolume = cellVolumeHostStorage[cellRawId];
+                const double RHS = cellRHSHostStorageCollection[k][cellRawId];
+                const double conservative = cellConservativesHostStorageCollection[k][cellRawId];
+                double *conservativeWork = &cellConservativesWorkHostStorageCollection[k][cellRawId];
                 *conservativeWork = 0.75 * conservative + 0.25 * ((*conservativeWork) + dt * RHS / cellVolume);
             }
         }
+
+#if ENABLE_CUDA && ENABLE_MPI
+	      cellConservativesWork.cuda_updateHost();
+#endif
 
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
@@ -535,20 +538,21 @@ void computation(int argc, char *argv[])
         //
         // CLOSE RK STEP
         //
-        for (int k = 0; k < N_FIELDS; ++k) {
-            const ValuePiercedStorage<double, double> &fieldRHS = cellRHS[k];
-            ValuePiercedStorage<double, double> &fieldConservatives = cellConservatives[k];
-            const ValuePiercedStorage<double, double> *fieldConservativesWork = &(cellConservativesWork[k]);
-            for (std::size_t i = 0; i < nSolvedCells; ++i) {
-                const std::size_t cellRawId = solvedCellRawIds[i];
-
-                const double cellVolume = computationInfo.rawGetCellVolume(cellRawId);
-                const double RHS = fieldRHS.rawAt(cellRawId);
-                double *conservative = fieldConservatives.rawData(cellRawId);
-                const double conservativeWork = fieldConservativesWork->rawAt(cellRawId);
+#pragma acc parallel loop collapse(2) present(cellVolumeHostStorage, solvedCellRawIdsHostStorage, cellConservativesHostStorageCollection, cellConservativesWorkHostStorageCollection, cellRHSHostStorageCollection)
+        for (std::size_t i = 0; i < nSolvedCells; ++i) {
+            for (int k = 0; k < N_FIELDS; ++k) {
+                const std::size_t cellRawId = solvedCellRawIdsHostStorage[i];
+                const double cellVolume = cellVolumeHostStorage[cellRawId];
+                const double RHS = cellRHSHostStorageCollection[k][cellRawId];
+                double *conservative = &cellConservativesHostStorageCollection[k][cellRawId];
+                const double conservativeWork = cellConservativesWorkHostStorageCollection[k][cellRawId];
                 *conservative = (1. / 3) * (*conservative) + (2. / 3) * (conservativeWork + dt * RHS / cellVolume);
             }
         }
+
+#if ENABLE_CUDA && ENABLE_MPI
+	     cellConservatives.cuda_updateHost();
+#endif
 
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
