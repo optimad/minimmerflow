@@ -151,10 +151,14 @@ class BaseStorageCollection
 
 public:
     typedef storage_t storage_type;
+    typedef typename storage_t::value_type value_type;
     typedef typename storage_t::dev_value_type dev_value_type;
 
     const storage_t & operator[](std::size_t index) const;
     storage_t & operator[](std::size_t index);
+
+    value_type ** collectionData();
+    const value_type * const * collectionData() const;
 
 #if ENABLE_CUDA
     void cuda_allocateDevice();
@@ -175,6 +179,7 @@ protected:
 
 private:
     std::vector<storage_t> m_storages;
+    std::vector<value_type *> m_dataCollection;
 
     dev_value_type **m_deviceDataCollection;
 

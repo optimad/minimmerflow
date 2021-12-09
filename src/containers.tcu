@@ -213,7 +213,12 @@ std::size_t ValueStorage<value_t, dev_value_t>::cuda_deviceDataSize(std::size_t 
 template<typename storage_t>
 void BaseStorageCollection<storage_t>::cuda_allocateDevice()
 {
-    CUDA_ERROR_CHECK(cudaMalloc((void **) &m_deviceDataCollection, m_storages.size() * sizeof(dev_value_type)));
+    std::size_t deviceBytes = m_storages.size() * sizeof(dev_value_type);
+
+    CUDA_ERROR_CHECK(cudaMalloc((void **) &m_deviceDataCollection, deviceBytes));
+#if ENABLE_OPENACC
+    acc_map_data(m_dataCollection.data(), m_deviceDataCollection, deviceBytes);
+#endif
 
     std::size_t nStorages = m_storages.size();
     for (std::size_t k = 0; k < nStorages; ++k) {
@@ -235,6 +240,9 @@ void BaseStorageCollection<storage_t>::cuda_freeDevice()
         storage.cuda_freeDevice();
     }
 
+#if ENABLE_OPENACC
+    acc_unmap_data(m_dataCollection.data());
+#endif
     CUDA_ERROR_CHECK(cudaFree(m_deviceDataCollection));
 }
 

@@ -37,8 +37,12 @@
 template<typename storage_t>
 template<typename... Args>
 BaseStorageCollection<storage_t>::BaseStorageCollection(std::size_t nStorages, Args&&... args)
-    : m_storages(nStorages, storage_t(std::forward<Args>(args)...))
+    : m_storages(nStorages, storage_t(std::forward<Args>(args)...)),
+      m_dataCollection(nStorages)
 {
+    for (std::size_t i = 0; i < m_storages.size(); ++i) {
+        m_dataCollection[i] = m_storages[i].data();
+    }
 }
 
 /*!
@@ -63,6 +67,28 @@ template<typename storage_t>
 typename BaseStorageCollection<storage_t>::storage_type & BaseStorageCollection<storage_t>::operator[](std::size_t index)
 {
     return m_storages[index];
+}
+
+/*!
+    Gets a pointer to the data collection.
+
+    \result A pointer to the device data collection.
+*/
+template<typename storage_t>
+BaseStorageCollection<storage_t>::value_type ** BaseStorageCollection<storage_t>::collectionData()
+{
+    return m_dataCollection.data();
+}
+
+/*!
+    Gets a constant pointer to the device data collection.
+
+    \result A constant pointer to the device data collection.
+*/
+template<typename storage_t>
+const BaseStorageCollection<storage_t>::value_type * const * BaseStorageCollection<storage_t>::collectionData() const
+{
+    return m_dataCollection.data();
 }
 
 /*!
