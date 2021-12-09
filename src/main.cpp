@@ -226,6 +226,14 @@ void computation(int argc, char *argv[])
     cellPrimitives.cuda_allocateDevice();
 #endif
 
+    // Set host storage pointers for OpenACC
+    double** cellPrimitivesHostStorageCollection = cellPrimitives.collectionData();
+    double** cellConservativesHostStorageCollection = cellConservatives.collectionData();
+    double** cellConservativesWorkHostStorageCollection = cellConservativesWork.collectionData();
+    double** cellRHSHostStorageCollection = cellRHS.collectionData();
+    double *cellVolumeHostStorage = computationInfo.getCellVolumes().data();
+    const std::size_t *solvedCellRawIdsHostStorage = solvedCellRawIds.data();
+
     log_memory_status();
 
     // Initialize reconstruction
