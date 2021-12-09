@@ -223,6 +223,7 @@ void computation(int argc, char *argv[])
     cellRHS.cuda_allocateDevice();
     cellConservatives.cuda_allocateDevice();
     cellConservativesWork.cuda_allocateDevice();
+    cellPrimitives.cuda_allocateDevice();
 #endif
 
     log_memory_status();
