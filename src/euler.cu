@@ -215,7 +215,6 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     //
     // Update host memory
     //
-    cellsRHS->cuda_updateHost();
     CUDA_ERROR_CHECK(cudaMemcpy(maxEig, devMaxEig, sizeof(double), cudaMemcpyDeviceToHost));
 }
 
