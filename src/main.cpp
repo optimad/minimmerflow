@@ -342,7 +342,7 @@ void computation(int argc, char *argv[])
     }
 #endif
 
-    // Initial conditions
+    // Initial conditions - Conservatives initializion on CPU, Primitives initialization on GPU - TODO initial consrvatives on GPU
     log::cout() << std::endl;
     log::cout() << "Initial conditions evaluation..."  << std::endl;
 
@@ -355,13 +355,31 @@ void computation(int argc, char *argv[])
         for (int k = 0; k < N_FIELDS; ++k) {
             cellConservatives[k].rawAt(cellRawId) = conservatives[k];
         }
-
-        std::array<double, N_FIELDS> primitives;
-        ::utils::conservative2primitive(conservatives.data(), primitives.data());
-        for (int k = 0; k < N_FIELDS; ++k) {
-            cellPrimitives[k].rawAt(cellRawId) = primitives[k];
-        }
     }
+
+#if ENABLE_CUDA
+    cellConservatives.cuda_updateDevice();
+#endif
+
+#pragma acc parallel loop present(cellPrimitivesHostStorageCollection, cellConservativesHostStorageCollection, solvedCellRawIdsHostStorage)
+    for (long i = 0; i < nSolvedCells; ++i) {
+      const std::size_t cellRawId = solvedCellRawIdsHostStorage[i];
+      std::array<double, N_FIELDS> conservatives;
+      std::array<double, N_FIELDS> primitives;
+#pragma acc loop seq
+      for (int k = 0; k < N_FIELDS; ++k) {
+          conservatives[k] = cellConservativesHostStorageCollection[k][cellRawId];
+      }
+      ::utils::conservative2primitive(conservatives.data(), primitives.data());
+#pragma acc loop seq
+      for (int k = 0; k < N_FIELDS; ++k) {
+          cellPrimitivesHostStorageCollection[k][cellRawId] = primitives[k];
+      }
+    }
+
+#if ENABLE_CUDA && ENABLE_MPI
+    cellConservatives.cuda_updateHost();
+#endif
 
 #if ENABLE_MPI
     if (mesh.isPartitioned()) {
@@ -499,7 +517,7 @@ void computation(int argc, char *argv[])
             conservativeWorkCommunicator->completeAllExchanges();
         }
 #endif
-	
+
 #if ENABLE_CUDA
 	cellConservativesWork.cuda_updateDevice();
 #endif
