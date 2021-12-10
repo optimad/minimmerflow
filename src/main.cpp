@@ -42,6 +42,7 @@
 #include <vector>
 #include <time.h>
 
+#include <nvtx3/nvToolsExt.h>
 #include "cuda_runtime_api.h"
 
 using namespace bitpit;
@@ -437,20 +438,30 @@ void computation(int argc, char *argv[])
 
         double maxEig;
 
+        std::string rangeName = "TimeStep" + std::to_string(step);
+        nvtxRangePushA(rangeName.c_str());
+
         //
         // FIRST RK STAGE
         //
+        nvtxRangePushA("RK1");
 
         // Compute the residuals
 #if ENABLE_CUDA && ENABLE_MPI
         if (nProcessors > 1) {
+            nvtxRangePushA("RK1_MPI_DU");
             cellConservatives.cuda_updateDevice();
+            nvtxRangePop();
         }
 #endif
 
-
+        nvtxRangePushA("computePolynomials");
         reconstruction::computePolynomials(problemType, computationInfo, cellConservatives, solvedBoundaryInterfaceBCs);
+        nvtxRangePop();
+
+        nvtxRangePushA("computeRHS");
         euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservatives, &cellRHS, &maxEig);
+        nvtxRangePop();
 
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
@@ -467,9 +478,14 @@ void computation(int argc, char *argv[])
         log::cout() << "Using dt= " << dt <<std::endl;
         log::cout() << "Current time= " << (t + dt) << std::endl;
 
+        nvtxRangePop(); // pop RK1 range
+
         //
         // SECOND RK STAGE
         //
+        nvtxRangePushA("RK2");
+
+        nvtxRangePushA("OpenACC_RK2_updateSolution");
 #pragma acc parallel loop collapse(2) present(cellVolumeHostStorage, solvedCellRawIdsHostStorage, cellConservativesHostStorageCollection, cellConservativesWorkHostStorageCollection, cellRHSHostStorageCollection)
         for (std::size_t i = 0; i < nSolvedCells; ++i) {
             for (int k = 0; k < N_FIELDS; ++k) {
@@ -481,10 +497,13 @@ void computation(int argc, char *argv[])
                 *conservativeTmp = conservative + dt * RHS / cellVolume;
             }
         }
+        nvtxRangePop();
 
 #if ENABLE_CUDA && ENABLE_MPI
         if (nProcessors > 1) {
+            nvtxRangePushA("RK2_MPI_HU");
             cellConservativesWork.cuda_updateHost();
+            nvtxRangePop();
         }
 #endif
 
@@ -497,12 +516,20 @@ void computation(int argc, char *argv[])
 
 #if ENABLE_CUDA && ENABLE_MPI
         if (nProcessors > 1) {
+            nvtxRangePushA("RK2_MPI_DU");
 	        cellConservativesWork.cuda_updateDevice();
+            nvtxRangePop();
         }
 #endif
 
+        nvtxRangePushA("ComputePolynomials");
         reconstruction::computePolynomials(problemType, computationInfo, cellConservativesWork, solvedBoundaryInterfaceBCs);
+        nvtxRangePop();
+
+        nvtxRangePushA("computeRHS");
         euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservativesWork, &cellRHS, &maxEig);
+        nvtxRangePop();
+
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
             MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_DOUBLE, MPI_MAX, mesh.getCommunicator());
@@ -510,10 +537,14 @@ void computation(int argc, char *argv[])
 #endif
 
         log::cout() << "(maxEig after second stage = " << maxEig << ")" << std::endl;
+        nvtxRangePop(); // pop RK2 range
 
         //
         // THIRD RK STAGE
         //
+        nvtxRangePushA("RK3");
+
+        nvtxRangePushA("OpenACC_RK3_updateSolution");
 #pragma acc parallel loop collapse(2) present(cellVolumeHostStorage, solvedCellRawIdsHostStorage, cellConservativesHostStorageCollection, cellConservativesWorkHostStorageCollection, cellRHSHostStorageCollection)
         for (std::size_t i = 0; i < nSolvedCells; ++i) {
             for (int k = 0; k < N_FIELDS; ++k) {
@@ -525,10 +556,13 @@ void computation(int argc, char *argv[])
                 *conservativeWork = 0.75 * conservative + 0.25 * ((*conservativeWork) + dt * RHS / cellVolume);
             }
         }
+        nvtxRangePop();
 
 #if ENABLE_CUDA && ENABLE_MPI
         if (nProcessors > 1) {
+            nvtxRangePushA("RK3_MPI_HU");
             cellConservativesWork.cuda_updateHost();
+            nvtxRangePop();
         }
 #endif
 
@@ -541,12 +575,20 @@ void computation(int argc, char *argv[])
 
 #if ENABLE_CUDA
         if (nProcessors > 1) {
+            nvtxRangePushA("RK3_MPI_DU");
             cellConservativesWork.cuda_updateDevice();
+            nvtxRangePop();
         }
 #endif
 
+        nvtxRangePushA("ComputePolynomials");
         reconstruction::computePolynomials(problemType, computationInfo, cellConservativesWork, solvedBoundaryInterfaceBCs);
+        nvtxRangePop();
+
+        nvtxRangePushA("computeRHS");
         euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservativesWork, &cellRHS, &maxEig);
+        nvtxRangePop();
+
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
             MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_DOUBLE, MPI_MAX, mesh.getCommunicator());
@@ -554,10 +596,13 @@ void computation(int argc, char *argv[])
 #endif
 
         log::cout() << "(maxEig after third stage = " << maxEig << ")" << std::endl;
+        nvtxRangePop(); // pop RK3 range
 
         //
         // CLOSE RK STEP
         //
+        nvtxRangePushA("RKFinal");
+        nvtxRangePushA("OpenACC_RKFinal_updateSolution");
 #pragma acc parallel loop collapse(2) present(cellVolumeHostStorage, solvedCellRawIdsHostStorage, cellConservativesHostStorageCollection, cellConservativesWorkHostStorageCollection, cellRHSHostStorageCollection)
         for (std::size_t i = 0; i < nSolvedCells; ++i) {
             for (int k = 0; k < N_FIELDS; ++k) {
@@ -569,10 +614,13 @@ void computation(int argc, char *argv[])
                 *conservative = (1. / 3) * (*conservative) + (2. / 3) * (conservativeWork + dt * RHS / cellVolume);
             }
         }
+        nvtxRangePop();
 
 #if ENABLE_CUDA && ENABLE_MPI
         if (nProcessors > 1) {
+            nvtxRangePushA("RKFinal_MPI_HU");
             cellConservatives.cuda_updateHost();
+            nvtxRangePop();
         }
 #endif
 
@@ -582,6 +630,7 @@ void computation(int argc, char *argv[])
             conservativeCommunicator->completeAllExchanges();
         }
 #endif
+        nvtxRangePop(); // pop RKFinal range
 
         // Update timestep information
         t +=dt;
@@ -612,6 +661,7 @@ void computation(int argc, char *argv[])
             diskTime += clock() - diskStart;
             nextSave += (tMax - tMin) / nSaves;
         }
+        nvtxRangePop(); // pop TimeStep range
     }
     clock_t computeEnd = clock();
 
@@ -649,7 +699,9 @@ void computation(int argc, char *argv[])
     std::array<double, N_FIELDS> evalConservatives;
 
     if (nProcessors == 1) {
+        nvtxRangePushA("ErrorEvaluation_HU");
         cellConservatives.cuda_updateHost();
+        nvtxRangePop();
     }
     double error = 0.;
     for (std::size_t i = 0; i < nSolvedCells; ++i) {
