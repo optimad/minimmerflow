@@ -378,7 +378,7 @@ void computation(int argc, char *argv[])
     }
 
 #if ENABLE_CUDA && ENABLE_MPI
-    cellConservatives.cuda_updateHost();
+    cellPrimitives.cuda_updateHost();
 #endif
 
 #if ENABLE_MPI
@@ -432,9 +432,12 @@ void computation(int argc, char *argv[])
         //
 
         // Compute the residuals
-#if ENABLE_CUDA
-	cellConservatives.cuda_updateDevice();
+#if ENABLE_CUDA && ENABLE_MPI
+        if (nProcessors > 1) {
+            cellConservatives.cuda_updateDevice();
+        }
 #endif
+
 
         reconstruction::computePolynomials(problemType, computationInfo, cellConservatives, solvedBoundaryInterfaceBCs);
         euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservatives, &cellRHS, &maxEig);
@@ -470,9 +473,10 @@ void computation(int argc, char *argv[])
         }
 
 #if ENABLE_CUDA && ENABLE_MPI
-	      cellConservativesWork.cuda_updateHost();
+        if (nProcessors > 1) {
+            cellConservativesWork.cuda_updateHost();
+        }
 #endif
-
 
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
@@ -481,8 +485,10 @@ void computation(int argc, char *argv[])
         }
 #endif
 
-#if ENABLE_CUDA
-	cellConservativesWork.cuda_updateDevice();
+#if ENABLE_CUDA && ENABLE_MPI
+        if (nProcessors > 1) {
+	        cellConservativesWork.cuda_updateDevice();
+        }
 #endif
 
         reconstruction::computePolynomials(problemType, computationInfo, cellConservativesWork, solvedBoundaryInterfaceBCs);
@@ -511,7 +517,9 @@ void computation(int argc, char *argv[])
         }
 
 #if ENABLE_CUDA && ENABLE_MPI
-	      cellConservativesWork.cuda_updateHost();
+        if (nProcessors > 1) {
+            cellConservativesWork.cuda_updateHost();
+        }
 #endif
 
 #if ENABLE_MPI
@@ -522,7 +530,9 @@ void computation(int argc, char *argv[])
 #endif
 
 #if ENABLE_CUDA
-	cellConservativesWork.cuda_updateDevice();
+        if (nProcessors > 1) {
+            cellConservativesWork.cuda_updateDevice();
+        }
 #endif
 
         reconstruction::computePolynomials(problemType, computationInfo, cellConservativesWork, solvedBoundaryInterfaceBCs);
@@ -551,7 +561,9 @@ void computation(int argc, char *argv[])
         }
 
 #if ENABLE_CUDA && ENABLE_MPI
-	     cellConservatives.cuda_updateHost();
+        if (nProcessors > 1) {
+            cellConservatives.cuda_updateHost();
+        }
 #endif
 
 #if ENABLE_MPI
@@ -626,6 +638,9 @@ void computation(int argc, char *argv[])
     // Error check
     std::array<double, N_FIELDS> evalConservatives;
 
+    if (nProcessors == 1) {
+        cellConservatives.cuda_updateHost();
+    }
     double error = 0.;
     for (std::size_t i = 0; i < nSolvedCells; ++i) {
         const std::size_t cellRawId = solvedCellRawIds[i];
