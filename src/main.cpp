@@ -42,6 +42,8 @@
 #include <vector>
 #include <time.h>
 
+#include "cuda_runtime_api.h"
+
 using namespace bitpit;
 
 void computation(int argc, char *argv[])
@@ -73,6 +75,14 @@ void computation(int argc, char *argv[])
     // Initialize configuration file
     config::reset("minimmerflow", 1);
     config::read("settings.xml");
+
+#if ENABLE_CUDA
+    int deviceCount;
+    cudaGetDeviceCount(&deviceCount);               // How many GPUs?
+    int device_id = rank % deviceCount;
+    cudaSetDevice(device_id);                       // Map MPI-process to a GPU
+    std::cout << "Rank " << rank << " uses GPU device #" << device_id << std::endl;
+#endif
 
     // Problem info
     const problem::ProblemType problemType = problem::getProblemType();
