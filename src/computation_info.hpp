@@ -36,37 +36,18 @@ public:
     ComputationInfo(bitpit::VolumeKernel *patch);
 
     const ScalarPiercedStorage<int> & getCellSolveMethods() const;
-#if ENABLE_CUDA
-    const int * cuda_getCellSolveMethodDevData() const;
-#endif
 
     const ScalarStorage<std::size_t> & getSolvedCellRawIds() const;
-#if ENABLE_CUDA
-    const std::size_t * cuda_getSolvedCellRawIdDevData() const;
-#endif
 
     const ScalarPiercedStorage<int> & getInterfaceSolveMethods() const;
-#if ENABLE_CUDA
-    const int * cuda_getInterfaceSolveMethodDevData() const;
-#endif
 
     const ScalarStorage<std::size_t> & getSolvedUniformInterfaceRawIds() const;
     const ScalarStorage<std::size_t> & getSolvedUniformInterfaceOwnerRawIds() const;
     const ScalarStorage<std::size_t> & getSolvedUniformInterfaceNeighRawIds() const;
-#if ENABLE_CUDA
-    const std::size_t * cuda_getSolvedUniformInterfaceRawIdDevData() const;
-    const std::size_t * cuda_getSolvedUniformInterfaceOwnerRawIdDevData() const;
-    const std::size_t * cuda_getSolvedUniformInterfaceNeighRawIdDevData() const;
-#endif
 
     const ScalarStorage<std::size_t> & getSolvedBoundaryInterfaceRawIds() const;
     const ScalarStorage<std::size_t> & getSolvedBoundaryInterfaceFluidRawIds() const;
     const ScalarStorage<int> & getSolvedBoundaryInterfaceSigns() const;
-#if ENABLE_CUDA
-    const std::size_t * cuda_getSolvedBoundaryInterfaceRawIdDevData() const;
-    const std::size_t * cuda_getSolvedBoundaryInterfaceFluidRawIdDevData() const;
-    const int * cuda_getSolvedBoundaryInterfaceSignDevData() const;
-#endif
 
 #if ENABLE_CUDA
     void cuda_initialize() override;
