@@ -75,7 +75,7 @@ typename BaseStorageCollection<storage_t>::storage_type & BaseStorageCollection<
     \result A pointer to the device data collection.
 */
 template<typename storage_t>
-BaseStorageCollection<storage_t>::value_type ** BaseStorageCollection<storage_t>::collectionData()
+typename BaseStorageCollection<storage_t>::value_type ** BaseStorageCollection<storage_t>::collectionData()
 {
     return m_dataCollection.data();
 }
@@ -86,7 +86,7 @@ BaseStorageCollection<storage_t>::value_type ** BaseStorageCollection<storage_t>
     \result A constant pointer to the device data collection.
 */
 template<typename storage_t>
-const BaseStorageCollection<storage_t>::value_type * const * BaseStorageCollection<storage_t>::collectionData() const
+const typename BaseStorageCollection<storage_t>::value_type * const * BaseStorageCollection<storage_t>::collectionData() const
 {
     return m_dataCollection.data();
 }
