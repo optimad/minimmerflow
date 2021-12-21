@@ -691,7 +691,7 @@ __device__ int DeviceSharedArray<value_t>::evaluateSharedSize(int size)
  */
 template<typename value_t>
 __device__ DeviceSharedArray<value_t>::DeviceSharedArray()
-    : DeviceSharedArray(nullptr, 0, blockDim.x * blockDim.y * blockDim.z)
+    : DeviceSharedArray(nullptr)
 {
 }
 
