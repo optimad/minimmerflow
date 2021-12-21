@@ -116,7 +116,7 @@ void ListBufferStreamer<container_t>::write(const int &rank, bitpit::SendBuffer 
 {
     BITPIT_UNUSED(rank);
 
-    container_t &container = this->getContainer();
+    const container_t &container = this->getContainer();
     for (const long k : list) {
         buffer << container[k];
     }
