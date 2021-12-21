@@ -707,6 +707,18 @@ __device__ DeviceSharedArray<value_t>::DeviceSharedArray(value_t *data)
 }
 
 /*!
+ * Constructor
+ *
+ * \param data is a pointer to the shared array
+ * \param threadId is the id of the thread whose data need to be accessed
+ */
+template<typename value_t>
+__device__ DeviceSharedArray<value_t>::DeviceSharedArray(value_t *data, int threadId)
+    : DeviceProxyArray<value_t>(data, threadId, blockDim.x * blockDim.y * blockDim.z)
+{
+}
+
+/*!
  * Set the array.
  *
  * \param data is a pointer to the shared data
@@ -714,7 +726,19 @@ __device__ DeviceSharedArray<value_t>::DeviceSharedArray(value_t *data)
 template<typename value_t>
 __device__ void DeviceSharedArray<value_t>::set(value_t *data)
 {
-    DeviceProxyArray<value_t>::set(data, threadIdx.x);
+    set(data, threadIdx.x);
+}
+
+/*!
+ * Set the array.
+ *
+ * \param data is a pointer to the shared data
+ * \param threadId is the id of the thread whose data need to be accessed
+ */
+template<typename value_t>
+__device__ void DeviceSharedArray<value_t>::set(value_t *data, int threadId)
+{
+    DeviceProxyArray<value_t>::set(data, threadId);
 }
 
 #endif

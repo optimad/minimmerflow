@@ -176,8 +176,10 @@ public:
 
     __device__ DeviceSharedArray();
     __device__ DeviceSharedArray(value_t *data);
+    __device__ DeviceSharedArray(value_t *data, int threadId);
 
     __device__ void set(value_t *data);
+    __device__ void set(value_t *data, int threadId);
 
 };
 
