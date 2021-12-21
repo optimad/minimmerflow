@@ -195,8 +195,8 @@ bool ComputationInfo::isInterfaceBoundary(const Interface &interface) const
 
     long ownerId = interface.getOwner();
 
-    const std::array<double, 3> cellCentroid  = getCellCentroid(ownerId);
-    const std::array<double, 3> neighCentroid = getCellCentroid(neighId);
+    const std::array<double, 3> &cellCentroid  = getCellCentroid(ownerId);
+    const std::array<double, 3> &neighCentroid = getCellCentroid(neighId);
 
     bool isOwnerFluid = body::isPointFluid(cellCentroid);
     bool isNeighFluid = body::isPointFluid(neighCentroid);
