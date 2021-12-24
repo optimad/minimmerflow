@@ -30,7 +30,7 @@
 
 namespace problem {
 
-__device__ void dev_getBorderBCInfo(int problemType, int BCType, const double *point,
+__device__ void dev_getBorderBCInfo(int problemType, int BCType, const double3 &point,
                                     const double3 &normal, DeviceProxyArray<double> *info);
 
 }

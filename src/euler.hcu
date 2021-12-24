@@ -43,22 +43,22 @@ __device__ void dev_evalFluxes(const DeviceProxyArray<double> &conservative, con
 __device__ void dev_solveRiemann(const DeviceSharedArray<double> &conservativeL, const DeviceSharedArray<double> &conservativeR,
                                  const double3 &normal, DeviceSharedArray<double> *fluxes, double *lambda);
 
-__device__ void dev_evalInterfaceValues(int order, const double *point, const DeviceCollectionDataConstCursor<double> &means,
+__device__ void dev_evalInterfaceValues(int order, const double3 &point, const DeviceCollectionDataConstCursor<double> &means,
                                         DeviceSharedArray<double> *values);
 
-__device__ void dev_evalInterfaceBCValues(int problemType, int BCType, const double *point, const double3 &normal,
+__device__ void dev_evalInterfaceBCValues(int problemType, int BCType, const double3 &point, const double3 &normal,
                                           const DeviceSharedArray<double> &innerValues, DeviceSharedArray<double> *boundaryValues);
 
-__device__ void dev_evalFreeFlowBCValues(const double *point, const double3 &normal, const DeviceProxyArray<double> &info,
+__device__ void dev_evalFreeFlowBCValues(const double3 &point, const double3 &normal, const DeviceProxyArray<double> &info,
                                          const DeviceSharedArray<double> &innerValues, DeviceSharedArray<double> *boundaryValues);
 
-__device__ void dev_evalReflectingBCValues(const double *point, const double3 &normal, const DeviceProxyArray<double> &info,
+__device__ void dev_evalReflectingBCValues(const double3 &point, const double3 &normal, const DeviceProxyArray<double> &info,
                                            const DeviceSharedArray<double> &innerValues, DeviceSharedArray<double> *boundaryValues);
 
-__device__ void dev_evalWallBCValues(const double *point, const double3 &normal, const DeviceProxyArray<double> &info,
+__device__ void dev_evalWallBCValues(const double3 &point, const double3 &normal, const DeviceProxyArray<double> &info,
                                      const DeviceSharedArray<double> &innerValues, DeviceSharedArray<double> *boundaryValues);
 
-__device__ void dev_evalDirichletBCValues(const double *point, const double3 &normal, const DeviceProxyArray<double> &info,
+__device__ void dev_evalDirichletBCValues(const double3 &point, const double3 &normal, const DeviceProxyArray<double> &info,
                                           const DeviceSharedArray<double> &innerValues, DeviceSharedArray<double> *boundaryValues);
 
 __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, int reconstructionOrder,
