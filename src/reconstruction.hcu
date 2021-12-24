@@ -39,7 +39,7 @@ namespace reconstruction {
  * \param means are the mean values of the fields
  * \param[out] values on output will contain the reconstructed values
  */
-__device__ __forceinline__ void dev_eval_1(const double *point, const DeviceCollectionDataConstCursor<double> &means,
+__device__ __forceinline__ void dev_eval_1(const double3 &point, const DeviceCollectionDataConstCursor<double> &means,
                                            DeviceSharedArray<double> *values)
 {
     BITPIT_UNUSED(point);
@@ -57,7 +57,7 @@ __device__ __forceinline__ void dev_eval_1(const double *point, const DeviceColl
  * \param means are the mean values of the fields
  * \param[out] values on output will contain the reconstructed values
  */
-__device__ __forceinline__ void dev_eval(int order, const double *point, const DeviceCollectionDataConstCursor<double> &means,
+__device__ __forceinline__ void dev_eval(int order, const double3 &point, const DeviceCollectionDataConstCursor<double> &means,
                                          DeviceSharedArray<double> *values)
 {
     switch (order) {

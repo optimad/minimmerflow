@@ -209,7 +209,7 @@ __device__ void dev_solveRiemann(const DeviceSharedArray<double> &conservativeL,
  * \param order is the reconstruction order
  * \param[out] interfaceValues are the interface values
  */
-__device__ void dev_evalInterfaceValues(int order, const double *point,
+__device__ void dev_evalInterfaceValues(int order, const double3 &point,
                                         const DeviceCollectionDataConstCursor<double> &means,
                                         DeviceSharedArray<double> *values)
 {
@@ -226,7 +226,7 @@ __device__ void dev_evalInterfaceValues(int order, const double *point,
  * \param innerValues are the inner innerValues values
  * \param[out] boundaryValues are the boundary values
  */
-__device__ void dev_evalInterfaceBCValues(int problemType, int BCType, const double *point, const double3 &normal,
+__device__ void dev_evalInterfaceBCValues(int problemType, int BCType, const double3 &point, const double3 &normal,
                                           const DeviceSharedArray<double> &innerValues, DeviceSharedArray<double> *boundaryValues)
 {
     double infoStorage[BC_INFO_SIZE];
@@ -263,7 +263,7 @@ __device__ void dev_evalInterfaceBCValues(int problemType, int BCType, const dou
  * \param innerValues are the inner innerValues values
  * \param[out] boundaryValues are the boundary values
  */
-__device__ void dev_evalFreeFlowBCValues(const double *point, const double3 &normal, const DeviceProxyArray<double> &info,
+__device__ void dev_evalFreeFlowBCValues(const double3 &point, const double3 &normal, const DeviceProxyArray<double> &info,
                                          const DeviceSharedArray<double> &innerValues, DeviceSharedArray<double> *boundaryValues)
 {
     BITPIT_UNUSED(point);
@@ -284,7 +284,7 @@ __device__ void dev_evalFreeFlowBCValues(const double *point, const double3 &nor
  * \param innerValues are the inner innerValues values
  * \param[out] boundaryValues are the boundary values
  */
-__device__ void dev_evalReflectingBCValues(const double *point, const double3 &normal, const DeviceProxyArray<double> &info,
+__device__ void dev_evalReflectingBCValues(const double3 &point, const double3 &normal, const DeviceProxyArray<double> &info,
                                            const DeviceSharedArray<double> &innerValues, DeviceSharedArray<double> *boundaryValues)
 {
     BITPIT_UNUSED(point);
@@ -327,7 +327,7 @@ __device__ void dev_evalReflectingBCValues(const double *point, const double3 &n
  * \param innerValues are the inner innerValues values
  * \param[out] boundaryValues are the boundary values
  */
-__device__ void dev_evalWallBCValues(const double *point, const double3 &normal, const DeviceProxyArray<double> &info,
+__device__ void dev_evalWallBCValues(const double3 &point, const double3 &normal, const DeviceProxyArray<double> &info,
                                      const DeviceSharedArray<double> &innerValues, DeviceSharedArray<double> *boundaryValues)
 {
     BITPIT_UNUSED(point);
@@ -345,7 +345,7 @@ __device__ void dev_evalWallBCValues(const double *point, const double3 &normal,
  * \param innerValues are the inner innerValues values
  * \param[out] boundaryValues are the boundary values
  */
-__device__ void dev_evalDirichletBCValues(const double *point, const double3 &normal, const DeviceProxyArray<double> &info,
+__device__ void dev_evalDirichletBCValues(const double3 &point, const double3 &normal, const DeviceProxyArray<double> &info,
                                           const DeviceSharedArray<double> &innerValues, DeviceSharedArray<double> *boundaryValues)
 {
     BITPIT_UNUSED(point);
@@ -404,7 +404,7 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, int reconstruction
     //    Slot #1: not used
     //    Slot #2: left side reconstructed variables
     //    Slot #3: right side reconstructed variables
-    const double interfaceCentroid[3] = {interfaceCentroids[0][interfaceRawId], interfaceCentroids[1][interfaceRawId], interfaceCentroids[2][interfaceRawId]};
+    double3 interfaceCentroid = make_double3(interfaceCentroids[0][interfaceRawId], interfaceCentroids[1][interfaceRawId], interfaceCentroids[2][interfaceRawId]);
 
     DeviceCollectionDataConstCursor<double> cellConservativesCursor(cellConvervatives, 0);
 
@@ -508,7 +508,7 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, int problemType, 
     //    Slot #1: not used
     //    Slot #2: fluid side reconstructed variables
     //    Slot #3: virtual side reconstructed conservative variables
-    const double interfaceCentroid[3] = {interfaceCentroids[0][interfaceRawId], interfaceCentroids[1][interfaceRawId], interfaceCentroids[2][interfaceRawId]};
+    double3 interfaceCentroid = make_double3(interfaceCentroids[0][interfaceRawId], interfaceCentroids[1][interfaceRawId], interfaceCentroids[2][interfaceRawId]);
     double3 interfaceNormal   = make_double3(interfaceNormals[0][interfaceRawId], interfaceNormals[1][interfaceRawId], interfaceNormals[2][interfaceRawId]);
 
     DeviceCollectionDataConstCursor<double> fluidCellConservativesCursor(cellConvervatives, fluidCellRawId);
