@@ -454,19 +454,10 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, int reconstruction
     //    Slot #3: not used
     const double interfaceCoefficient = interfaceAreas[interfaceRawId];
     for (int k = 0; k < N_FIELDS; ++k) {
-        interfaceFluxes[k] *= interfaceCoefficient;
-    }
+        double cellContribution = interfaceCoefficient * interfaceFluxes[k];
 
-    DeviceCollectionDataCursor<double> residuals(cellRHS, 0);
-
-    residuals.set(leftCellRawId);
-    for (int k = 0; k < N_FIELDS; ++k) {
-        atomicAdd(residuals.data(k), - interfaceFluxes[k]);
-    }
-
-    residuals.set(rightCellRawId);
-    for (int k = 0; k < N_FIELDS; ++k) {
-        atomicAdd(residuals.data(k), interfaceFluxes[k]);
+        atomicAdd(&(cellRHS[k][leftCellRawId]), - cellContribution);
+        atomicAdd(&(cellRHS[k][rightCellRawId]), cellContribution);
     }
 
     // Update maximum eigenvalue
