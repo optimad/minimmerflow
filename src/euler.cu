@@ -104,7 +104,7 @@ __device__ void dev_reduceMax(const double value, const size_t nElements,
  * \param[out] fluxes on output will contain the conservative fluxes
  * \param[out] lambda on output will contain the maximum eigenvalue
  */
-__device__ void dev_evalFluxes(const DeviceSharedArray<double> &conservative, const double *normal,
+__device__ void dev_evalFluxes(const DeviceSharedArray<double> &conservative, const double3 &normal,
                                DeviceSharedArray<double> *fluxes, double *lambda)
 {
     // Compute primitive variables
@@ -120,15 +120,11 @@ __device__ void dev_evalFluxes(const DeviceSharedArray<double> &conservative, co
     double a = std::sqrt(DEV_GAMMA * T);
 
     // Compute normal velocity
-    double nx = normal[0];
-    double ny = normal[1];
-    double nz = normal[2];
-
     double u = primitive[DEV_FID_U];
     double v = primitive[DEV_FID_V];
     double w = primitive[DEV_FID_W];
 
-    double un = ::utils::dev_normalVelocity(u, v, w, nx, ny, nz);
+    double un = ::utils::dev_normalVelocity(u, v, w, normal.x, normal.y, normal.z);
 
     // Evaluate maximum eigenvalue
     *lambda = std::abs(un) + a;
@@ -153,9 +149,9 @@ __device__ void dev_evalFluxes(const DeviceSharedArray<double> &conservative, co
     (*fluxes)[DEV_FID_EQ_E] = un * (eto + p);
 
     // Momentum flux
-    (*fluxes)[DEV_FID_EQ_M_X] = massFlux * u + p * nx;
-    (*fluxes)[DEV_FID_EQ_M_Y] = massFlux * v + p * ny;
-    (*fluxes)[DEV_FID_EQ_M_Z] = massFlux * w + p * nz;
+    (*fluxes)[DEV_FID_EQ_M_X] = massFlux * u + p * normal.x;
+    (*fluxes)[DEV_FID_EQ_M_Y] = massFlux * v + p * normal.y;
+    (*fluxes)[DEV_FID_EQ_M_Z] = massFlux * w + p * normal.z;
 
     // Continuity flux
     (*fluxes)[DEV_FID_EQ_C] = massFlux;
@@ -172,7 +168,7 @@ __device__ void dev_evalFluxes(const DeviceSharedArray<double> &conservative, co
  * \param[out] lambda on output will contain the maximum eigenvalue
  */
 __device__ void dev_solveRiemann(const DeviceSharedArray<double> &conservativeL, const DeviceSharedArray<double> &conservativeR,
-                                 const double *normal, DeviceSharedArray<double> *fluxes, double *lambda)
+                                 const double3 &normal, DeviceSharedArray<double> *fluxes, double *lambda)
 {
     // Fluxes on the left side
     //
@@ -230,7 +226,7 @@ __device__ void dev_evalInterfaceValues(int order, const double *point,
  * \param innerValues are the inner innerValues values
  * \param[out] boundaryValues are the boundary values
  */
-__device__ void dev_evalInterfaceBCValues(int problemType, int BCType, const double *point, const double *normal,
+__device__ void dev_evalInterfaceBCValues(int problemType, int BCType, const double *point, const double3 &normal,
                                           const DeviceSharedArray<double> &innerValues, DeviceSharedArray<double> *boundaryValues)
 {
     double infoStorage[BC_INFO_SIZE];
@@ -267,7 +263,7 @@ __device__ void dev_evalInterfaceBCValues(int problemType, int BCType, const dou
  * \param innerValues are the inner innerValues values
  * \param[out] boundaryValues are the boundary values
  */
-__device__ void dev_evalFreeFlowBCValues(const double *point, const double *normal, const DeviceProxyArray<double> &info,
+__device__ void dev_evalFreeFlowBCValues(const double *point, const double3 &normal, const DeviceProxyArray<double> &info,
                                          const DeviceSharedArray<double> &innerValues, DeviceSharedArray<double> *boundaryValues)
 {
     BITPIT_UNUSED(point);
@@ -288,7 +284,7 @@ __device__ void dev_evalFreeFlowBCValues(const double *point, const double *norm
  * \param innerValues are the inner innerValues values
  * \param[out] boundaryValues are the boundary values
  */
-__device__ void dev_evalReflectingBCValues(const double *point, const double *normal, const DeviceProxyArray<double> &info,
+__device__ void dev_evalReflectingBCValues(const double *point, const double3 &normal, const DeviceProxyArray<double> &info,
                                            const DeviceSharedArray<double> &innerValues, DeviceSharedArray<double> *boundaryValues)
 {
     BITPIT_UNUSED(point);
@@ -307,19 +303,15 @@ __device__ void dev_evalReflectingBCValues(const double *point, const double *no
     }
 
     // Apply boundary condition
-    double nx = normal[0];
-    double ny = normal[1];
-    double nz = normal[2];
-
     double u = primitive[DEV_FID_U];
     double v = primitive[DEV_FID_V];
     double w = primitive[DEV_FID_W];
 
-    double un = ::utils::dev_normalVelocity(u, v, w, nx, ny, nz);
+    double un = ::utils::dev_normalVelocity(u, v, w, normal.x, normal.y, normal.z);
 
-    primitive[FID_U] -= 2 * un * nx;
-    primitive[FID_V] -= 2 * un * ny;
-    primitive[FID_W] -= 2 * un * nz;
+    primitive[FID_U] -= 2 * un * normal.x;
+    primitive[FID_V] -= 2 * un * normal.y;
+    primitive[FID_W] -= 2 * un * normal.z;
 
     // Evaluate conservative values
     DeviceProxyArray<double> immutablePrimitive(&(primitive[0]), 0, 1);
@@ -335,7 +327,7 @@ __device__ void dev_evalReflectingBCValues(const double *point, const double *no
  * \param innerValues are the inner innerValues values
  * \param[out] boundaryValues are the boundary values
  */
-__device__ void dev_evalWallBCValues(const double *point, const double *normal, const DeviceProxyArray<double> &info,
+__device__ void dev_evalWallBCValues(const double *point, const double3 &normal, const DeviceProxyArray<double> &info,
                                      const DeviceSharedArray<double> &innerValues, DeviceSharedArray<double> *boundaryValues)
 {
     BITPIT_UNUSED(point);
@@ -353,7 +345,7 @@ __device__ void dev_evalWallBCValues(const double *point, const double *normal, 
  * \param innerValues are the inner innerValues values
  * \param[out] boundaryValues are the boundary values
  */
-__device__ void dev_evalDirichletBCValues(const double *point, const double *normal, const DeviceProxyArray<double> &info,
+__device__ void dev_evalDirichletBCValues(const double *point, const double3 &normal, const DeviceProxyArray<double> &info,
                                           const DeviceSharedArray<double> &innerValues, DeviceSharedArray<double> *boundaryValues)
 {
     BITPIT_UNUSED(point);
@@ -433,7 +425,7 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, int reconstruction
     //    Slot #1: interface fluxes
     //    Slot #2: left side reconstructed variables
     //    Slot #3: right side reconstructed variables
-    const double interfaceNormal[3] = {interfaceNormals[0][interfaceRawId], interfaceNormals[1][interfaceRawId], interfaceNormals[2][interfaceRawId]};
+    double3 interfaceNormal = make_double3(interfaceNormals[0][interfaceRawId], interfaceNormals[1][interfaceRawId], interfaceNormals[2][interfaceRawId]);
 
     double *interfaceFluxesStorage = &(sharedStorage[0]);
     DeviceSharedArray<double> interfaceFluxes(interfaceFluxesStorage);
@@ -517,7 +509,7 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, int problemType, 
     //    Slot #2: fluid side reconstructed variables
     //    Slot #3: virtual side reconstructed conservative variables
     const double interfaceCentroid[3] = {interfaceCentroids[0][interfaceRawId], interfaceCentroids[1][interfaceRawId], interfaceCentroids[2][interfaceRawId]};
-    const double interfaceNormal[3]   = {interfaceNormals[0][interfaceRawId], interfaceNormals[1][interfaceRawId], interfaceNormals[2][interfaceRawId]};
+    double3 interfaceNormal   = make_double3(interfaceNormals[0][interfaceRawId], interfaceNormals[1][interfaceRawId], interfaceNormals[2][interfaceRawId]);
 
     DeviceCollectionDataConstCursor<double> fluidCellConservativesCursor(cellConvervatives, fluidCellRawId);
     double *fluidReconstructionStorage = &(sharedStorage[sharedSlotSize]);
@@ -558,12 +550,9 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, int problemType, 
 
     const double interfaceCoefficient = boundarySign * interfaceArea;
     for (int k = 0; k < N_FIELDS; ++k) {
-        interfaceFluxes[k] *= interfaceCoefficient;
-    }
+        double cellContribution = interfaceCoefficient * interfaceFluxes[k];
 
-    DeviceCollectionDataCursor<double> fluidCellRHS(cellRHS, fluidCellRawId);
-    for (int k = 0; k < N_FIELDS; ++k) {
-        atomicAdd(&(fluidCellRHS[k]), - interfaceFluxes[k]);
+        atomicAdd(&(cellRHS[k][fluidCellRawId]), - cellContribution);
     }
 
     // Update maximum eigenvalue

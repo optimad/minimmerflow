@@ -40,7 +40,7 @@ namespace problem {
  * \param[out] info on output will contain the needed information
  */
 __device__ void dev_getBorderBCInfo(int problemType, int BCType, const double *point,
-                                    const double *normal, DeviceProxyArray<double> *info)
+                                    const double3 &normal, DeviceProxyArray<double> *info)
 {
     BITPIT_UNUSED(point);
     BITPIT_UNUSED(normal);
