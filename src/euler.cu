@@ -120,11 +120,8 @@ __device__ void dev_evalFluxes(const DeviceSharedArray<double> &conservative, co
     double a = std::sqrt(DEV_GAMMA * T);
 
     // Compute normal velocity
-    double u = primitive[DEV_FID_U];
-    double v = primitive[DEV_FID_V];
-    double w = primitive[DEV_FID_W];
-
-    double un = ::utils::dev_normalVelocity(u, v, w, normal.x, normal.y, normal.z);
+    double3 u = make_double3(primitive[DEV_FID_U], primitive[DEV_FID_V], primitive[DEV_FID_W]);
+    double un = ::utils::dev_normalVelocity(u.x, u.y, u.z, normal.x, normal.y, normal.z);
 
     // Evaluate maximum eigenvalue
     *lambda = std::abs(un) + a;
@@ -143,15 +140,15 @@ __device__ void dev_evalFluxes(const DeviceSharedArray<double> &conservative, co
         printf("***** Negative pressure (%f) in flux computation!\n", p);
     }
 
-    double rho_K = 0.5 * rho * (u * u + v * v + w * w);
+    double rho_K = 0.5 * rho * (u.x * u.x + u.y * u.y + u.z * u.z);
     double eto   = p / (DEV_GAMMA - 1.) + rho_K;
 
     (*fluxes)[DEV_FID_EQ_E] = un * (eto + p);
 
     // Momentum flux
-    (*fluxes)[DEV_FID_EQ_M_X] = massFlux * u + p * normal.x;
-    (*fluxes)[DEV_FID_EQ_M_Y] = massFlux * v + p * normal.y;
-    (*fluxes)[DEV_FID_EQ_M_Z] = massFlux * w + p * normal.z;
+    (*fluxes)[DEV_FID_EQ_M_X] = massFlux * u.x + p * normal.x;
+    (*fluxes)[DEV_FID_EQ_M_Y] = massFlux * u.y + p * normal.y;
+    (*fluxes)[DEV_FID_EQ_M_Z] = massFlux * u.z + p * normal.z;
 
     // Continuity flux
     (*fluxes)[DEV_FID_EQ_C] = massFlux;
@@ -303,11 +300,8 @@ __device__ void dev_evalReflectingBCValues(const double3 &point, const double3 &
     }
 
     // Apply boundary condition
-    double u = primitive[DEV_FID_U];
-    double v = primitive[DEV_FID_V];
-    double w = primitive[DEV_FID_W];
-
-    double un = ::utils::dev_normalVelocity(u, v, w, normal.x, normal.y, normal.z);
+    double3 u = make_double3(primitive[DEV_FID_U], primitive[DEV_FID_V], primitive[DEV_FID_W]);
+    double un = ::utils::dev_normalVelocity(u.x, u.y, u.z, normal.x, normal.y, normal.z);
 
     primitive[FID_U] -= 2 * un * normal.x;
     primitive[FID_V] -= 2 * un * normal.y;
