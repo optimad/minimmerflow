@@ -61,16 +61,14 @@ __device__ __forceinline__ void dev_conservative2primitive(const DeviceProxyArra
     double rho_inv = 1. / rho;
 
     // Velocity
-    double u = c[DEV_FID_RHO_U] * rho_inv;
-    double v = c[DEV_FID_RHO_V] * rho_inv;
-    double w = c[DEV_FID_RHO_W] * rho_inv;
+    double3 u = make_double3(c[DEV_FID_U] * rho_inv, c[DEV_FID_V] * rho_inv, c[DEV_FID_W] * rho_inv);
 
-    (*p)[DEV_FID_U] = u;
-    (*p)[DEV_FID_V] = v;
-    (*p)[DEV_FID_W] = w;
+    (*p)[DEV_FID_U] = u.x;
+    (*p)[DEV_FID_V] = u.y;
+    (*p)[DEV_FID_W] = u.z;
 
     // Temperature
-    double K = 0.5 * (u * u + v * v + w * w);
+    double K = 0.5 * (u.x * u.x + u.y * u.y + u.z * u.z);
     double e = c[DEV_FID_RHO_E] * rho_inv;
     double T = (e - K) * (DEV_GAMMA - 1.0);
 
@@ -95,16 +93,14 @@ __device__ __forceinline__ void dev_primitive2conservative(const DeviceProxyArra
     (*c)[DEV_FID_RHO] = rho;
 
     // Momentum
-    double u  = p[DEV_FID_U];
-    double v  = p[DEV_FID_V];
-    double w  = p[DEV_FID_W];
+    double3 u = make_double3(p[DEV_FID_U], p[DEV_FID_V], p[DEV_FID_W]);
 
-    (*c)[DEV_FID_RHO_U] = rho * u;
-    (*c)[DEV_FID_RHO_V] = rho * v;
-    (*c)[DEV_FID_RHO_W] = rho * w;
+    (*c)[DEV_FID_RHO_U] = rho * u.x;
+    (*c)[DEV_FID_RHO_V] = rho * u.y;
+    (*c)[DEV_FID_RHO_W] = rho * u.z;
 
     // Total energy
-    double K = 0.5 * (u * u + v * v + w * w);
+    double K = 0.5 * (u.x * u.x + u.y * u.y + u.z * u.z);
 
     (*c)[DEV_FID_RHO_E] = rho * (T / (DEV_GAMMA - 1.0) + K);
 };
