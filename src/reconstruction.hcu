@@ -39,8 +39,9 @@ namespace reconstruction {
  * \param means are the mean values of the fields
  * \param[out] values on output will contain the reconstructed values
  */
+template<int BLOCK_SIZE>
 __device__ __forceinline__ void dev_eval_1(const double3 &point, const DeviceCollectionDataConstCursor<double> &means,
-                                           DeviceSharedArray<double> *values)
+                                           DeviceSharedArray<double, BLOCK_SIZE> *values)
 {
     BITPIT_UNUSED(point);
 
@@ -57,13 +58,14 @@ __device__ __forceinline__ void dev_eval_1(const double3 &point, const DeviceCol
  * \param means are the mean values of the fields
  * \param[out] values on output will contain the reconstructed values
  */
+template<int BLOCK_SIZE>
 __device__ __forceinline__ void dev_eval(int order, const double3 &point, const DeviceCollectionDataConstCursor<double> &means,
-                                         DeviceSharedArray<double> *values)
+                                         DeviceSharedArray<double, BLOCK_SIZE> *values)
 {
     switch (order) {
 
     case (1):
-        dev_eval_1(point, means, values);
+        dev_eval_1<BLOCK_SIZE>(point, means, values);
         break;
 
     default:
