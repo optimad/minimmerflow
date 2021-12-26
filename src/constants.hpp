@@ -26,7 +26,7 @@
 #define __MINIMMERFLOW_CONSTANTS_HPP__
 
 // Constants
-#define N_FIELDS 5
+constexpr int N_FIELDS = 5;
 
 constexpr int FID_P = 0;
 constexpr int FID_U = 1;
