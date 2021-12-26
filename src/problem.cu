@@ -40,7 +40,7 @@ namespace problem {
  * \param[out] info on output will contain the needed information
  */
 __device__ void dev_getBorderBCInfo(int problemType, int BCType, const double3 &point,
-                                    const double3 &normal, DeviceProxyArray<double, 1> *info)
+                                    const double3 &normal, double *info)
 {
     BITPIT_UNUSED(point);
     BITPIT_UNUSED(normal);
@@ -52,11 +52,11 @@ __device__ void dev_getBorderBCInfo(int problemType, int BCType, const double3 &
         switch (BCType) {
 
         case (BC_DIRICHLET):
-            (*info)[FID_U] = 3.0;
-            (*info)[FID_V] = 0.;
-            (*info)[FID_W] = 0.;
-            (*info)[FID_P] = 1.;
-            (*info)[FID_T] = 1./1.4;
+            info[FID_U] = 3.0;
+            info[FID_V] = 0.;
+            info[FID_W] = 0.;
+            info[FID_P] = 1.;
+            info[FID_T] = 1./1.4;
             return;
 
         }

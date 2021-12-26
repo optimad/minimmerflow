@@ -40,8 +40,8 @@ __device__ void dev_atomicMax(const double value, double * const maxValue);
 __device__ void dev_reduceMax(const double value, const size_t nElements, double *workspace, double *maxValue);
 
 template<int BLOCK_SIZE>
-__device__ void dev_evalFluxes(const DeviceSharedArray<double, BLOCK_SIZE> &conservative, const double3 &normal,
-                               DeviceSharedArray<double, BLOCK_SIZE> *work, double fluxes[], double *lambda);
+__device__ void dev_sumFluxes(const DeviceSharedArray<double, BLOCK_SIZE> &conservative, const double3 &normal,
+                              double coefficient, DeviceSharedArray<double, BLOCK_SIZE> *fluxes, double *lambda);
 
 template<int BLOCK_SIZE>
 __device__ void dev_solveRiemann(const DeviceSharedArray<double, BLOCK_SIZE> &conservativeL, const DeviceSharedArray<double, BLOCK_SIZE> &conservativeR,
@@ -53,23 +53,28 @@ __device__ void dev_evalInterfaceValues(int order, const double3 &point, const D
 
 template<int BLOCK_SIZE>
 __device__ void dev_evalInterfaceBCValues(int problemType, int BCType, const double3 &point, const double3 &normal,
-                                          const DeviceSharedArray<double, BLOCK_SIZE> &innerValues, DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues);
+                                          const DeviceSharedArray<double, BLOCK_SIZE> &innerValues,
+                                          DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues);
 
 template<int BLOCK_SIZE>
-__device__ void dev_evalFreeFlowBCValues(const double3 &point, const double3 &normal, const DeviceProxyArray<double, 1> &info,
-                                         const DeviceSharedArray<double, BLOCK_SIZE> &innerValues, DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues);
+__device__ void dev_evalFreeFlowBCValues(const double3 &point, const double3 &normal, double *info,
+                                         const DeviceSharedArray<double, BLOCK_SIZE> &innerValues,
+                                         DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues);
 
 template<int BLOCK_SIZE>
-__device__ void dev_evalReflectingBCValues(const double3 &point, const double3 &normal, const DeviceProxyArray<double, 1> &info,
-                                           const DeviceSharedArray<double, BLOCK_SIZE> &innerValues, DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues);
+__device__ void dev_evalReflectingBCValues(const double3 &point, const double3 &normal, double *info,
+                                           const DeviceSharedArray<double, BLOCK_SIZE> &innerValues,
+                                           DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues);
 
 template<int BLOCK_SIZE>
-__device__ void dev_evalWallBCValues(const double3 &point, const double3 &normal, const DeviceProxyArray<double, 1> &info,
-                                     const DeviceSharedArray<double, BLOCK_SIZE> &innerValues, DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues);
+__device__ void dev_evalWallBCValues(const double3 &point, const double3 &normal, double *info,
+                                     const DeviceSharedArray<double, BLOCK_SIZE> &innerValues,
+                                     DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues);
 
 template<int BLOCK_SIZE>
-__device__ void dev_evalDirichletBCValues(const double3 &point, const double3 &normal, const DeviceProxyArray<double, 1> &info,
-                                          const DeviceSharedArray<double, BLOCK_SIZE> &innerValues, DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues);
+__device__ void dev_evalDirichletBCValues(const double3 &point, const double3 &normal, double *info,
+                                          const DeviceSharedArray<double, BLOCK_SIZE> &innerValues,
+                                          DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues);
 
 template<int BLOCK_SIZE>
 __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, int reconstructionOrder,
