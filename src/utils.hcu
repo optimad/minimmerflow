@@ -55,29 +55,27 @@ __device__ __forceinline__ double dev_normalVelocity(double u, double v, double 
  */
 template<int BLOCK_SIZE>
 __device__ __forceinline__ void dev_conservative2primitive(const DeviceSharedArray<double, BLOCK_SIZE> & __restrict__ c,
-                                                           DeviceProxyArray<double, BLOCK_SIZE> * __restrict__ p)
+                                                           double * __restrict__ p)
 {
     // Density
-    double rho = c[FID_RHO];
-
-    double rho_inv = 1. / rho;
+    double rho_inv = 1. / c[FID_RHO];
 
     // Velocity
     double3 u = make_double3(c[FID_U] * rho_inv, c[FID_V] * rho_inv, c[FID_W] * rho_inv);
 
-    (*p)[FID_U] = u.x;
-    (*p)[FID_V] = u.y;
-    (*p)[FID_W] = u.z;
+    p[FID_U] = u.x;
+    p[FID_V] = u.y;
+    p[FID_W] = u.z;
 
     // Temperature
     double K = 0.5 * (u.x * u.x + u.y * u.y + u.z * u.z);
     double e = c[FID_RHO_E] * rho_inv;
     double T = (e - K) * (GAMMA - 1.0);
 
-    (*p)[FID_T] = T;
+    p[FID_T] = T;
 
     // Pressure
-    (*p)[FID_P] = rho * T;
+    p[FID_P] = c[FID_RHO] * T;
 };
 
 /*!
@@ -87,12 +85,11 @@ __device__ __forceinline__ void dev_conservative2primitive(const DeviceSharedArr
  * \param[out] c are the conservative variables
  */
 template<int BLOCK_SIZE>
-__device__ __forceinline__ void dev_primitive2conservative(const DeviceProxyArray<double, BLOCK_SIZE> & __restrict__ p,
-                                                           DeviceProxyArray<double, BLOCK_SIZE> * __restrict__ c)
+__device__ __forceinline__ void dev_primitive2conservative(const double * __restrict__ p,
+                                                           DeviceSharedArray<double, BLOCK_SIZE> * __restrict__ c)
 {
     // Continuity
-    double T   = p[FID_T];
-    double rho = p[FID_P] / T;
+    double rho = p[FID_P] / p[FID_T];
 
     (*c)[FID_RHO] = rho;
 
@@ -106,7 +103,7 @@ __device__ __forceinline__ void dev_primitive2conservative(const DeviceProxyArra
     // Total energy
     double K = 0.5 * (u.x * u.x + u.y * u.y + u.z * u.z);
 
-    (*c)[FID_RHO_E] = rho * (T / (GAMMA - 1.0) + K);
+    (*c)[FID_RHO_E] = rho * (p[FID_T] / (GAMMA - 1.0) + K);
 };
 
 }
