@@ -25,7 +25,7 @@
 #ifndef __MINIMMERFLOW_EULER_HCU__
 #define __MINIMMERFLOW_EULER_HCU__
 
-#include "constants.hcu"
+#include "constants.hpp"
 #include "containers.hcu"
 #include "problem.hcu"
 #include "reconstruction.hcu"
