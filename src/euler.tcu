@@ -293,11 +293,6 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, int reconstruction
                                      const std::size_t *leftCellRawIds, const std::size_t *rightCellRawIds,
                                      const double * const *cellConvervatives, double **cellRHS, double *maxEig)
 {
-    int i = blockIdx.x * BLOCK_SIZE + threadIdx.x;
-    if (i >= nInterfaces) {
-        return;
-    }
-
     // Initialize shared storage
     //
     // The shared storage is logically divided in three slots, each of these
@@ -306,77 +301,80 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, int reconstruction
 
     const std::size_t sharedSlotSize = DeviceSharedArray<double, BLOCK_SIZE>::evaluateSharedSize(N_FIELDS);
 
-    // Get interface information
-    const std::size_t interfaceRawId = interfaceRawIds[i];
+    // Process interfaces
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < nInterfaces; i += blockDim.x * gridDim.x) {
+        // Get interface information
+        const std::size_t interfaceRawId = interfaceRawIds[i];
 
-    // Cell information
-    const std::size_t leftCellRawId  = leftCellRawIds[i];
-    const std::size_t rightCellRawId = rightCellRawIds[i];
+        // Cell information
+        const std::size_t leftCellRawId  = leftCellRawIds[i];
+        const std::size_t rightCellRawId = rightCellRawIds[i];
 
-    //
-    // Reconstruct interface values
-    //
-    // During this stage usage of shared memory is the following:
-    //    Slot #1: not used
-    //    Slot #2: left side reconstructed variables
-    //    Slot #3: right side reconstructed variables
-    double3 interfaceCentroid = make_double3(interfaceCentroids[0][interfaceRawId], interfaceCentroids[1][interfaceRawId], interfaceCentroids[2][interfaceRawId]);
+        //
+        // Reconstruct interface values
+        //
+        // During this stage usage of shared memory is the following:
+        //    Slot #1: not used
+        //    Slot #2: left side reconstructed variables
+        //    Slot #3: right side reconstructed variables
+        double3 interfaceCentroid = make_double3(interfaceCentroids[0][interfaceRawId], interfaceCentroids[1][interfaceRawId], interfaceCentroids[2][interfaceRawId]);
 
-    DeviceCollectionDataConstCursor<double> cellConservativesCursor(cellConvervatives, 0);
+        DeviceCollectionDataConstCursor<double> cellConservativesCursor(cellConvervatives, 0);
 
-    cellConservativesCursor.set(leftCellRawId);
-    double *leftReconstructionsStorage = &(sharedStorage[sharedSlotSize]);
-    DeviceSharedArray<double, BLOCK_SIZE> leftInterfaceConservatives(leftReconstructionsStorage);
-    dev_evalInterfaceValues(reconstructionOrder, interfaceCentroid, cellConservativesCursor, &leftInterfaceConservatives);
+        cellConservativesCursor.set(leftCellRawId);
+        double *leftReconstructionsStorage = &(sharedStorage[sharedSlotSize]);
+        DeviceSharedArray<double, BLOCK_SIZE> leftInterfaceConservatives(leftReconstructionsStorage);
+        dev_evalInterfaceValues(reconstructionOrder, interfaceCentroid, cellConservativesCursor, &leftInterfaceConservatives);
 
-    cellConservativesCursor.set(rightCellRawId);
-    double *rightReconstructionsStorage = &(sharedStorage[2 * sharedSlotSize]);
-    DeviceSharedArray<double, BLOCK_SIZE> rightInterfaceConservatives(rightReconstructionsStorage);
-    dev_evalInterfaceValues(reconstructionOrder, interfaceCentroid, cellConservativesCursor, &rightInterfaceConservatives);
+        cellConservativesCursor.set(rightCellRawId);
+        double *rightReconstructionsStorage = &(sharedStorage[2 * sharedSlotSize]);
+        DeviceSharedArray<double, BLOCK_SIZE> rightInterfaceConservatives(rightReconstructionsStorage);
+        dev_evalInterfaceValues(reconstructionOrder, interfaceCentroid, cellConservativesCursor, &rightInterfaceConservatives);
 
-    //
-    // Evaluate interface fluxes
-    //
-    // During this stage usage of shared memory is the following:
-    //    Slot #1: interface fluxes
-    //    Slot #2: left side reconstructed variables
-    //    Slot #3: right side reconstructed variables
-    double3 interfaceNormal = make_double3(interfaceNormals[0][interfaceRawId], interfaceNormals[1][interfaceRawId], interfaceNormals[2][interfaceRawId]);
+        //
+        // Evaluate interface fluxes
+        //
+        // During this stage usage of shared memory is the following:
+        //    Slot #1: interface fluxes
+        //    Slot #2: left side reconstructed variables
+        //    Slot #3: right side reconstructed variables
+        double3 interfaceNormal = make_double3(interfaceNormals[0][interfaceRawId], interfaceNormals[1][interfaceRawId], interfaceNormals[2][interfaceRawId]);
 
-    double *interfaceFluxesStorage = &(sharedStorage[0]);
-    DeviceSharedArray<double, BLOCK_SIZE> interfaceFluxes(interfaceFluxesStorage);
-    for (int k = 0; k < N_FIELDS; ++k) {
-        interfaceFluxes[k] = 0.;
+        double *interfaceFluxesStorage = &(sharedStorage[0]);
+        DeviceSharedArray<double, BLOCK_SIZE> interfaceFluxes(interfaceFluxesStorage);
+        for (int k = 0; k < N_FIELDS; ++k) {
+            interfaceFluxes[k] = 0.;
+        }
+
+        double interfaceMaxEig = 0.;
+
+        dev_solveRiemann(leftInterfaceConservatives, rightInterfaceConservatives, interfaceNormal, &interfaceFluxes, &interfaceMaxEig);
+
+        //
+        // Update cell residuals
+        //
+        // During this stage usage of shared memory is the following:
+        //    Slot #1: interface fluxes
+        //    Slot #2: not used
+        //    Slot #3: not used
+        const double interfaceCoefficient = interfaceAreas[interfaceRawId];
+        for (int k = 0; k < N_FIELDS; ++k) {
+            double fieldContribution = interfaceCoefficient * interfaceFluxes[k];
+            double *fieldRHS = cellRHS[k];
+
+            atomicAdd(fieldRHS + leftCellRawId, - fieldContribution);
+            atomicAdd(fieldRHS + rightCellRawId, fieldContribution);
+        }
+
+        // Update maximum eigenvalue
+        //
+        // During this stage usage of shared memory is the following:
+        //    Slot #1: workspace for eigenvalue reduction
+        //    Slot #2: not used
+        //    Slot #3: not used
+        double *reductionWorkspace = &(sharedStorage[0]);
+        dev_reduceMax(interfaceMaxEig, nInterfaces, reductionWorkspace, maxEig);
     }
-
-    double interfaceMaxEig = 0.;
-
-    dev_solveRiemann(leftInterfaceConservatives, rightInterfaceConservatives, interfaceNormal, &interfaceFluxes, &interfaceMaxEig);
-
-    //
-    // Update cell residuals
-    //
-    // During this stage usage of shared memory is the following:
-    //    Slot #1: interface fluxes
-    //    Slot #2: not used
-    //    Slot #3: not used
-    const double interfaceCoefficient = interfaceAreas[interfaceRawId];
-    for (int k = 0; k < N_FIELDS; ++k) {
-        double fieldContribution = interfaceCoefficient * interfaceFluxes[k];
-        double *fieldRHS = cellRHS[k];
-
-        atomicAdd(fieldRHS + leftCellRawId, - fieldContribution);
-        atomicAdd(fieldRHS + rightCellRawId, fieldContribution);
-    }
-
-    // Update maximum eigenvalue
-    //
-    // During this stage usage of shared memory is the following:
-    //    Slot #1: workspace for eigenvalue reduction
-    //    Slot #2: not used
-    //    Slot #3: not used
-    double *reductionWorkspace = &(sharedStorage[0]);
-    dev_reduceMax(interfaceMaxEig, nInterfaces, reductionWorkspace, maxEig);
 }
 
 /*!
@@ -400,11 +398,6 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, int problemType, 
                                       const std::size_t *fluidCellRawIds, const double * const *cellConvervatives,
                                       const int *boundarySigns, const int *boundaryBCs, double **cellRHS, double *maxEig)
 {
-    int i = blockIdx.x * BLOCK_SIZE + threadIdx.x;
-    if (i >= nInterfaces) {
-        return;
-    }
-
     // Initialize shared storage
     //
     // The shared storage is logically divided in three slots, each of these
@@ -413,74 +406,77 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, int problemType, 
 
     const std::size_t sharedSlotSize = DeviceSharedArray<double, BLOCK_SIZE>::evaluateSharedSize(N_FIELDS);
 
-    // Get interface information
-    const std::size_t interfaceRawId = interfaceRawIds[i];
+    // Process interfaces
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < nInterfaces; i += blockDim.x * gridDim.x) {
+        // Get interface information
+        const std::size_t interfaceRawId = interfaceRawIds[i];
 
-    // Cell information
-    const std::size_t fluidCellRawId = fluidCellRawIds[i];
+        // Cell information
+        const std::size_t fluidCellRawId = fluidCellRawIds[i];
 
-    //
-    // Reconstruct interface values
-    //
-    // During this stage usage of shared memory is the following:
-    //    Slot #1: not used
-    //    Slot #2: fluid side reconstructed variables
-    //    Slot #3: virtual side reconstructed conservative variables
-    double3 interfaceCentroid = make_double3(interfaceCentroids[0][interfaceRawId], interfaceCentroids[1][interfaceRawId], interfaceCentroids[2][interfaceRawId]);
-    double3 interfaceNormal   = make_double3(interfaceNormals[0][interfaceRawId], interfaceNormals[1][interfaceRawId], interfaceNormals[2][interfaceRawId]);
+        //
+        // Reconstruct interface values
+        //
+        // During this stage usage of shared memory is the following:
+        //    Slot #1: not used
+        //    Slot #2: fluid side reconstructed variables
+        //    Slot #3: virtual side reconstructed conservative variables
+        double3 interfaceCentroid = make_double3(interfaceCentroids[0][interfaceRawId], interfaceCentroids[1][interfaceRawId], interfaceCentroids[2][interfaceRawId]);
+        double3 interfaceNormal   = make_double3(interfaceNormals[0][interfaceRawId], interfaceNormals[1][interfaceRawId], interfaceNormals[2][interfaceRawId]);
 
-    DeviceCollectionDataConstCursor<double> fluidCellConservativesCursor(cellConvervatives, fluidCellRawId);
-    double *fluidReconstructionStorage = &(sharedStorage[sharedSlotSize]);
-    DeviceSharedArray<double, BLOCK_SIZE> fluidInterfaceConservatives(fluidReconstructionStorage);
-    dev_evalInterfaceValues(reconstructionOrder, interfaceCentroid, fluidCellConservativesCursor, &fluidInterfaceConservatives);
+        DeviceCollectionDataConstCursor<double> fluidCellConservativesCursor(cellConvervatives, fluidCellRawId);
+        double *fluidReconstructionStorage = &(sharedStorage[sharedSlotSize]);
+        DeviceSharedArray<double, BLOCK_SIZE> fluidInterfaceConservatives(fluidReconstructionStorage);
+        dev_evalInterfaceValues(reconstructionOrder, interfaceCentroid, fluidCellConservativesCursor, &fluidInterfaceConservatives);
 
-    const int interfaceBC = boundaryBCs[i];
-    double *virtualReconstructionStorage = &(sharedStorage[2 * sharedSlotSize]);
-    DeviceSharedArray<double, BLOCK_SIZE> virtualInterfaceConservatives(virtualReconstructionStorage);
-    dev_evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, interfaceNormal, fluidInterfaceConservatives, &virtualInterfaceConservatives);
+        const int interfaceBC = boundaryBCs[i];
+        double *virtualReconstructionStorage = &(sharedStorage[2 * sharedSlotSize]);
+        DeviceSharedArray<double, BLOCK_SIZE> virtualInterfaceConservatives(virtualReconstructionStorage);
+        dev_evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, interfaceNormal, fluidInterfaceConservatives, &virtualInterfaceConservatives);
 
-    //
-    // Evaluate interface fluxes
-    //
-    // During this stage usage of shared memory is the following:
-    //    Slot #1: interface fluxes
-    //    Slot #2: fluid side reconstructed variables
-    //    Slot #3: virtual side reconstructed variables
-    double *interfaceFluxesStorage = &(sharedStorage[0]);
-    DeviceSharedArray<double, BLOCK_SIZE> interfaceFluxes(interfaceFluxesStorage);
-    for (int k = 0; k < N_FIELDS; ++k) {
-        interfaceFluxes[k] = 0.;
+        //
+        // Evaluate interface fluxes
+        //
+        // During this stage usage of shared memory is the following:
+        //    Slot #1: interface fluxes
+        //    Slot #2: fluid side reconstructed variables
+        //    Slot #3: virtual side reconstructed variables
+        double *interfaceFluxesStorage = &(sharedStorage[0]);
+        DeviceSharedArray<double, BLOCK_SIZE> interfaceFluxes(interfaceFluxesStorage);
+        for (int k = 0; k < N_FIELDS; ++k) {
+            interfaceFluxes[k] = 0.;
+        }
+
+        double interfaceMaxEig = 0.;
+
+        dev_solveRiemann(fluidInterfaceConservatives, virtualInterfaceConservatives, interfaceNormal, &interfaceFluxes, &interfaceMaxEig);
+
+        //
+        // Update cell residuals
+        //
+        // During this stage usage of shared memory is the following:
+        //    Slot #1: interface fluxes
+        //    Slot #2: not used
+        //    Slot #3: not used
+        const int boundarySign     = boundarySigns[i];
+        const double interfaceArea = interfaceAreas[interfaceRawId];
+
+        const double interfaceCoefficient = boundarySign * interfaceArea;
+        for (int k = 0; k < N_FIELDS; ++k) {
+            double cellContribution = interfaceCoefficient * interfaceFluxes[k];
+
+            atomicAdd(&(cellRHS[k][fluidCellRawId]), - cellContribution);
+        }
+
+        // Update maximum eigenvalue
+        //
+        // During this stage usage of shared memory is the following:
+        //    Slot #1: workspace for eigenvalue reduction
+        //    Slot #2: not used
+        //    Slot #3: not used
+        double *reductionWorkspace = &(sharedStorage[0]);
+        dev_reduceMax(interfaceMaxEig, nInterfaces, reductionWorkspace, maxEig);
     }
-
-    double interfaceMaxEig = 0.;
-
-    dev_solveRiemann(fluidInterfaceConservatives, virtualInterfaceConservatives, interfaceNormal, &interfaceFluxes, &interfaceMaxEig);
-
-    //
-    // Update cell residuals
-    //
-    // During this stage usage of shared memory is the following:
-    //    Slot #1: interface fluxes
-    //    Slot #2: not used
-    //    Slot #3: not used
-    const int boundarySign     = boundarySigns[i];
-    const double interfaceArea = interfaceAreas[interfaceRawId];
-
-    const double interfaceCoefficient = boundarySign * interfaceArea;
-    for (int k = 0; k < N_FIELDS; ++k) {
-        double cellContribution = interfaceCoefficient * interfaceFluxes[k];
-
-        atomicAdd(&(cellRHS[k][fluidCellRawId]), - cellContribution);
-    }
-
-    // Update maximum eigenvalue
-    //
-    // During this stage usage of shared memory is the following:
-    //    Slot #1: workspace for eigenvalue reduction
-    //    Slot #2: not used
-    //    Slot #3: not used
-    double *reductionWorkspace = &(sharedStorage[0]);
-    dev_reduceMax(interfaceMaxEig, nInterfaces, reductionWorkspace, maxEig);
 }
 
 }
