@@ -27,7 +27,7 @@
 
 #include "containers.hcu"
 #include "containers.cu"
-#include "constants.hcu"
+#include "constants.hpp"
 
 namespace utils {
 
@@ -58,26 +58,26 @@ __device__ __forceinline__ void dev_conservative2primitive(const DeviceSharedArr
                                                            DeviceProxyArray<double, BLOCK_SIZE> * __restrict__ p)
 {
     // Density
-    double rho = c[DEV_FID_RHO];
+    double rho = c[FID_RHO];
 
     double rho_inv = 1. / rho;
 
     // Velocity
-    double3 u = make_double3(c[DEV_FID_U] * rho_inv, c[DEV_FID_V] * rho_inv, c[DEV_FID_W] * rho_inv);
+    double3 u = make_double3(c[FID_U] * rho_inv, c[FID_V] * rho_inv, c[FID_W] * rho_inv);
 
-    (*p)[DEV_FID_U] = u.x;
-    (*p)[DEV_FID_V] = u.y;
-    (*p)[DEV_FID_W] = u.z;
+    (*p)[FID_U] = u.x;
+    (*p)[FID_V] = u.y;
+    (*p)[FID_W] = u.z;
 
     // Temperature
     double K = 0.5 * (u.x * u.x + u.y * u.y + u.z * u.z);
-    double e = c[DEV_FID_RHO_E] * rho_inv;
-    double T = (e - K) * (DEV_GAMMA - 1.0);
+    double e = c[FID_RHO_E] * rho_inv;
+    double T = (e - K) * (GAMMA - 1.0);
 
-    (*p)[DEV_FID_T] = T;
+    (*p)[FID_T] = T;
 
     // Pressure
-    (*p)[DEV_FID_P] = rho * T;
+    (*p)[FID_P] = rho * T;
 };
 
 /*!
@@ -91,22 +91,22 @@ __device__ __forceinline__ void dev_primitive2conservative(const DeviceProxyArra
                                                            DeviceProxyArray<double, BLOCK_SIZE> * __restrict__ c)
 {
     // Continuity
-    double T   = p[DEV_FID_T];
-    double rho = p[DEV_FID_P] / T;
+    double T   = p[FID_T];
+    double rho = p[FID_P] / T;
 
-    (*c)[DEV_FID_RHO] = rho;
+    (*c)[FID_RHO] = rho;
 
     // Momentum
-    double3 u = make_double3(p[DEV_FID_U], p[DEV_FID_V], p[DEV_FID_W]);
+    double3 u = make_double3(p[FID_U], p[FID_V], p[FID_W]);
 
-    (*c)[DEV_FID_RHO_U] = rho * u.x;
-    (*c)[DEV_FID_RHO_V] = rho * u.y;
-    (*c)[DEV_FID_RHO_W] = rho * u.z;
+    (*c)[FID_RHO_U] = rho * u.x;
+    (*c)[FID_RHO_V] = rho * u.y;
+    (*c)[FID_RHO_W] = rho * u.z;
 
     // Total energy
     double K = 0.5 * (u.x * u.x + u.y * u.y + u.z * u.z);
 
-    (*c)[DEV_FID_RHO_E] = rho * (T / (DEV_GAMMA - 1.0) + K);
+    (*c)[FID_RHO_E] = rho * (T / (GAMMA - 1.0) + K);
 };
 
 }

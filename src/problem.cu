@@ -22,7 +22,7 @@
  *
 \*---------------------------------------------------------------------------*/
 
-#include "constants.hcu"
+#include "constants.hpp"
 #include "containers.cu"
 #include "problem.hcu"
 #include "problem.hpp"
@@ -52,11 +52,11 @@ __device__ void dev_getBorderBCInfo(int problemType, int BCType, const double3 &
         switch (BCType) {
 
         case (BC_DIRICHLET):
-            (*info)[DEV_FID_U] = 3.0;
-            (*info)[DEV_FID_V] = 0.;
-            (*info)[DEV_FID_W] = 0.;
-            (*info)[DEV_FID_P] = 1.;
-            (*info)[DEV_FID_T] = 1./1.4;
+            (*info)[FID_U] = 3.0;
+            (*info)[FID_V] = 0.;
+            (*info)[FID_W] = 0.;
+            (*info)[FID_P] = 1.;
+            (*info)[FID_T] = 1./1.4;
             return;
 
         }
