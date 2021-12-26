@@ -28,47 +28,39 @@
 // Constants
 #define N_FIELDS 5
 
-const int FID_P = 0;
-const int FID_U = 1;
-const int FID_V = 2;
-const int FID_W = 3;
-const int FID_T = 4;
+constexpr int FID_P = 0;
+constexpr int FID_U = 1;
+constexpr int FID_V = 2;
+constexpr int FID_W = 3;
+constexpr int FID_T = 4;
 
-const int FID_RHO   = 0;
-const int FID_RHO_U = 1;
-const int FID_RHO_V = 2;
-const int FID_RHO_W = 3;
-const int FID_RHO_E = 4;
+constexpr int FID_RHO   = 0;
+constexpr int FID_RHO_U = 1;
+constexpr int FID_RHO_V = 2;
+constexpr int FID_RHO_W = 3;
+constexpr int FID_RHO_E = 4;
 
-const int FID_EQ_C   = 0;
-const int FID_EQ_M_X = 1;
-const int FID_EQ_M_Y = 2;
-const int FID_EQ_M_Z = 3;
-const int FID_EQ_E   = 4;
+constexpr int FID_EQ_C   = 0;
+constexpr int FID_EQ_M_X = 1;
+constexpr int FID_EQ_M_Y = 2;
+constexpr int FID_EQ_M_Z = 3;
+constexpr int FID_EQ_E   = 4;
 
-const double GAMMA = 1.4;
-const double R     = 287;
+constexpr double GAMMA = 1.4;
+constexpr double R     = 287;
 
-const int BC_NONE       = -1;
-const int BC_FREE_FLOW  =  0;
-const int BC_REFLECTING =  1;
-const int BC_WALL       =  2;
-const int BC_DIRICHLET  =  3;
+constexpr int BC_NONE       = -1;
+constexpr int BC_FREE_FLOW  =  0;
+constexpr int BC_REFLECTING =  1;
+constexpr int BC_WALL       =  2;
+constexpr int BC_DIRICHLET  =  3;
 
-const int BC_INFO_SIZE = N_FIELDS;
+constexpr int BC_INFO_SIZE = N_FIELDS;
 
-const int SOLVE_SOLID_GHOST = -2;
-const int SOLVE_SOLID       = -1;
-const int SOLVE_UNDEFINED   =  0;
-const int SOLVE_FLUID       =  1;
-const int SOLVE_FLUID_GHOST =  2;
-
-#if ENABLE_CUDA
-namespace constants {
-
-    void cuda_initialize();
-
-}
-#endif
+constexpr int SOLVE_SOLID_GHOST = -2;
+constexpr int SOLVE_SOLID       = -1;
+constexpr int SOLVE_UNDEFINED   =  0;
+constexpr int SOLVE_FLUID       =  1;
+constexpr int SOLVE_FLUID_GHOST =  2;
 
 #endif

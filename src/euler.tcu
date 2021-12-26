@@ -48,18 +48,18 @@ __device__ void dev_evalFluxes(const DeviceSharedArray<double, BLOCK_SIZE> &cons
     ::utils::dev_conservative2primitive(conservative, &primitive);
 
     // Speed of sound
-    double T = primitive[DEV_FID_T];
-    double a = std::sqrt(DEV_GAMMA * T);
+    double T = primitive[FID_T];
+    double a = std::sqrt(GAMMA * T);
 
     // Compute normal velocity
-    double3 u = make_double3(primitive[DEV_FID_U], primitive[DEV_FID_V], primitive[DEV_FID_W]);
+    double3 u = make_double3(primitive[FID_U], primitive[FID_V], primitive[FID_W]);
     double un = ::utils::dev_normalVelocity(u.x, u.y, u.z, normal.x, normal.y, normal.z);
 
     // Evaluate maximum eigenvalue
     *lambda = std::abs(un) + a;
 
     // Mass flux
-    double rho = conservative[DEV_FID_RHO];
+    double rho = conservative[FID_RHO];
     if (rho < 0.) {
        printf("***** Negative density (%f) in flux computation!\n", rho);
     }
@@ -67,7 +67,7 @@ __device__ void dev_evalFluxes(const DeviceSharedArray<double, BLOCK_SIZE> &cons
     double massFlux = rho * un;
 
     // Energy flux
-    double p = primitive[DEV_FID_P];
+    double p = primitive[FID_P];
     if (p < 0.) {
         printf("***** Negative pressure (%f) in flux computation!\n", p);
     }
@@ -80,15 +80,15 @@ __device__ void dev_evalFluxes(const DeviceSharedArray<double, BLOCK_SIZE> &cons
     double rho_K = rho * K;
     double eto   = p / (DEV_GAMMA - 1.) + rho_K;
 
-    (*fluxes)[DEV_FID_EQ_E] = un * (eto + p);
+    (*fluxes)[FID_EQ_E] = un * (eto + p);
 
     // Momentum flux
-    (*fluxes)[DEV_FID_EQ_M_X] = massFlux * u.x + p * normal.x;
-    (*fluxes)[DEV_FID_EQ_M_Y] = massFlux * u.y + p * normal.y;
-    (*fluxes)[DEV_FID_EQ_M_Z] = massFlux * u.z + p * normal.z;
+    (*fluxes)[FID_EQ_M_X] = massFlux * u.x + p * normal.x;
+    (*fluxes)[FID_EQ_M_Y] = massFlux * u.y + p * normal.y;
+    (*fluxes)[FID_EQ_M_Z] = massFlux * u.z + p * normal.z;
 
     // Continuity flux
-    (*fluxes)[DEV_FID_EQ_C] = massFlux;
+    (*fluxes)[FID_EQ_C] = massFlux;
 }
 
 /*!
@@ -245,7 +245,7 @@ __device__ void dev_evalReflectingBCValues(const double3 &point, const double3 &
     }
 
     // Apply boundary condition
-    double3 u = make_double3(primitive[DEV_FID_U], primitive[DEV_FID_V], primitive[DEV_FID_W]);
+    double3 u = make_double3(primitive[FID_U], primitive[FID_V], primitive[FID_W]);
     double un = ::utils::dev_normalVelocity(u.x, u.y, u.z, normal.x, normal.y, normal.z);
 
     primitive[FID_U] -= 2 * u.x * normal.x;
