@@ -28,67 +28,65 @@
 namespace euler {
 
 /*!
- * Calculates the conservative fluxes for a perfect gas.
+ * Sum the conservative fluxes for a perfect gas.
  *
  * \param conservative is the conservative state
  * \param n is the normal direction
- * \param[out] fluxes on output will contain the conservative fluxes
- * \param[out] lambda on output will contain the maximum eigenvalue
+ * \param[out] coefficient is the coefficient that will be used when summing
+ * the fluxes
+ * \param[in,out] fluxes are the conservative fluxes, on output it will be
+ * updated summing the fluxes of the specified state multiplied by the given
+ * coefficient
+ * \param[in,out] lambda is the maximum eigenvalue, on output it will be
+ * updated using the eigenvalue of the specified state
  */
 template<int BLOCK_SIZE>
-__device__ void dev_evalFluxes(const DeviceSharedArray<double, BLOCK_SIZE> &conservative, const double3 &normal,
-                               DeviceSharedArray<double, BLOCK_SIZE> *fluxes, double *lambda)
+__device__ void dev_sumFluxes(const DeviceSharedArray<double, BLOCK_SIZE> &conservative, const double3 &normal,
+                              double coefficient, DeviceSharedArray<double, BLOCK_SIZE> *fluxes, double *lambda)
 {
     // Compute primitive variables
     //
     // To reduce the usage of shared memory, primitive fields are evaluated on
     // the storage that will hold the fluxes.
-    DeviceSharedArray<double, BLOCK_SIZE> &primitive = *fluxes;
+    double primitive[N_FIELDS];
 
-    ::utils::dev_conservative2primitive(conservative, &primitive);
+    ::utils::dev_conservative2primitive(conservative, primitive);
+
+    // Validate state
+    if (primitive[FID_P] < 0.) {
+        printf("***** Negative pressure (%f) in flux computation!\n", primitive[FID_P]);
+    }
+
+    if (conservative[FID_RHO] < 0.) {
+       printf("***** Negative density (%f) in flux computation!\n", conservative[FID_RHO]);
+    }
 
     // Speed of sound
-    double T = primitive[FID_T];
-    double a = std::sqrt(GAMMA * T);
+    double a = std::sqrt(GAMMA * primitive[FID_T]);
 
-    // Compute normal velocity
+    // Velocity
     double3 u = make_double3(primitive[FID_U], primitive[FID_V], primitive[FID_W]);
     double un = ::utils::dev_normalVelocity(u.x, u.y, u.z, normal.x, normal.y, normal.z);
 
-    // Evaluate maximum eigenvalue
-    *lambda = std::abs(un) + a;
+    // Update maximum eigenvalue
+    *lambda = max(std::abs(un) + a, *lambda);
 
     // Mass flux
-    double rho = conservative[FID_RHO];
-    if (rho < 0.) {
-       printf("***** Negative density (%f) in flux computation!\n", rho);
-    }
-
-    double massFlux = rho * un;
-
-    // Energy flux
-    double p = primitive[FID_P];
-    if (p < 0.) {
-        printf("***** Negative pressure (%f) in flux computation!\n", p);
-    }
-
-    double K = u.x * u.x;
-    K += u.y * u.y;
-    K += u.z * u.z;
-    K *= 0.5;
-
-    double rho_K = rho * K;
-    double eto   = p / (DEV_GAMMA - 1.) + rho_K;
-
-    (*fluxes)[FID_EQ_E] = un * (eto + p);
-
-    // Momentum flux
-    (*fluxes)[FID_EQ_M_X] = massFlux * u.x + p * normal.x;
-    (*fluxes)[FID_EQ_M_Y] = massFlux * u.y + p * normal.y;
-    (*fluxes)[FID_EQ_M_Z] = massFlux * u.z + p * normal.z;
+    double massFlux = conservative[FID_RHO] * un;
 
     // Continuity flux
-    (*fluxes)[FID_EQ_C] = massFlux;
+    (*fluxes)[FID_EQ_C] += coefficient * massFlux;
+
+    // Momentum flux
+    (*fluxes)[FID_EQ_M_X] += coefficient * (massFlux * u.x + primitive[FID_P] * normal.x);
+    (*fluxes)[FID_EQ_M_Y] += coefficient * (massFlux * u.y + primitive[FID_P] * normal.y);
+    (*fluxes)[FID_EQ_M_Z] += coefficient * (massFlux * u.z + primitive[FID_P] * normal.z);
+
+    // Energy flux
+    double rho_K = 0.5 * conservative[FID_RHO] * (u.x * u.x + u.y * u.y + u.z * u.z);
+    double eto   = primitive[FID_P] / (GAMMA - 1.) + rho_K;
+
+    (*fluxes)[FID_EQ_E] += coefficient * un * (eto + primitive[FID_P]);
 }
 
 /*!
@@ -106,30 +104,14 @@ __device__ void dev_solveRiemann(const DeviceSharedArray<double, BLOCK_SIZE> &co
                                  const double3 &normal, DeviceSharedArray<double, BLOCK_SIZE> *fluxes, double *lambda)
 {
     // Fluxes on the left side
-    //
-    // To reduce the usage of shared memory, fluxes are temporary evaluated on
-    // the storage that will hold the interface fluxes and then copied on a
-    // local array.
-    dev_evalFluxes(conservativeL, normal, fluxes, lambda);
-
-    double fL[N_FIELDS];
-    for (int k = 0; k < N_FIELDS; ++k) {
-        fL[k] = (*fluxes)[k];
-    }
+    dev_sumFluxes(conservativeL, normal, 0.5, fluxes, lambda);
 
     // Fluxes on the right side
-    //
-    // To reduce the usage of shared memory, fluxes are evaluated on the
-    // storage that will hold the interface fluxes.
-    double lambdaR;
-    dev_evalFluxes(conservativeR, normal, fluxes, &lambdaR);
-    *lambda = max(lambdaR, *lambda);
+    dev_sumFluxes(conservativeR, normal, 0.5, fluxes, lambda);
 
-    DeviceSharedArray<double, BLOCK_SIZE> &fR = *fluxes;
-
-    // Splitting
+    // Lax Friedrichs correction
     for (int k = 0; k < N_FIELDS; ++k) {
-        (*fluxes)[k] = 0.5 * ((fR[k] + fL[k]) - (*lambda) * (conservativeR[k] - conservativeL[k]));
+        (*fluxes)[k] -= 0.5 * (*lambda) * (conservativeR[k] - conservativeL[k]);
     }
 }
 
@@ -167,9 +149,8 @@ __device__ void dev_evalInterfaceBCValues(int problemType, int BCType, const dou
                                           const DeviceSharedArray<double, BLOCK_SIZE> &innerValues,
                                           DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues)
 {
-    double infoStorage[BC_INFO_SIZE];
-    DeviceProxyArray<double, 1> info(&(infoStorage[0]), 0);
-    problem::dev_getBorderBCInfo(problemType, BCType, point, normal, &info);
+    double info[BC_INFO_SIZE];
+    problem::dev_getBorderBCInfo(problemType, BCType, point, normal, info);
 
     switch (BCType)
     {
@@ -202,7 +183,7 @@ __device__ void dev_evalInterfaceBCValues(int problemType, int BCType, const dou
  * \param[out] boundaryValues are the boundary values
  */
 template<int BLOCK_SIZE>
-__device__ void dev_evalFreeFlowBCValues(const double3 &point, const double3 &normal, const DeviceProxyArray<double, 1> &info,
+__device__ void dev_evalFreeFlowBCValues(const double3 &point, const double3 &normal, double *info,
                                          const DeviceSharedArray<double, BLOCK_SIZE> &innerValues,
                                          DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues)
 {
@@ -225,7 +206,7 @@ __device__ void dev_evalFreeFlowBCValues(const double3 &point, const double3 &no
  * \param[out] boundaryValues are the boundary values
  */
 template<int BLOCK_SIZE>
-__device__ void dev_evalReflectingBCValues(const double3 &point, const double3 &normal, const DeviceProxyArray<double, 1> &info,
+__device__ void dev_evalReflectingBCValues(const double3 &point, const double3 &normal, double *info,
                                            const DeviceSharedArray<double, BLOCK_SIZE> &innerValues,
                                            DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues)
 {
@@ -233,16 +214,8 @@ __device__ void dev_evalReflectingBCValues(const double3 &point, const double3 &
     BITPIT_UNUSED(info);
 
     // Evaluate primitive variables
-    //
-    // To reduce the usage of shared memory, primitive variables are temporary
-    // evaluated on the storage that will hold boundary values and then copied
-    // on a local array.
-    ::utils::dev_conservative2primitive(innerValues, boundaryValues);
-
     double primitive[N_FIELDS];
-    for (int k = 0; k < N_FIELDS; ++k) {
-        primitive[k] = (*boundaryValues)[k];
-    }
+    ::utils::dev_conservative2primitive(innerValues, primitive);
 
     // Apply boundary condition
     double3 u = make_double3(primitive[FID_U], primitive[FID_V], primitive[FID_W]);
@@ -253,8 +226,7 @@ __device__ void dev_evalReflectingBCValues(const double3 &point, const double3 &
     primitive[FID_W] -= 2 * u.z * normal.z;
 
     // Evaluate conservative values
-    DeviceProxyArray<double, 1> immutablePrimitive(&(primitive[0]), 0);
-    ::utils::dev_primitive2conservative(immutablePrimitive, boundaryValues);
+    ::utils::dev_primitive2conservative(primitive, boundaryValues);
 }
 
 /*!
@@ -267,7 +239,7 @@ __device__ void dev_evalReflectingBCValues(const double3 &point, const double3 &
  * \param[out] boundaryValues are the boundary values
  */
 template<int BLOCK_SIZE>
-__device__ void dev_evalWallBCValues(const double3 &point, const double3 &normal, const DeviceProxyArray<double, 1> &info,
+__device__ void dev_evalWallBCValues(const double3 &point, const double3 &normal, double *info,
                                      const DeviceSharedArray<double, BLOCK_SIZE> &innerValues,
                                      DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues)
 {
@@ -287,7 +259,7 @@ __device__ void dev_evalWallBCValues(const double3 &point, const double3 &normal
  * \param[out] boundaryValues are the boundary values
  */
 template<int BLOCK_SIZE>
-__device__ void dev_evalDirichletBCValues(const double3 &point, const double3 &normal, const DeviceProxyArray<double, 1> &info,
+__device__ void dev_evalDirichletBCValues(const double3 &point, const double3 &normal, double *info,
                                           const DeviceSharedArray<double, BLOCK_SIZE> &innerValues,
                                           DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues)
 {
@@ -377,7 +349,7 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, int reconstruction
         interfaceFluxes[k] = 0.;
     }
 
-    double interfaceMaxEig;
+    double interfaceMaxEig = 0.;
 
     dev_solveRiemann(leftInterfaceConservatives, rightInterfaceConservatives, interfaceNormal, &interfaceFluxes, &interfaceMaxEig);
 
@@ -390,10 +362,11 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, int reconstruction
     //    Slot #3: not used
     const double interfaceCoefficient = interfaceAreas[interfaceRawId];
     for (int k = 0; k < N_FIELDS; ++k) {
-        double cellContribution = interfaceCoefficient * interfaceFluxes[k];
+        double fieldContribution = interfaceCoefficient * interfaceFluxes[k];
+        double *fieldRHS = cellRHS[k];
 
-        atomicAdd(&(cellRHS[k][leftCellRawId]), - cellContribution);
-        atomicAdd(&(cellRHS[k][rightCellRawId]), cellContribution);
+        atomicAdd(fieldRHS + leftCellRawId, - fieldContribution);
+        atomicAdd(fieldRHS + rightCellRawId, fieldContribution);
     }
 
     // Update maximum eigenvalue
@@ -479,7 +452,7 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, int problemType, 
         interfaceFluxes[k] = 0.;
     }
 
-    double interfaceMaxEig;
+    double interfaceMaxEig = 0.;
 
     dev_solveRiemann(fluidInterfaceConservatives, virtualInterfaceConservatives, interfaceNormal, &interfaceFluxes, &interfaceMaxEig);
 
