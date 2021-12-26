@@ -150,6 +150,15 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     int devProblemType = static_cast<int>(problemType);
 
     //
+    // Device properties
+    //
+    int device;
+    cudaGetDevice(&device);
+
+    int nMultiprocessors;
+    cudaDeviceGetAttribute(&nMultiprocessors, cudaDevAttrMultiProcessorCount, device);
+
+    //
     // Process uniform interfaces
     //
     const ScalarStorage<std::size_t> &uniformInterfaceRawIds      = computationInfo.getSolvedUniformInterfaceRawIds();
@@ -164,7 +173,7 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     // Get block information
     const int UNIFORM_BLOCK_SIZE  = 256;
     const int UNIFORM_SHARED_SIZE = 3 * N_FIELDS * UNIFORM_BLOCK_SIZE * sizeof(double);
-    int nUniformBlocks = (nSolvedUniformInterfaces + UNIFORM_BLOCK_SIZE - 1) / UNIFORM_BLOCK_SIZE;
+    int nUniformBlocks = 32 * nMultiprocessors;
 
     // Evaluate fluxes
     dev_uniformUpdateRHS<UNIFORM_BLOCK_SIZE><<<nUniformBlocks, UNIFORM_BLOCK_SIZE, UNIFORM_SHARED_SIZE>>>
@@ -191,7 +200,7 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     // Get block information
     const int BOUNDARY_BLOCK_SIZE  = 256;
     const int BOUNDARY_SHARED_SIZE = 3 * N_FIELDS * BOUNDARY_BLOCK_SIZE * sizeof(double);;
-    int nBoundaryBlocks = (nBoundaryInterfaces + BOUNDARY_BLOCK_SIZE - 1) / BOUNDARY_BLOCK_SIZE;
+    int nBoundaryBlocks = 32 * nMultiprocessors;
 
     // Evaluate fluxes
     dev_boundaryUpdateRHS<BOUNDARY_BLOCK_SIZE><<<nBoundaryBlocks, BOUNDARY_BLOCK_SIZE, BOUNDARY_SHARED_SIZE>>>
