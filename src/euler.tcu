@@ -422,7 +422,11 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, int problemType, 
         //    Slot #2: fluid side reconstructed variables
         //    Slot #3: virtual side reconstructed conservative variables
         double3 interfaceCentroid = make_double3(interfaceCentroids[0][interfaceRawId], interfaceCentroids[1][interfaceRawId], interfaceCentroids[2][interfaceRawId]);
-        double3 interfaceNormal   = make_double3(interfaceNormals[0][interfaceRawId], interfaceNormals[1][interfaceRawId], interfaceNormals[2][interfaceRawId]);
+
+        int boundarySign = boundarySigns[i];
+        double3 interfaceNormal = make_double3(boundarySign * interfaceNormals[0][interfaceRawId], 
+                                               boundarySign * interfaceNormals[1][interfaceRawId], 
+                                               boundarySign * interfaceNormals[2][interfaceRawId]);
 
         DeviceCollectionDataConstCursor<double> fluidCellConservativesCursor(cellConvervatives, fluidCellRawId);
         double *fluidReconstructionStorage = &(sharedStorage[sharedSlotSize]);
@@ -458,10 +462,9 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, int problemType, 
         //    Slot #1: interface fluxes
         //    Slot #2: not used
         //    Slot #3: not used
-        const int boundarySign     = boundarySigns[i];
         const double interfaceArea = interfaceAreas[interfaceRawId];
 
-        const double interfaceCoefficient = boundarySign * interfaceArea;
+        const double interfaceCoefficient = interfaceArea;
         for (int k = 0; k < N_FIELDS; ++k) {
             double cellContribution = interfaceCoefficient * interfaceFluxes[k];
 
