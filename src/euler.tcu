@@ -68,6 +68,12 @@ __device__ void dev_sumFluxes(const DeviceSharedArray<double, BLOCK_SIZE> &conse
     // Update maximum eigenvalue
     *lambda = max(std::abs(un) + a, *lambda);
 
+    // Energy flux
+    double rho_K = 0.5 * conservative[FID_RHO] * (u.x * u.x + u.y * u.y + u.z * u.z);
+    double eto   = primitive[FID_P] / (GAMMA - 1.) + rho_K;
+
+    fluxes[FID_EQ_E] += coefficient * un * (eto + primitive[FID_P]);
+
     // Mass flux
     double massFlux = conservative[FID_RHO] * un;
 
@@ -78,12 +84,6 @@ __device__ void dev_sumFluxes(const DeviceSharedArray<double, BLOCK_SIZE> &conse
     fluxes[FID_EQ_M_X] += coefficient * (massFlux * u.x + primitive[FID_P] * normal.x);
     fluxes[FID_EQ_M_Y] += coefficient * (massFlux * u.y + primitive[FID_P] * normal.y);
     fluxes[FID_EQ_M_Z] += coefficient * (massFlux * u.z + primitive[FID_P] * normal.z);
-
-    // Energy flux
-    double rho_K = 0.5 * conservative[FID_RHO] * (u.x * u.x + u.y * u.y + u.z * u.z);
-    double eto   = primitive[FID_P] / (GAMMA - 1.) + rho_K;
-
-    fluxes[FID_EQ_E] += coefficient * un * (eto + primitive[FID_P]);
 }
 
 /*!
