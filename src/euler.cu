@@ -171,7 +171,7 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     const std::size_t *devUniformNeighRawIds     = uniformInterfaceNeighRawIds.cuda_deviceData();
 
     // Get block information
-    const int UNIFORM_BLOCK_SIZE  = 256;
+    const int UNIFORM_BLOCK_SIZE  = 512;
     const int UNIFORM_SHARED_SIZE = 2 * N_FIELDS * UNIFORM_BLOCK_SIZE * sizeof(double);
     int nUniformBlocks = 32 * nMultiprocessors;
 
@@ -198,7 +198,7 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
     const int *devBoundaryInterfaceBCs            = solvedBoundaryInterfaceBCs.cuda_deviceData();
 
     // Get block information
-    const int BOUNDARY_BLOCK_SIZE  = 256;
+    const int BOUNDARY_BLOCK_SIZE  = 512;
     const int BOUNDARY_SHARED_SIZE = 2 * N_FIELDS * BOUNDARY_BLOCK_SIZE * sizeof(double);;
     int nBoundaryBlocks = 32 * nMultiprocessors;
 
