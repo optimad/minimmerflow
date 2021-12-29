@@ -41,11 +41,11 @@ __device__ void dev_reduceMax(const double value, const size_t nElements, double
 
 template<int BLOCK_SIZE>
 __device__ void dev_sumFluxes(const DeviceSharedArray<double, BLOCK_SIZE> &conservative, const double3 &normal,
-                              double coefficient, DeviceSharedArray<double, BLOCK_SIZE> *fluxes, double *lambda);
+                              double coefficient, double fluxes[], double *lambda);
 
 template<int BLOCK_SIZE>
 __device__ void dev_solveRiemann(const DeviceSharedArray<double, BLOCK_SIZE> &conservativeL, const DeviceSharedArray<double, BLOCK_SIZE> &conservativeR,
-                                 const double3 &normal, DeviceSharedArray<double, BLOCK_SIZE> *fluxes, double *lambda);
+                                 const double3 &normal, double fluxes[], double *lambda);
 
 template<int BLOCK_SIZE>
 __device__ void dev_evalInterfaceValues(int order, const double3 &point, const DeviceCollectionDataConstCursor<double> &means,

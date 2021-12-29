@@ -42,12 +42,9 @@ namespace euler {
  */
 template<int BLOCK_SIZE>
 __device__ void dev_sumFluxes(const DeviceSharedArray<double, BLOCK_SIZE> &conservative, const double3 &normal,
-                              double coefficient, DeviceSharedArray<double, BLOCK_SIZE> *fluxes, double *lambda)
+                              double coefficient, double fluxes[], double *lambda)
 {
     // Compute primitive variables
-    //
-    // To reduce the usage of shared memory, primitive fields are evaluated on
-    // the storage that will hold the fluxes.
     double primitive[N_FIELDS];
 
     ::utils::dev_conservative2primitive(conservative, primitive);
@@ -75,18 +72,18 @@ __device__ void dev_sumFluxes(const DeviceSharedArray<double, BLOCK_SIZE> &conse
     double massFlux = conservative[FID_RHO] * un;
 
     // Continuity flux
-    (*fluxes)[FID_EQ_C] += coefficient * massFlux;
+    fluxes[FID_EQ_C] += coefficient * massFlux;
 
     // Momentum flux
-    (*fluxes)[FID_EQ_M_X] += coefficient * (massFlux * u.x + primitive[FID_P] * normal.x);
-    (*fluxes)[FID_EQ_M_Y] += coefficient * (massFlux * u.y + primitive[FID_P] * normal.y);
-    (*fluxes)[FID_EQ_M_Z] += coefficient * (massFlux * u.z + primitive[FID_P] * normal.z);
+    fluxes[FID_EQ_M_X] += coefficient * (massFlux * u.x + primitive[FID_P] * normal.x);
+    fluxes[FID_EQ_M_Y] += coefficient * (massFlux * u.y + primitive[FID_P] * normal.y);
+    fluxes[FID_EQ_M_Z] += coefficient * (massFlux * u.z + primitive[FID_P] * normal.z);
 
     // Energy flux
     double rho_K = 0.5 * conservative[FID_RHO] * (u.x * u.x + u.y * u.y + u.z * u.z);
     double eto   = primitive[FID_P] / (GAMMA - 1.) + rho_K;
 
-    (*fluxes)[FID_EQ_E] += coefficient * un * (eto + primitive[FID_P]);
+    fluxes[FID_EQ_E] += coefficient * un * (eto + primitive[FID_P]);
 }
 
 /*!
@@ -101,7 +98,7 @@ __device__ void dev_sumFluxes(const DeviceSharedArray<double, BLOCK_SIZE> &conse
  */
 template<int BLOCK_SIZE>
 __device__ void dev_solveRiemann(const DeviceSharedArray<double, BLOCK_SIZE> &conservativeL, const DeviceSharedArray<double, BLOCK_SIZE> &conservativeR,
-                                 const double3 &normal, DeviceSharedArray<double, BLOCK_SIZE> *fluxes, double *lambda)
+                                 const double3 &normal, double fluxes[], double *lambda)
 {
     // Fluxes on the left side
     dev_sumFluxes(conservativeL, normal, 0.5, fluxes, lambda);
@@ -111,7 +108,7 @@ __device__ void dev_solveRiemann(const DeviceSharedArray<double, BLOCK_SIZE> &co
 
     // Lax Friedrichs correction
     for (int k = 0; k < N_FIELDS; ++k) {
-        (*fluxes)[k] -= 0.5 * (*lambda) * (conservativeR[k] - conservativeL[k]);
+        fluxes[k] -= 0.5 * (*lambda) * (conservativeR[k] - conservativeL[k]);
     }
 }
 
@@ -340,8 +337,7 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, int reconstruction
         //    Slot #3: right side reconstructed variables
         double3 interfaceNormal = make_double3(interfaceNormals[0][interfaceRawId], interfaceNormals[1][interfaceRawId], interfaceNormals[2][interfaceRawId]);
 
-        double *interfaceFluxesStorage = &(sharedStorage[0]);
-        DeviceSharedArray<double, BLOCK_SIZE> interfaceFluxes(interfaceFluxesStorage);
+        double interfaceFluxes[N_FIELDS];
         for (int k = 0; k < N_FIELDS; ++k) {
             interfaceFluxes[k] = 0.;
         }
@@ -445,8 +441,7 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, int problemType, 
         //    Slot #1: interface fluxes
         //    Slot #2: fluid side reconstructed variables
         //    Slot #3: virtual side reconstructed variables
-        double *interfaceFluxesStorage = &(sharedStorage[0]);
-        DeviceSharedArray<double, BLOCK_SIZE> interfaceFluxes(interfaceFluxesStorage);
+        double interfaceFluxes[N_FIELDS];
         for (int k = 0; k < N_FIELDS; ++k) {
             interfaceFluxes[k] = 0.;
         }
