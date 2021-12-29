@@ -172,7 +172,7 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
 
     // Get block information
     const int UNIFORM_BLOCK_SIZE  = 256;
-    const int UNIFORM_SHARED_SIZE = 3 * N_FIELDS * UNIFORM_BLOCK_SIZE * sizeof(double);
+    const int UNIFORM_SHARED_SIZE = 2 * N_FIELDS * UNIFORM_BLOCK_SIZE * sizeof(double);
     int nUniformBlocks = 32 * nMultiprocessors;
 
     // Evaluate fluxes
@@ -199,7 +199,7 @@ void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computati
 
     // Get block information
     const int BOUNDARY_BLOCK_SIZE  = 256;
-    const int BOUNDARY_SHARED_SIZE = 3 * N_FIELDS * BOUNDARY_BLOCK_SIZE * sizeof(double);;
+    const int BOUNDARY_SHARED_SIZE = 2 * N_FIELDS * BOUNDARY_BLOCK_SIZE * sizeof(double);;
     int nBoundaryBlocks = 32 * nMultiprocessors;
 
     // Evaluate fluxes
