@@ -344,7 +344,7 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, int reconstruction
 
         double interfaceMaxEig = 0.;
 
-        dev_solveRiemann(leftInterfaceConservatives, rightInterfaceConservatives, interfaceNormal, &interfaceFluxes, &interfaceMaxEig);
+        dev_solveRiemann(leftInterfaceConservatives, rightInterfaceConservatives, interfaceNormal, interfaceFluxes, &interfaceMaxEig);
 
         //
         // Update cell residuals
@@ -448,7 +448,7 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, int problemType, 
 
         double interfaceMaxEig = 0.;
 
-        dev_solveRiemann(fluidInterfaceConservatives, virtualInterfaceConservatives, interfaceNormal, &interfaceFluxes, &interfaceMaxEig);
+        dev_solveRiemann(fluidInterfaceConservatives, virtualInterfaceConservatives, interfaceNormal, interfaceFluxes, &interfaceMaxEig);
 
         //
         // Update cell residuals
