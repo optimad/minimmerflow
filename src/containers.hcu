@@ -120,13 +120,13 @@ private:
  * Allow to access data of arrays stored on the device.
  */
 
-template<typename value_t>
+template<typename value_t, int STRIDE = 256>
 class DeviceProxyArray
 {
 
 public:
-    __device__ DeviceProxyArray(int stride = 1);
-    __device__ DeviceProxyArray(value_t *data, std::size_t offset, int stride = 1);
+    __device__ DeviceProxyArray();
+    __device__ DeviceProxyArray(value_t *data, std::size_t offset);
 
     __device__ void set(value_t *data, std::size_t offset);
 
@@ -135,7 +135,6 @@ public:
 
 protected:
     value_t *m_data;
-    const int m_stride;
 
 };
 
@@ -167,8 +166,8 @@ protected:
  *  https://developer.nvidia.com/blog/fast-dynamic-indexing-private-arrays-cuda
  */
 
-template<typename value_t>
-class DeviceSharedArray : public DeviceProxyArray<value_t>
+template<typename value_t, int BLOCK_SIZE = 256>
+class DeviceSharedArray : public DeviceProxyArray<value_t, BLOCK_SIZE>
 {
 
 public:
