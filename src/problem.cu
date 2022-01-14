@@ -22,7 +22,7 @@
  *
 \*---------------------------------------------------------------------------*/
 
-#include "constants.hcu"
+#include "constants.hpp"
 #include "containers.cu"
 #include "problem.hcu"
 #include "problem.hpp"
@@ -39,8 +39,8 @@ namespace problem {
  * \param normal is the normal needed for evaluating the boundary condition
  * \param[out] info on output will contain the needed information
  */
-__device__ void dev_getBorderBCInfo(int problemType, int BCType, const double *point,
-                                    const double *normal, DeviceProxyArray<double> *info)
+__device__ void dev_getBorderBCInfo(int problemType, int BCType, const double3 &point,
+                                    const double3 &normal, double *info)
 {
     BITPIT_UNUSED(point);
     BITPIT_UNUSED(normal);
@@ -52,11 +52,11 @@ __device__ void dev_getBorderBCInfo(int problemType, int BCType, const double *p
         switch (BCType) {
 
         case (BC_DIRICHLET):
-            (*info)[DEV_FID_U] = 3.0;
-            (*info)[DEV_FID_V] = 0.;
-            (*info)[DEV_FID_W] = 0.;
-            (*info)[DEV_FID_P] = 1.;
-            (*info)[DEV_FID_T] = 1./1.4;
+            info[FID_U] = 3.0;
+            info[FID_V] = 0.;
+            info[FID_W] = 0.;
+            info[FID_P] = 1.;
+            info[FID_T] = 1./1.4;
             return;
 
         }

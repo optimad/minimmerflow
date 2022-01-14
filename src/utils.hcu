@@ -27,7 +27,7 @@
 
 #include "containers.hcu"
 #include "containers.cu"
-#include "constants.hcu"
+#include "constants.hpp"
 
 namespace utils {
 
@@ -53,31 +53,29 @@ __device__ __forceinline__ double dev_normalVelocity(double u, double v, double 
  * \param c are the conservative variables
  * \param[out] p are the primitive variables
  */
-__device__ __forceinline__ void dev_conservative2primitive(const DeviceProxyArray<double> & __restrict__ c, DeviceProxyArray<double> * __restrict__ p)
+template<int BLOCK_SIZE>
+__device__ __forceinline__ void dev_conservative2primitive(const DeviceSharedArray<double, BLOCK_SIZE> & __restrict__ c,
+                                                           double * __restrict__ p)
 {
     // Density
-    double rho = c[DEV_FID_RHO];
-
-    double rho_inv = 1. / rho;
+    double rho_inv = 1. / c[FID_RHO];
 
     // Velocity
-    double u = c[DEV_FID_RHO_U] * rho_inv;
-    double v = c[DEV_FID_RHO_V] * rho_inv;
-    double w = c[DEV_FID_RHO_W] * rho_inv;
+    double3 u = make_double3(c[FID_U] * rho_inv, c[FID_V] * rho_inv, c[FID_W] * rho_inv);
 
-    (*p)[DEV_FID_U] = u;
-    (*p)[DEV_FID_V] = v;
-    (*p)[DEV_FID_W] = w;
+    p[FID_U] = u.x;
+    p[FID_V] = u.y;
+    p[FID_W] = u.z;
 
     // Temperature
-    double K = 0.5 * (u * u + v * v + w * w);
-    double e = c[DEV_FID_RHO_E] * rho_inv;
-    double T = (e - K) * (DEV_GAMMA - 1.0);
+    double K = 0.5 * (u.x * u.x + u.y * u.y + u.z * u.z);
+    double e = c[FID_RHO_E] * rho_inv;
+    double T = (e - K) * (GAMMA - 1.0);
 
-    (*p)[DEV_FID_T] = T;
+    p[FID_T] = T;
 
     // Pressure
-    (*p)[DEV_FID_P] = rho * T;
+    p[FID_P] = c[FID_RHO] * T;
 };
 
 /*!
@@ -86,27 +84,26 @@ __device__ __forceinline__ void dev_conservative2primitive(const DeviceProxyArra
  * \param p are the primitive variables
  * \param[out] c are the conservative variables
  */
-__device__ __forceinline__ void dev_primitive2conservative(const DeviceProxyArray<double> & __restrict__ p, DeviceProxyArray<double> * __restrict__ c)
+template<int BLOCK_SIZE>
+__device__ __forceinline__ void dev_primitive2conservative(const double * __restrict__ p,
+                                                           DeviceSharedArray<double, BLOCK_SIZE> * __restrict__ c)
 {
     // Continuity
-    double T   = p[DEV_FID_T];
-    double rho = p[DEV_FID_P] / T;
+    double rho = p[FID_P] / p[FID_T];
 
-    (*c)[DEV_FID_RHO] = rho;
+    (*c)[FID_RHO] = rho;
 
     // Momentum
-    double u  = p[DEV_FID_U];
-    double v  = p[DEV_FID_V];
-    double w  = p[DEV_FID_W];
+    double3 u = make_double3(p[FID_U], p[FID_V], p[FID_W]);
 
-    (*c)[DEV_FID_RHO_U] = rho * u;
-    (*c)[DEV_FID_RHO_V] = rho * v;
-    (*c)[DEV_FID_RHO_W] = rho * w;
+    (*c)[FID_RHO_U] = rho * u.x;
+    (*c)[FID_RHO_V] = rho * u.y;
+    (*c)[FID_RHO_W] = rho * u.z;
 
     // Total energy
-    double K = 0.5 * (u * u + v * v + w * w);
+    double K = 0.5 * (u.x * u.x + u.y * u.y + u.z * u.z);
 
-    (*c)[DEV_FID_RHO_E] = rho * (T / (DEV_GAMMA - 1.0) + K);
+    (*c)[FID_RHO_E] = rho * (p[FID_T] / (GAMMA - 1.0) + K);
 };
 
 }
