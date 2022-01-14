@@ -1,0 +1,515 @@
+/*---------------------------------------------------------------------------*\
+ *
+ *  minimmerflow
+ *
+ *  Copyright (C) 2015-2021 OPTIMAD engineering Srl
+ *
+ *  -------------------------------------------------------------------------
+ *  License
+ *  This file is part of minimmerflow.
+ *
+ *  minimmerflow is free software: you can redistribute it and/or modify it
+ *  under the terms of the GNU Lesser General Public License v3 (LGPL)
+ *  as published by the Free Software Foundation.
+ *
+ *  minimmerflow is distributed in the hope that it will be useful, but WITHOUT
+ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ *  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+ *  License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public License
+ *  along with minimmerflow. If not, see <http://www.gnu.org/licenses/>.
+ *
+\*---------------------------------------------------------------------------*/
+
+#ifndef __MINIMMERFLOW_EULER_TCU__
+#define __MINIMMERFLOW_EULER_TCU__
+
+namespace euler {
+
+/*!
+ * Calculates the conservative fluxes for a perfect gas.
+ *
+ * \param conservative is the conservative state
+ * \param n is the normal direction
+ * \param[out] fluxes on output will contain the conservative fluxes
+ * \param[out] lambda on output will contain the maximum eigenvalue
+ */
+template<int BLOCK_SIZE>
+__device__ void dev_evalFluxes(const DeviceSharedArray<double, BLOCK_SIZE> &conservative, const double3 &normal,
+                               DeviceSharedArray<double, BLOCK_SIZE> *fluxes, double *lambda)
+{
+    // Compute primitive variables
+    //
+    // To reduce the usage of shared memory, primitive fields are evaluated on
+    // the storage that will hold the fluxes.
+    DeviceSharedArray<double, BLOCK_SIZE> &primitive = *fluxes;
+
+    ::utils::dev_conservative2primitive(conservative, &primitive);
+
+    // Speed of sound
+    double T = primitive[DEV_FID_T];
+    double a = std::sqrt(DEV_GAMMA * T);
+
+    // Compute normal velocity
+    double3 u = make_double3(primitive[DEV_FID_U], primitive[DEV_FID_V], primitive[DEV_FID_W]);
+    double un = ::utils::dev_normalVelocity(u.x, u.y, u.z, normal.x, normal.y, normal.z);
+
+    // Evaluate maximum eigenvalue
+    *lambda = std::abs(un) + a;
+
+    // Mass flux
+    double rho = conservative[DEV_FID_RHO];
+    if (rho < 0.) {
+       printf("***** Negative density (%f) in flux computation!\n", rho);
+    }
+
+    double massFlux = rho * un;
+
+    // Energy flux
+    double p = primitive[DEV_FID_P];
+    if (p < 0.) {
+        printf("***** Negative pressure (%f) in flux computation!\n", p);
+    }
+
+    double K = u.x * u.x;
+    K += u.y * u.y;
+    K += u.z * u.z;
+    K *= 0.5;
+
+    double rho_K = rho * K;
+    double eto   = p / (DEV_GAMMA - 1.) + rho_K;
+
+    (*fluxes)[DEV_FID_EQ_E] = un * (eto + p);
+
+    // Momentum flux
+    (*fluxes)[DEV_FID_EQ_M_X] = massFlux * u.x + p * normal.x;
+    (*fluxes)[DEV_FID_EQ_M_Y] = massFlux * u.y + p * normal.y;
+    (*fluxes)[DEV_FID_EQ_M_Z] = massFlux * u.z + p * normal.z;
+
+    // Continuity flux
+    (*fluxes)[DEV_FID_EQ_C] = massFlux;
+}
+
+/*!
+ * Solve the given Riemann problem using the Local Lax Friedrichs approximate
+ * solver.
+ *
+ * \param conservativeL is the left conservative state
+ * \param conservativeR is the right conservative state
+ * \param n is the normal
+ * \param[out] fluxes on output will contain the conservative fluxes
+ * \param[out] lambda on output will contain the maximum eigenvalue
+ */
+template<int BLOCK_SIZE>
+__device__ void dev_solveRiemann(const DeviceSharedArray<double, BLOCK_SIZE> &conservativeL, const DeviceSharedArray<double, BLOCK_SIZE> &conservativeR,
+                                 const double3 &normal, DeviceSharedArray<double, BLOCK_SIZE> *fluxes, double *lambda)
+{
+    // Fluxes on the left side
+    //
+    // To reduce the usage of shared memory, fluxes are temporary evaluated on
+    // the storage that will hold the interface fluxes and then copied on a
+    // local array.
+    dev_evalFluxes(conservativeL, normal, fluxes, lambda);
+
+    double fL[N_FIELDS];
+    for (int k = 0; k < N_FIELDS; ++k) {
+        fL[k] = (*fluxes)[k];
+    }
+
+    // Fluxes on the right side
+    //
+    // To reduce the usage of shared memory, fluxes are evaluated on the
+    // storage that will hold the interface fluxes.
+    double lambdaR;
+    dev_evalFluxes(conservativeR, normal, fluxes, &lambdaR);
+    *lambda = max(lambdaR, *lambda);
+
+    DeviceSharedArray<double, BLOCK_SIZE> &fR = *fluxes;
+
+    // Splitting
+    for (int k = 0; k < N_FIELDS; ++k) {
+        (*fluxes)[k] = 0.5 * ((fR[k] + fL[k]) - (*lambda) * (conservativeR[k] - conservativeL[k]));
+    }
+}
+
+/*!
+ * Evaluate cell values on interface centroids.
+ *
+ * \param nInterfaces is the number of solved interfaces
+ * \param interfaceRawIds are the raw ids of the solved interfaces
+ * \param interfaceCentroids are the centroid of the interfaces
+ * \param cellRawIds are the raw ids of the cells
+ * \param cellValues are the cell values
+ * \param order is the reconstruction order
+ * \param[out] interfaceValues are the interface values
+ */
+template<int BLOCK_SIZE>
+__device__ void dev_evalInterfaceValues(int order, const double3 &point,
+                                        const DeviceCollectionDataConstCursor<double> &means,
+                                        DeviceSharedArray<double, BLOCK_SIZE> *values)
+{
+    reconstruction::dev_eval<BLOCK_SIZE>(order, point, means, values);
+}
+
+/*!
+ * Computes the boundary values for the specified interface.
+ *
+ * \param problemType is the type of problem being solved
+ * \param BCType is the type of boundary condition to apply
+ * \param point is the point where the boundary condition should be applied
+ * \param normal is the normal needed for evaluating the boundary condition
+ * \param innerValues are the inner innerValues values
+ * \param[out] boundaryValues are the boundary values
+ */
+template<int BLOCK_SIZE>
+__device__ void dev_evalInterfaceBCValues(int problemType, int BCType, const double3 &point, const double3 &normal,
+                                          const DeviceSharedArray<double, BLOCK_SIZE> &innerValues,
+                                          DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues)
+{
+    double infoStorage[BC_INFO_SIZE];
+    DeviceProxyArray<double, 1> info(&(infoStorage[0]), 0);
+    problem::dev_getBorderBCInfo(problemType, BCType, point, normal, &info);
+
+    switch (BCType)
+    {
+        case BC_FREE_FLOW:
+            dev_evalFreeFlowBCValues<BLOCK_SIZE>(point, normal, info, innerValues, boundaryValues);
+            break;
+
+        case BC_REFLECTING:
+            dev_evalReflectingBCValues<BLOCK_SIZE>(point, normal, info, innerValues, boundaryValues);
+            break;
+
+        case BC_WALL:
+            dev_evalWallBCValues<BLOCK_SIZE>(point, normal, info, innerValues, boundaryValues);
+            break;
+
+        case BC_DIRICHLET:
+            dev_evalDirichletBCValues<BLOCK_SIZE>(point, normal, info, innerValues, boundaryValues);
+            break;
+
+    }
+}
+
+/*!
+ * Computes the boundary values for the free flow BC.
+ *
+ * \param point is the point where the boundary condition should be applied
+ * \param normal is the normal needed for evaluating the boundary condition
+ * \param info are the info needed for evaluating the boundary condition
+ * \param innerValues are the inner innerValues values
+ * \param[out] boundaryValues are the boundary values
+ */
+template<int BLOCK_SIZE>
+__device__ void dev_evalFreeFlowBCValues(const double3 &point, const double3 &normal, const DeviceProxyArray<double, 1> &info,
+                                         const DeviceSharedArray<double, BLOCK_SIZE> &innerValues,
+                                         DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues)
+{
+    BITPIT_UNUSED(point);
+    BITPIT_UNUSED(normal);
+    BITPIT_UNUSED(info);
+
+    for (int i = 0; i < N_FIELDS; ++i) {
+        (*boundaryValues)[i] = innerValues[i];
+    }
+}
+
+/*!
+ * Computes the boundary values for the reflecting BC.
+ *
+ * \param point is the point where the boundary condition should be applied
+ * \param normal is the normal needed for evaluating the boundary condition
+ * \param info are the info needed for evaluating the boundary condition
+ * \param innerValues are the inner innerValues values
+ * \param[out] boundaryValues are the boundary values
+ */
+template<int BLOCK_SIZE>
+__device__ void dev_evalReflectingBCValues(const double3 &point, const double3 &normal, const DeviceProxyArray<double, 1> &info,
+                                           const DeviceSharedArray<double, BLOCK_SIZE> &innerValues,
+                                           DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues)
+{
+    BITPIT_UNUSED(point);
+    BITPIT_UNUSED(info);
+
+    // Evaluate primitive variables
+    //
+    // To reduce the usage of shared memory, primitive variables are temporary
+    // evaluated on the storage that will hold boundary values and then copied
+    // on a local array.
+    ::utils::dev_conservative2primitive(innerValues, boundaryValues);
+
+    double primitive[N_FIELDS];
+    for (int k = 0; k < N_FIELDS; ++k) {
+        primitive[k] = (*boundaryValues)[k];
+    }
+
+    // Apply boundary condition
+    double3 u = make_double3(primitive[DEV_FID_U], primitive[DEV_FID_V], primitive[DEV_FID_W]);
+    double un = ::utils::dev_normalVelocity(u.x, u.y, u.z, normal.x, normal.y, normal.z);
+
+    primitive[FID_U] -= 2 * un * normal.x;
+    primitive[FID_V] -= 2 * un * normal.y;
+    primitive[FID_W] -= 2 * un * normal.z;
+
+    // Evaluate conservative values
+    DeviceProxyArray<double, 1> immutablePrimitive(&(primitive[0]), 0);
+    ::utils::dev_primitive2conservative(immutablePrimitive, boundaryValues);
+}
+
+/*!
+ * Computes the boundary values for the wall BC.
+ *
+ * \param point is the point where the boundary condition should be applied
+ * \param normal is the normal needed for evaluating the boundary condition
+ * \param info are the info needed for evaluating the boundary condition
+ * \param innerValues are the inner innerValues values
+ * \param[out] boundaryValues are the boundary values
+ */
+template<int BLOCK_SIZE>
+__device__ void dev_evalWallBCValues(const double3 &point, const double3 &normal, const DeviceProxyArray<double, 1> &info,
+                                     const DeviceSharedArray<double, BLOCK_SIZE> &innerValues,
+                                     DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues)
+{
+    BITPIT_UNUSED(point);
+    BITPIT_UNUSED(info);
+
+    dev_evalReflectingBCValues(point, normal, info, innerValues, boundaryValues);
+}
+
+/*!
+ * Computes the boundary values for the dirichlet BC.
+ *
+ * \param point is the point where the boundary condition should be applied
+ * \param normal is the normal needed for evaluating the boundary condition
+ * \param info are the info needed for evaluating the boundary condition
+ * \param innerValues are the inner innerValues values
+ * \param[out] boundaryValues are the boundary values
+ */
+template<int BLOCK_SIZE>
+__device__ void dev_evalDirichletBCValues(const double3 &point, const double3 &normal, const DeviceProxyArray<double, 1> &info,
+                                          const DeviceSharedArray<double, BLOCK_SIZE> &innerValues,
+                                          DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues)
+{
+    BITPIT_UNUSED(point);
+    BITPIT_UNUSED(normal);
+    BITPIT_UNUSED(innerValues);
+
+    ::utils::dev_primitive2conservative(info, boundaryValues);
+}
+
+/*!
+ * Update residual of cells associated with uniform interfaces.
+ *
+ * \param nInterfaces is the number of solved interfaces
+ * \param reconstructionOrder is the order at wich values will be reconstructed
+ * on the interfaces
+ * \param interfaceRawIds are the raw ids of the solved interfaces
+ * \param interfaceNormals are the normals of the interfaces
+ * \param interfaceAreas are the areas of the interfaces
+ * \param interfaceCentroids are the centroids of the interfaces
+ * \param leftCellRawIds are the raw ids of the left cells
+ * \param rightCellRawIds are the raw ids of the right cells
+ * \param cellConvervatives are the conservative fileds on the cells
+ * \param[out] cellRHS are the RHS of the cells
+ * \param[out] maxEig on output will containt the maximum eigenvalue
+ */
+template<int BLOCK_SIZE>
+__global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, int reconstructionOrder,
+                                     const std::size_t *interfaceRawIds, const double *interfaceAreas,
+                                     const double * const *interfaceNormals, const double * const *interfaceCentroids,
+                                     const std::size_t *leftCellRawIds, const std::size_t *rightCellRawIds,
+                                     const double * const *cellConvervatives, double **cellRHS, double *maxEig)
+{
+    int i = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    if (i >= nInterfaces) {
+        return;
+    }
+
+    // Initialize shared storage
+    //
+    // The shared storage is logically divided in three slots, each of these
+    // slots can contain a sets of conservative variables.
+    extern __shared__ double sharedStorage[];
+
+    const std::size_t sharedSlotSize = DeviceSharedArray<double, BLOCK_SIZE>::evaluateSharedSize(N_FIELDS);
+
+    // Get interface information
+    const std::size_t interfaceRawId = interfaceRawIds[i];
+
+    // Cell information
+    const std::size_t leftCellRawId  = leftCellRawIds[i];
+    const std::size_t rightCellRawId = rightCellRawIds[i];
+
+    //
+    // Reconstruct interface values
+    //
+    // During this stage usage of shared memory is the following:
+    //    Slot #1: not used
+    //    Slot #2: left side reconstructed variables
+    //    Slot #3: right side reconstructed variables
+    double3 interfaceCentroid = make_double3(interfaceCentroids[0][interfaceRawId], interfaceCentroids[1][interfaceRawId], interfaceCentroids[2][interfaceRawId]);
+
+    DeviceCollectionDataConstCursor<double> cellConservativesCursor(cellConvervatives, 0);
+
+    cellConservativesCursor.set(leftCellRawId);
+    double *leftReconstructionsStorage = &(sharedStorage[sharedSlotSize]);
+    DeviceSharedArray<double, BLOCK_SIZE> leftInterfaceConservatives(leftReconstructionsStorage);
+    dev_evalInterfaceValues(reconstructionOrder, interfaceCentroid, cellConservativesCursor, &leftInterfaceConservatives);
+
+    cellConservativesCursor.set(rightCellRawId);
+    double *rightReconstructionsStorage = &(sharedStorage[2 * sharedSlotSize]);
+    DeviceSharedArray<double, BLOCK_SIZE> rightInterfaceConservatives(rightReconstructionsStorage);
+    dev_evalInterfaceValues(reconstructionOrder, interfaceCentroid, cellConservativesCursor, &rightInterfaceConservatives);
+
+    //
+    // Evaluate interface fluxes
+    //
+    // During this stage usage of shared memory is the following:
+    //    Slot #1: interface fluxes
+    //    Slot #2: left side reconstructed variables
+    //    Slot #3: right side reconstructed variables
+    double3 interfaceNormal = make_double3(interfaceNormals[0][interfaceRawId], interfaceNormals[1][interfaceRawId], interfaceNormals[2][interfaceRawId]);
+
+    double *interfaceFluxesStorage = &(sharedStorage[0]);
+    DeviceSharedArray<double, BLOCK_SIZE> interfaceFluxes(interfaceFluxesStorage);
+    for (int k = 0; k < N_FIELDS; ++k) {
+        interfaceFluxes[k] = 0.;
+    }
+
+    double interfaceMaxEig;
+
+    dev_solveRiemann(leftInterfaceConservatives, rightInterfaceConservatives, interfaceNormal, &interfaceFluxes, &interfaceMaxEig);
+
+    //
+    // Update cell residuals
+    //
+    // During this stage usage of shared memory is the following:
+    //    Slot #1: interface fluxes
+    //    Slot #2: not used
+    //    Slot #3: not used
+    const double interfaceCoefficient = interfaceAreas[interfaceRawId];
+    for (int k = 0; k < N_FIELDS; ++k) {
+        double cellContribution = interfaceCoefficient * interfaceFluxes[k];
+
+        atomicAdd(&(cellRHS[k][leftCellRawId]), - cellContribution);
+        atomicAdd(&(cellRHS[k][rightCellRawId]), cellContribution);
+    }
+
+    // Update maximum eigenvalue
+    //
+    // During this stage usage of shared memory is the following:
+    //    Slot #1: workspace for eigenvalue reduction
+    //    Slot #2: not used
+    //    Slot #3: not used
+    double *reductionWorkspace = &(sharedStorage[0]);
+    dev_reduceMax(interfaceMaxEig, nInterfaces, reductionWorkspace, maxEig);
+}
+
+/*!
+ * Update residual of cells associated with boundary interfaces.
+ *
+ * \param nInterfaces is the number of solved interfaces
+ * \param interfaceRawIds are the raw ids of the solved interfaces
+ * \param interfaceAreas are the areas of the interfaces
+ * \param interfaceNormals are the normals of the interfaces
+ * \param interfaceCentroids are the centroids of the interfaces
+ * \param fluidCellRawIds are the raw ids of the fluid cells
+ * \param cellConvervatives are the conservative fileds on the cells
+ * \param boundarySigns are the signs of the boundaries
+ * \param[out] cellRHS are the RHS of the cells
+ * \param[out] maxEig on output will containt the maximum eigenvalue
+ */
+template<int BLOCK_SIZE>
+__global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, int problemType, int reconstructionOrder,
+                                      const std::size_t *interfaceRawIds, const double *interfaceAreas,
+                                      const double * const *interfaceNormals, const double * const *interfaceCentroids,
+                                      const std::size_t *fluidCellRawIds, const double * const *cellConvervatives,
+                                      const int *boundarySigns, const int *boundaryBCs, double **cellRHS, double *maxEig)
+{
+    int i = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    if (i >= nInterfaces) {
+        return;
+    }
+
+    // Initialize shared storage
+    //
+    // The shared storage is logically divided in three slots, each of these
+    // slots can contain a sets of conservative variables.
+    extern __shared__ double sharedStorage[];
+
+    const std::size_t sharedSlotSize = DeviceSharedArray<double, BLOCK_SIZE>::evaluateSharedSize(N_FIELDS);
+
+    // Get interface information
+    const std::size_t interfaceRawId = interfaceRawIds[i];
+
+    // Cell information
+    const std::size_t fluidCellRawId = fluidCellRawIds[i];
+
+    //
+    // Reconstruct interface values
+    //
+    // During this stage usage of shared memory is the following:
+    //    Slot #1: not used
+    //    Slot #2: fluid side reconstructed variables
+    //    Slot #3: virtual side reconstructed conservative variables
+    double3 interfaceCentroid = make_double3(interfaceCentroids[0][interfaceRawId], interfaceCentroids[1][interfaceRawId], interfaceCentroids[2][interfaceRawId]);
+    double3 interfaceNormal   = make_double3(interfaceNormals[0][interfaceRawId], interfaceNormals[1][interfaceRawId], interfaceNormals[2][interfaceRawId]);
+
+    DeviceCollectionDataConstCursor<double> fluidCellConservativesCursor(cellConvervatives, fluidCellRawId);
+    double *fluidReconstructionStorage = &(sharedStorage[sharedSlotSize]);
+    DeviceSharedArray<double, BLOCK_SIZE> fluidInterfaceConservatives(fluidReconstructionStorage);
+    dev_evalInterfaceValues(reconstructionOrder, interfaceCentroid, fluidCellConservativesCursor, &fluidInterfaceConservatives);
+
+    const int interfaceBC = boundaryBCs[i];
+    double *virtualReconstructionStorage = &(sharedStorage[2 * sharedSlotSize]);
+    DeviceSharedArray<double, BLOCK_SIZE> virtualInterfaceConservatives(virtualReconstructionStorage);
+    dev_evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, interfaceNormal, fluidInterfaceConservatives, &virtualInterfaceConservatives);
+
+    //
+    // Evaluate interface fluxes
+    //
+    // During this stage usage of shared memory is the following:
+    //    Slot #1: interface fluxes
+    //    Slot #2: fluid side reconstructed variables
+    //    Slot #3: virtual side reconstructed variables
+    double *interfaceFluxesStorage = &(sharedStorage[0]);
+    DeviceSharedArray<double, BLOCK_SIZE> interfaceFluxes(interfaceFluxesStorage);
+    for (int k = 0; k < N_FIELDS; ++k) {
+        interfaceFluxes[k] = 0.;
+    }
+
+    double interfaceMaxEig;
+
+    dev_solveRiemann(fluidInterfaceConservatives, virtualInterfaceConservatives, interfaceNormal, &interfaceFluxes, &interfaceMaxEig);
+
+    //
+    // Update cell residuals
+    //
+    // During this stage usage of shared memory is the following:
+    //    Slot #1: interface fluxes
+    //    Slot #2: not used
+    //    Slot #3: not used
+    const int boundarySign     = boundarySigns[i];
+    const double interfaceArea = interfaceAreas[interfaceRawId];
+
+    const double interfaceCoefficient = boundarySign * interfaceArea;
+    for (int k = 0; k < N_FIELDS; ++k) {
+        double cellContribution = interfaceCoefficient * interfaceFluxes[k];
+
+        atomicAdd(&(cellRHS[k][fluidCellRawId]), - cellContribution);
+    }
+
+    // Update maximum eigenvalue
+    //
+    // During this stage usage of shared memory is the following:
+    //    Slot #1: workspace for eigenvalue reduction
+    //    Slot #2: not used
+    //    Slot #3: not used
+    double *reductionWorkspace = &(sharedStorage[0]);
+    dev_reduceMax(interfaceMaxEig, nInterfaces, reductionWorkspace, maxEig);
+}
+
+}
+
+#endif

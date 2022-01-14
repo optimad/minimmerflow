@@ -53,7 +53,9 @@ __device__ __forceinline__ double dev_normalVelocity(double u, double v, double 
  * \param c are the conservative variables
  * \param[out] p are the primitive variables
  */
-__device__ __forceinline__ void dev_conservative2primitive(const DeviceProxyArray<double> & __restrict__ c, DeviceProxyArray<double> * __restrict__ p)
+template<int BLOCK_SIZE>
+__device__ __forceinline__ void dev_conservative2primitive(const DeviceSharedArray<double, BLOCK_SIZE> & __restrict__ c,
+                                                           DeviceProxyArray<double, BLOCK_SIZE> * __restrict__ p)
 {
     // Density
     double rho = c[DEV_FID_RHO];
@@ -84,7 +86,9 @@ __device__ __forceinline__ void dev_conservative2primitive(const DeviceProxyArra
  * \param p are the primitive variables
  * \param[out] c are the conservative variables
  */
-__device__ __forceinline__ void dev_primitive2conservative(const DeviceProxyArray<double> & __restrict__ p, DeviceProxyArray<double> * __restrict__ c)
+template<int BLOCK_SIZE>
+__device__ __forceinline__ void dev_primitive2conservative(const DeviceProxyArray<double, BLOCK_SIZE> & __restrict__ p,
+                                                           DeviceProxyArray<double, BLOCK_SIZE> * __restrict__ c)
 {
     // Continuity
     double T   = p[DEV_FID_T];
