@@ -38,12 +38,8 @@ void meshAdaptation(bitpit::VolOctree &mesh,
                     ScalarStorage<std::size_t> &currentIDs,
                     ScalarStorage<double> &parentCellRHS,
                     ScalarStorage<double> &parentCellConservatives,
-                    ScalarStorage<double> &parentCellPrimitives,
-                    ScalarStorage<double> &parentCellConservativesWork,
                     ScalarPiercedStorage<double> &cellRHS,
-                    ScalarPiercedStorage<double> &cellConservatives,
-                    ScalarPiercedStorage<double> &cellPrimitives,
-                    ScalarPiercedStorage<double> &cellConservativesWork);
+                    ScalarPiercedStorage<double> &cellConservatives);
 
 #if ENABLE_CUDA
 void mapField(ScalarStorage<std::size_t> &parentIDs,
@@ -65,12 +61,8 @@ void mapFields(ScalarStorage<std::size_t> &parentIDs,
                ScalarStorage<std::size_t> &currentIDs,
                ScalarStorage<double> &parentCellRHS,
                ScalarStorage<double> &parentCellConservatives,
-               ScalarStorage<double> &parentCellPrimitives,
-               ScalarStorage<double> &parentCellConservativesWork,
                ScalarPiercedStorage<double> &cellRHS,
-               ScalarPiercedStorage<double> &cellConservatives,
-               ScalarPiercedStorage<double> &cellPrimitives,
-               ScalarPiercedStorage<double> &cellConservativesWork);
+               ScalarPiercedStorage<double> &cellConservatives);
 
 }
 

@@ -64,18 +64,12 @@ void adaptMeshAndFields(double &minCellSize, ComputationInfo &computationInfo,
 
     ScalarStorage<double> parentCellRHS(N_FIELDS * mesh.getCellCount());
     ScalarStorage<double> parentCellConservatives(N_FIELDS * mesh.getCellCount());
-    ScalarStorage<double> parentCellPrimitives(N_FIELDS * mesh.getCellCount());
-    ScalarStorage<double> parentCellConservativesWork(N_FIELDS * mesh.getCellCount());
     parentCellRHS.cuda_allocateDevice();
     parentCellConservatives.cuda_allocateDevice();
-    parentCellPrimitives.cuda_allocateDevice();
-    parentCellConservativesWork.cuda_allocateDevice();
 
     adaptation::meshAdaptation(mesh, parentIDs, currentIDs, parentCellRHS,
-                               parentCellConservatives, parentCellPrimitives,
-                               parentCellConservativesWork, cellRHS,
-                               cellConservatives, cellPrimitives,
-                               cellConservativesWork);
+                               parentCellConservatives, cellRHS,
+                               cellConservatives);
 
 
 #if ENABLE_CUDA
@@ -100,8 +94,6 @@ void adaptMeshAndFields(double &minCellSize, ComputationInfo &computationInfo,
 
     cellRHS.cuda_updateDevice();
     cellConservatives.cuda_updateDevice();
-    cellPrimitives.cuda_updateDevice();
-    cellConservativesWork.cuda_updateDevice();
 #endif
 
     // resize BCs related containers and give them again content
@@ -135,22 +127,15 @@ void adaptMeshAndFields(double &minCellSize, ComputationInfo &computationInfo,
     currentIDs.cuda_allocateDevice();
     currentIDs.cuda_updateDevice();
     adaptation::mapFields(parentIDs, currentIDs, parentCellRHS,
-                          parentCellConservatives, parentCellPrimitives,
-                          parentCellConservativesWork, cellRHS,
-                          cellConservatives, cellPrimitives,
-                          cellConservativesWork);
+                          parentCellConservatives, cellRHS, cellConservatives);
 
     //TODO: When OpenACC is on again, remove the following 4 lines updating
     //the host
     cellRHS.cuda_updateHost();
     cellConservatives.cuda_updateHost();
-    cellConservativesWork.cuda_updateHost();
-    cellPrimitives.cuda_updateHost();
 
     parentCellRHS.cuda_freeDevice();
     parentCellConservatives.cuda_freeDevice();
-    parentCellPrimitives.cuda_freeDevice();
-    parentCellConservativesWork.cuda_freeDevice();
 
     log_memory_status();
 }

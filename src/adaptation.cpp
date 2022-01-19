@@ -58,12 +58,8 @@ void meshAdaptation(VolOctree &mesh, ScalarStorage<std::size_t> &parentIDs,
                     ScalarStorage<std::size_t> &currentIDs,
                     ScalarStorage<double> &parentCellRHS,
                     ScalarStorage<double> &parentCellConservatives,
-                    ScalarStorage<double> &parentCellPrimitives,
-                    ScalarStorage<double> &parentCellConservativesWork,
                     ScalarPiercedStorage<double> &cellRHS,
-                    ScalarPiercedStorage<double> &cellConservatives,
-                    ScalarPiercedStorage<double> &cellPrimitives,
-                    ScalarPiercedStorage<double> &cellConservativesWork)
+                    ScalarPiercedStorage<double> &cellConservatives)
 {
     std::vector<adaption::Info> adaptionData;
     markCellsForRefinement(mesh);
@@ -92,8 +88,6 @@ void meshAdaptation(VolOctree &mesh, ScalarStorage<std::size_t> &parentIDs,
 #else
                 parentCellRHS[parentRawId * N_FIELDS + iField] = cellRHS.at(parentId, iField);
                 parentCellConservatives[parentRawId * N_FIELDS + iField] = cellConservatives.at(parentId, iField);
-                parentCellPrimitives[parentRawId * N_FIELDS + iField] = cellPrimitives.at(parentId, iField);
-                parentCellConservativesWork[parentRawId * N_FIELDS + iField] = cellConservativesWork.at(parentId, iField);
 #endif
             }
         }
@@ -126,8 +120,6 @@ void meshAdaptation(VolOctree &mesh, ScalarStorage<std::size_t> &parentIDs,
 #else
                 cellRHS.set(currentId, iField, parentCellRHS[N_FIELDS * parentRawId + iField];
                 cellConservatives.set(currentId, iField, parentCellConservatives[N_FIELDS * parentRawId + iField];
-                cellPrimitives.set(currentId, iField, parentCellPrimitives[N_FIELDS * parentRawId + iField];
-                cellConservativesWork.set(currentId, iField, parentCellConservativesWork[N_FIELDS * parentRawId + iField];
 #endif
             }
         }
@@ -136,8 +128,6 @@ void meshAdaptation(VolOctree &mesh, ScalarStorage<std::size_t> &parentIDs,
 #if ENABLE_CUDA
     cuda_storeParentField(tempParentIDs, parentCellRHS, cellRHS);
     cuda_storeParentField(tempParentIDs, parentCellConservatives, cellConservatives);
-    cuda_storeParentField(tempParentIDs, parentCellPrimitives, cellPrimitives);
-    cuda_storeParentField(tempParentIDs, parentCellConservativesWork, cellConservativesWork);
 
     tempParentIDs.cuda_freeDevice();
 #endif
@@ -180,31 +170,21 @@ void mapFields(ScalarStorage<std::size_t> &parentIDs,
                ScalarStorage<std::size_t> &currentIDs,
                ScalarStorage<double> &parentCellRHS,
                ScalarStorage<double> &parentCellConservatives,
-               ScalarStorage<double> &parentCellPrimitives,
-               ScalarStorage<double> &parentCellConservativesWork,
                ScalarPiercedStorage<double> &cellRHS,
-               ScalarPiercedStorage<double> &cellConservatives,
-               ScalarPiercedStorage<double> &cellPrimitives,
-               ScalarPiercedStorage<double> &cellConservativesWork)
+               ScalarPiercedStorage<double> &cellConservatives)
 {
 #if ENABLE_CUDA
     mapField(parentIDs, currentIDs, parentCellRHS, cellRHS);
     mapField(parentIDs, currentIDs, parentCellConservatives, cellConservatives);
-    mapField(parentIDs, currentIDs, parentCellPrimitives, cellPrimitives);
-    mapField(parentIDs, currentIDs, parentCellConservativesWork, cellConservativesWork);
 #else
     BITPIT_UNUSED(parentIDs);
     BITPIT_UNUSED(currentIDs);
 
     BITPIT_UNUSED(parentCellRHS);
     BITPIT_UNUSED(parentCellConservatives);
-    BITPIT_UNUSED(parentCellPrimitives);
-    BITPIT_UNUSED(parentCellConservativesWork);
 
     BITPIT_UNUSED(cellRHS);
     BITPIT_UNUSED(cellConservatives);
-    BITPIT_UNUSED(cellPrimitives);
-    BITPIT_UNUSED(cellConservativesWork);
 #endif
 }
 
