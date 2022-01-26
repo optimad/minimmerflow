@@ -51,11 +51,11 @@ ComputationInfo::ComputationInfo(VolumeKernel *patch)
  */
 void ComputationInfo::_init()
 {
-    MeshGeometricalInfo::_init();
+//  MeshGeometricalInfo::_init();
 
-    m_cellSolveMethods.setStaticKernel(&m_volumePatch->getCells());
+    m_cellSolveMethods.setDynamicKernel(&m_volumePatch->getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
 
-    m_interfaceSolveMethods.setStaticKernel(&m_volumePatch->getInterfaces());
+    m_interfaceSolveMethods.setDynamicKernel(&m_volumePatch->getInterfaces(), PiercedVector<Interface>::SYNC_MODE_JOURNALED);
 }
 
 /*!
@@ -71,6 +71,17 @@ void ComputationInfo::_reset()
  */
 void ComputationInfo::_extract()
 {
+    // In case of mesh-adaptation, clearing of the following ScalarStorages
+    // is needed, since new elements are added with push_back
+    // TODO: Find a way to make it more efficient
+    m_solvedCellRawIds.clear();
+    m_solvedUniformInterfaceRawIds.clear();
+    m_solvedUniformInterfaceOwnerRawIds.clear();
+    m_solvedUniformInterfaceNeighRawIds.clear();
+    m_solvedBoundaryInterfaceRawIds.clear();
+    m_solvedBoundaryInterfaceSigns.clear();
+    m_solvedBoundaryInterfaceFluidRawIds.clear();
+
     // Extract mesh information
     MeshGeometricalInfo::_extract();
 
@@ -215,11 +226,31 @@ const ScalarPiercedStorage<int> & ComputationInfo::getCellSolveMethods() const
 }
 
 /*!
+ * Gets cells solve method.
+ *
+ * \result Cells solve method.
+ */
+ScalarPiercedStorage<int> & ComputationInfo::getCellSolveMethods()
+{
+    return m_cellSolveMethods;
+}
+
+/*!
  * Gets the list of solved cells raw ids.
  *
  * \result The list of solved cells raw ids.
  */
 const ScalarStorage<std::size_t> & ComputationInfo::getSolvedCellRawIds() const
+{
+    return m_solvedCellRawIds;
+}
+
+/*!
+ * Gets the list of solved cells raw ids.
+ *
+ * \result The list of solved cells raw ids.
+ */
+ScalarStorage<std::size_t> & ComputationInfo::getSolvedCellRawIds()
 {
     return m_solvedCellRawIds;
 }
@@ -275,6 +306,16 @@ const ScalarStorage<std::size_t> & ComputationInfo::getSolvedBoundaryInterfaceRa
 }
 
 /*!
+ * Gets the list of solved boundary interfaces raw ids.
+ *
+ * \result The list of solved boundary interfaces raw ids.
+ */
+ScalarStorage<std::size_t> & ComputationInfo::getSolvedBoundaryInterfaceRawIds()
+{
+    return m_solvedBoundaryInterfaceRawIds;
+}
+
+/*!
  * Gets the list of boundary interfaces fluid raw ids.
  *
  * \result The list of boundary interfaces fluid raw ids.
@@ -292,4 +333,31 @@ const ScalarStorage<std::size_t> & ComputationInfo::getSolvedBoundaryInterfaceFl
 const ScalarStorage<int> & ComputationInfo::getSolvedBoundaryInterfaceSigns() const
 {
     return m_solvedBoundaryInterfaceSigns;
+}
+
+/*!
+ * Clears all members of type ScalarStorage.
+ */
+void ComputationInfo::clearScalarStorages()
+{
+
+//  MeshGeometricalInfo::reset();
+
+    m_solvedUniformInterfaceRawIds.clear();
+    m_solvedUniformInterfaceOwnerRawIds.clear();
+    m_solvedUniformInterfaceNeighRawIds.clear();
+    m_solvedBoundaryInterfaceRawIds.clear();
+    m_solvedBoundaryInterfaceSigns.clear();
+    m_solvedBoundaryInterfaceFluidRawIds.clear();
+}
+
+/*!
+ * Prepares containers to get new sizes and content after
+ * mesh adaptation.
+ */
+void ComputationInfo::postMeshAdaptation()
+{
+    clearScalarStorages();
+
+    _extract();
 }

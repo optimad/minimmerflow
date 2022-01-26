@@ -116,7 +116,7 @@ public:
 #endif
 
 protected:
-    const bitpit::VolumeKernel *m_volumePatch;
+    bitpit::VolumeKernel *m_volumePatch;
 
     MeshGeometricalInfo(bitpit::VolumeKernel *patch, bool extractInfo);
 

@@ -32,6 +32,7 @@
 #include "storage.hpp"
 #include "utils.hpp"
 #include "memory.hpp"
+#include "adaptation.hpp"
 
 #include <bitpit_IO.hpp>
 #include <bitpit_voloctree.hpp>
@@ -43,6 +44,105 @@
 #include <time.h>
 
 using namespace bitpit;
+
+void adaptMeshAndFields(double &minCellSize, ComputationInfo &computationInfo,
+                        VolOctree &mesh, ScalarPiercedStorageCollection<double> &cellRHS,
+                        ScalarPiercedStorageCollection<double> &cellConservatives,
+                        ScalarPiercedStorageCollection<double> &cellPrimitives,
+                        ScalarPiercedStorageCollection<double> &cellConservativesWork,
+                        ScalarStorage<std::size_t> &solvedCellRawIds,
+                        ScalarStorage<std::size_t> &solvedBoundaryInterfaceRawIds,
+                        ScalarStorage<int> &solvedBoundaryInterfaceBCs,
+                        const problem::ProblemType problemType)
+{
+    std::cout <<  "Beginning mesh adaptation." << std::endl;
+    // Adaption (CPU-side)
+    ScalarStorage<std::size_t> parentIDs;
+    ScalarStorage<std::size_t> currentIDs;
+
+    ScalarStorageCollection<double> parentCellRHS(N_FIELDS);
+    ScalarStorageCollection<double> parentCellConservatives(N_FIELDS);
+    parentCellRHS.cuda_allocateDevice();
+    parentCellConservatives.cuda_allocateDevice();
+
+    adaptation::meshAdaptation(mesh, parentIDs, currentIDs, parentCellRHS,
+                               parentCellConservatives, cellRHS,
+                               cellConservatives);
+
+
+#if ENABLE_CUDA
+    // Resize CPU containers holding geometrical and computations-related info
+    computationInfo.postMeshAdaptation();
+
+    // Reset and copy to GPU the relevant data, if needed.
+    computationInfo.cuda_finalize();
+    computationInfo.cuda_initialize();
+
+    // Reset and copy to GPU the variables and RHS-data at cells
+    cellRHS.cuda_freeDevice();
+    cellConservatives.cuda_freeDevice();
+    cellPrimitives.cuda_freeDevice();
+    cellConservativesWork.cuda_freeDevice();
+
+    cellRHS.cuda_allocateDevice();
+    cellConservatives.cuda_allocateDevice();
+    cellPrimitives.cuda_allocateDevice();
+    cellConservativesWork.cuda_allocateDevice();
+
+
+    cellRHS.cuda_updateDevice();
+    cellConservatives.cuda_updateDevice();
+#endif
+
+    // resize BCs related containers and give them again content
+    int nSolvedCells = solvedCellRawIds.size();
+    int nSolvedBoundaryInterfaces = solvedBoundaryInterfaceRawIds.size();
+    solvedBoundaryInterfaceBCs.resize(nSolvedBoundaryInterfaces);
+
+    for (std::size_t i = 0; i < nSolvedBoundaryInterfaces; ++i) {
+        const std::size_t interfaceRawId = solvedBoundaryInterfaceRawIds[i];
+        const Interface &interface = mesh.getInterfaces().rawAt(interfaceRawId);
+
+        bool isIntrBorder = interface.isBorder();
+        if (isIntrBorder) {
+            long interfaceId = interface.getId();
+            solvedBoundaryInterfaceBCs[i] = problem::getBorderBCType(problemType, interfaceId, computationInfo);
+        } else {
+            solvedBoundaryInterfaceBCs[i] = BC_WALL;
+        }
+    }
+#if ENABLE_CUDA
+    solvedBoundaryInterfaceBCs.cuda_freeDevice();
+    solvedBoundaryInterfaceBCs.cuda_allocateDevice();
+    solvedBoundaryInterfaceBCs.cuda_updateDevice();
+#endif
+    // Find smallest cell
+    minCellSize = std::numeric_limits<double>::max();
+    for (std::size_t i = 0; i < nSolvedCells; ++i) {
+        const std::size_t cellRawId = solvedCellRawIds[i];
+
+        minCellSize = std::min(computationInfo.rawGetCellSize(cellRawId), minCellSize);
+    }
+
+    // Map fields
+    parentIDs.cuda_allocateDevice();
+    parentIDs.cuda_updateDevice();
+    currentIDs.cuda_allocateDevice();
+    currentIDs.cuda_updateDevice();
+    adaptation::mapFields(parentIDs, currentIDs, parentCellRHS,
+                          parentCellConservatives, cellRHS, cellConservatives);
+
+    //TODO: When OpenACC is on again, remove the following 4 lines updating
+    //the host
+    cellRHS.cuda_updateHost();
+    cellConservatives.cuda_updateHost();
+
+    parentCellRHS.cuda_freeDevice();
+    parentCellConservatives.cuda_freeDevice();
+
+    log_memory_status();
+}
+
 
 void computation(int argc, char *argv[])
 {
@@ -185,6 +285,7 @@ void computation(int argc, char *argv[])
         log::cout() << "+++ mesh.partition() DONE.\n";
     }
 #endif
+    mesh.write();
 
     log_memory_status();
 
@@ -200,13 +301,13 @@ void computation(int argc, char *argv[])
     computationInfo.cuda_initialize();
 #endif
 
-    const ScalarPiercedStorage<int> &cellSolveMethods = computationInfo.getCellSolveMethods();
+    ScalarPiercedStorage<int> &cellSolveMethods = computationInfo.getCellSolveMethods();
 
-    const ScalarStorage<std::size_t> &solvedCellRawIds = computationInfo.getSolvedCellRawIds();
-    const std::size_t nSolvedCells = solvedCellRawIds.size();
+    ScalarStorage<std::size_t> &solvedCellRawIds = computationInfo.getSolvedCellRawIds();
+    std::size_t nSolvedCells = solvedCellRawIds.size();
 
-    const ScalarStorage<std::size_t> &solvedBoundaryInterfaceRawIds = computationInfo.getSolvedBoundaryInterfaceRawIds();
-    const std::size_t nSolvedBoundaryInterfaces = solvedBoundaryInterfaceRawIds.size();
+    ScalarStorage<std::size_t> &solvedBoundaryInterfaceRawIds = computationInfo.getSolvedBoundaryInterfaceRawIds();
+    std::size_t nSolvedBoundaryInterfaces = solvedBoundaryInterfaceRawIds.size();
 
     log_memory_status();
 
@@ -218,10 +319,17 @@ void computation(int argc, char *argv[])
     ScalarPiercedStorageCollection<double> cellConservatives(N_FIELDS, &(mesh.getCells()));
     ScalarPiercedStorageCollection<double> cellConservativesWork(N_FIELDS, &(mesh.getCells()));
     ScalarPiercedStorageCollection<double> cellRHS(N_FIELDS, &(mesh.getCells()));
+    for (int k = 0; k < N_FIELDS; k++) {
+        cellPrimitives[k].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+        cellConservatives[k].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+        cellConservativesWork[k].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED );
+        cellRHS[k].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    }
 
 #if ENABLE_CUDA
     cellRHS.cuda_allocateDevice();
     cellConservatives.cuda_allocateDevice();
+    cellPrimitives.cuda_allocateDevice();
     cellConservativesWork.cuda_allocateDevice();
 #endif
 
@@ -353,6 +461,10 @@ void computation(int argc, char *argv[])
             cellPrimitives[k].rawAt(cellRawId) = primitives[k];
         }
     }
+    // Update conservative on gpu
+#if ENABLE_CUDA
+    cellConservatives.cuda_updateDevice();
+#endif
 
 #if ENABLE_MPI
     if (mesh.isPartitioned()) {
@@ -363,7 +475,7 @@ void computation(int argc, char *argv[])
     }
 #endif
 
-    mesh.write();
+//  mesh.write();
 
     log_memory_status();
 
@@ -394,7 +506,8 @@ void computation(int argc, char *argv[])
     int step = 0;
     double t = tMin;
     double nextSave = tMin;
-    while (t < tMax) {
+//  while (t < tMax) {
+    while (t < tMax && step < 2) {
         log::cout() << std::endl;
         log::cout() << "Step n. " << step << std::endl;
 
@@ -430,6 +543,8 @@ void computation(int argc, char *argv[])
         //
         // SECOND RK STAGE
         //
+        solvedCellRawIds = computationInfo.getSolvedCellRawIds();
+        nSolvedCells = solvedCellRawIds.size();
         for (int k = 0; k < N_FIELDS; ++k) {
             const ValuePiercedStorage<double, double> &fieldRHS = cellRHS[k];
             const ValuePiercedStorage<double, double> &fieldConservatives = cellConservatives[k];
@@ -490,7 +605,7 @@ void computation(int argc, char *argv[])
             conservativeWorkCommunicator->completeAllExchanges();
         }
 #endif
-	
+
 #if ENABLE_CUDA
 	cellConservativesWork.cuda_updateDevice();
 #endif
@@ -559,6 +674,11 @@ void computation(int argc, char *argv[])
             diskTime += clock() - diskStart;
             nextSave += (tMax - tMin) / nSaves;
         }
+        adaptMeshAndFields(minCellSize, computationInfo, mesh, cellRHS,
+                           cellConservatives, cellPrimitives,
+                           cellConservativesWork, solvedCellRawIds,
+                           solvedBoundaryInterfaceRawIds,
+                           solvedBoundaryInterfaceBCs, problemType);
     }
     clock_t computeEnd = clock();
 
@@ -627,6 +747,7 @@ void computation(int argc, char *argv[])
     computationInfo.cuda_finalize();
     euler::cuda_finalize();
 #endif
+
 }
 
 int main(int argc, char *argv[])

@@ -36,8 +36,10 @@ public:
     ComputationInfo(bitpit::VolumeKernel *patch);
 
     const ScalarPiercedStorage<int> & getCellSolveMethods() const;
+    ScalarPiercedStorage<int> & getCellSolveMethods();
 
     const ScalarStorage<std::size_t> & getSolvedCellRawIds() const;
+    ScalarStorage<std::size_t> & getSolvedCellRawIds();
 
     const ScalarPiercedStorage<int> & getInterfaceSolveMethods() const;
 
@@ -46,6 +48,7 @@ public:
     const ScalarStorage<std::size_t> & getSolvedUniformInterfaceNeighRawIds() const;
 
     const ScalarStorage<std::size_t> & getSolvedBoundaryInterfaceRawIds() const;
+    ScalarStorage<std::size_t> & getSolvedBoundaryInterfaceRawIds();
     const ScalarStorage<std::size_t> & getSolvedBoundaryInterfaceFluidRawIds() const;
     const ScalarStorage<int> & getSolvedBoundaryInterfaceSigns() const;
 
@@ -53,6 +56,9 @@ public:
     void cuda_initialize() override;
     void cuda_finalize() override;
 #endif
+
+    void clearScalarStorages();
+    void postMeshAdaptation();
 
 protected:
     ScalarPiercedStorage<int> m_cellSolveMethods;
