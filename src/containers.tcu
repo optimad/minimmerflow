@@ -142,6 +142,42 @@ std::size_t ValuePiercedStorage<value_t, dev_value_t>::cuda_deviceDataSize() con
 }
 
 /*!
+ * Update device data using host data.
+ *
+ * \param count is the number of host elements that will be used as source for
+ * updating device data
+ * \param offset is the offset, expressed in host elements, that will be used when
+ * updating the data
+ */
+template<typename value_t, typename dev_value_t>
+void ValuePiercedStorage<value_t, dev_value_t>::cuda_updateDevice(storage_iterator_type begin, storage_iterator_type end)
+{
+    std::size_t hostOffset = begin.getRawIndex();
+    std::size_t count = end.getRawIndex() - begin.getRawIndex();
+
+    std::size_t deviceOffset     = this->cuda_deviceDataSize(begin.getRawIndex());
+    std::size_t deviceCountBytes = this->cuda_deviceDataSize(count) * sizeof(dev_value_t);
+
+    CUDA_ERROR_CHECK(cudaMemcpy(this->cuda_deviceData() + deviceOffset, this->data() + hostOffset, deviceCountBytes, cudaMemcpyHostToDevice));
+}
+
+/*!
+ * Get the size, expressed in number of device elements, of the device data
+ * storage in order for it to contain the specified number of host elements.
+ *
+ * \param count is the number of host elements the device storage should
+ * contain
+ * \result The size, expressed in number of device elements, of the device
+ * data storage in order for it to contain the specified number of host
+ * elements.
+ */
+template<typename value_t, typename dev_value_t>
+std::size_t ValuePiercedStorage<value_t, dev_value_t>::cuda_deviceDataSize(std::size_t count) const
+{
+    return (count * static_cast<double>(sizeof(value_t)) / sizeof(dev_value_t));
+}
+
+/*!
  * Update host data using device data.
  *
  * \param count is the number of host elements that will be updated
@@ -151,7 +187,7 @@ std::size_t ValuePiercedStorage<value_t, dev_value_t>::cuda_deviceDataSize() con
 template<typename value_t, typename dev_value_t>
 void ValueStorage<value_t, dev_value_t>::cuda_updateHost(std::size_t count, std::size_t offset)
 {
-    std::size_t hostOffset = offset * sizeof(value_t);
+    std::size_t hostOffset = offset;
 
     std::size_t deviceOffset     = this->cuda_deviceDataSize(offset);
     std::size_t deviceCountBytes = this->cuda_deviceDataSize(count) * sizeof(dev_value_t);
@@ -170,7 +206,7 @@ void ValueStorage<value_t, dev_value_t>::cuda_updateHost(std::size_t count, std:
 template<typename value_t, typename dev_value_t>
 void ValueStorage<value_t, dev_value_t>::cuda_updateDevice(std::size_t count, std::size_t offset)
 {
-    std::size_t hostOffset = offset * sizeof(value_t);
+    std::size_t hostOffset = offset;
 
     std::size_t deviceOffset     = this->cuda_deviceDataSize(offset);
     std::size_t deviceCountBytes = this->cuda_deviceDataSize(count) * sizeof(dev_value_t);

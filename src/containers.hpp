@@ -85,9 +85,19 @@ class ValuePiercedStorage : public ValueBaseStorage<bitpit::PiercedStorage<value
 
 public:
     using ValueBaseStorage<bitpit::PiercedStorage<value_t, long>, value_t, dev_value_t>::ValueBaseStorage;
+    typedef typename bitpit::PiercedStorage<value_t, long> storage_type;
+    typedef typename storage_type::iterator storage_iterator_type;
 
 #if ENABLE_CUDA
+    void cuda_updateDevice(storage_iterator_type begin, storage_iterator_type end);
+    using ValueBaseStorage<storage_type, value_t, dev_value_t>::cuda_updateDevice;
+
     std::size_t cuda_deviceDataSize() const override;
+#endif
+
+protected:
+#if ENABLE_CUDA
+    std::size_t cuda_deviceDataSize(std::size_t count) const;
 #endif
 
 };
