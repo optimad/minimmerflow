@@ -369,6 +369,7 @@ void computation(int argc, char *argv[])
     }
 
 #if ENABLE_CUDA
+    // It can be avoided by computing conservatives on GPU
     cellConservatives.cuda_updateDevice();
 #endif
 
@@ -432,7 +433,7 @@ void computation(int argc, char *argv[])
     int step = 0;
     double t = tMin;
     double nextSave = tMin;
-    while (t < tMax && step < 3) {
+    while (t < tMax  && step < 3) {
         log::cout() << std::endl;
         log::cout() << "Step n. " << step << std::endl;
 
@@ -450,7 +451,12 @@ void computation(int argc, char *argv[])
 #if ENABLE_CUDA && ENABLE_MPI
         if (nProcessors > 1) {
             nvtxRangePushA("RK1_MPI_DU");
-            cellConservatives.cuda_updateDevice();
+            long firstGhostId = mesh.getFirstGhostCell().getId();
+            long firstGhostRawId = mesh.getCellIterator(firstGhostId).getRawIndex();
+            for (int i = 0; i < N_FIELDS; ++i) {
+                cellConservatives[i].cuda_updateDevice(cellConservatives[i].rawFind(firstGhostRawId), cellConservatives[i].end());
+            }
+            //cellConservatives.cuda_updateDevice();
             nvtxRangePop();
         }
 #endif
@@ -517,7 +523,12 @@ void computation(int argc, char *argv[])
 #if ENABLE_CUDA && ENABLE_MPI
         if (nProcessors > 1) {
             nvtxRangePushA("RK2_MPI_DU");
-	        cellConservativesWork.cuda_updateDevice();
+	    long firstGhostId = mesh.getFirstGhostCell().getId();
+            long firstGhostRawId = mesh.getCellIterator(firstGhostId).getRawIndex();
+            for (int i = 0; i < N_FIELDS; ++i) {
+                cellConservativesWork[i].cuda_updateDevice(cellConservativesWork[i].rawFind(firstGhostRawId), cellConservativesWork[i].end());
+            }
+            //cellConservativesWork.cuda_updateDevice();
             nvtxRangePop();
         }
 #endif
@@ -576,7 +587,12 @@ void computation(int argc, char *argv[])
 #if ENABLE_CUDA
         if (nProcessors > 1) {
             nvtxRangePushA("RK3_MPI_DU");
-            cellConservativesWork.cuda_updateDevice();
+            long firstGhostId = mesh.getFirstGhostCell().getId();
+            long firstGhostRawId = mesh.getCellIterator(firstGhostId).getRawIndex();
+            for (int i = 0; i < N_FIELDS; ++i) {
+                cellConservativesWork[i].cuda_updateDevice(cellConservativesWork[i].rawFind(firstGhostRawId), cellConservativesWork[i].end());
+            }
+            //cellConservativesWork.cuda_updateDevice();
             nvtxRangePop();
         }
 #endif
