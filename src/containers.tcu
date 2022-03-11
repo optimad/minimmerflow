@@ -53,7 +53,9 @@ void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_allocateDevice()
 {
     std::size_t deviceBytes = this->cuda_deviceDataSize() * sizeof(dev_value_t);
 
-    CUDA_ERROR_CHECK(cudaMalloc((void **) &m_deviceData, deviceBytes));
+    CUDA_ERROR_CHECK(cudaMalloc((void **) &m_deviceData, 0));
+    cuda_setPtr<dev_value_t>(&m_deviceData);
+    (void)cuda_grow(deviceBytes);
 #if ENABLE_OPENACC
     acc_map_data(this->data(), m_deviceData, deviceBytes);
 #endif
@@ -69,6 +71,18 @@ void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_freeDevice()
     acc_unmap_data(this->data());
 #endif
     CUDA_ERROR_CHECK(cudaFree(m_deviceData));
+}
+
+/*!
+ * Resize memory.
+ */
+template<typename container_t, typename value_t, typename dev_value_t>
+void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_resize(size_t new_sz)
+{
+    std::size_t deviceBytes = new_sz * sizeof(dev_value_t);
+
+    cuda_setPtr<dev_value_t>(&m_deviceData);
+    (void)cuda_grow(deviceBytes);
 }
 
 /*!
@@ -138,7 +152,13 @@ void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_fillDevice(const 
 template<typename value_t, typename dev_value_t>
 std::size_t ValuePiercedStorage<value_t, dev_value_t>::cuda_deviceDataSize() const
 {
-    return (this->rawSize() * this->getFieldCount() * static_cast<double>(sizeof(value_t)) / sizeof(dev_value_t));
+    return this->cuda_deviceDataSize(this->rawSize());
+}
+
+template<typename value_t, typename dev_value_t>
+std::size_t ValuePiercedStorage<value_t, dev_value_t>::cuda_deviceDataSize(std::size_t count) const
+{
+    return (count * this->getFieldCount() * (static_cast<double>(sizeof(value_t)) / sizeof(dev_value_t)));
 }
 
 /*!
@@ -167,8 +187,8 @@ void ValueStorage<value_t, dev_value_t>::cuda_updateHost(std::size_t count, std:
  * \param offset is the offset, expressed in host elements, that will be used when
  * updating the data
  */
-template<typename value_t, typename dev_value_t>
-void ValueStorage<value_t, dev_value_t>::cuda_updateDevice(std::size_t count, std::size_t offset)
+template<typename container_t, typename value_t, typename dev_value_t>
+void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_updateDevice(std::size_t count, std::size_t offset)
 {
     std::size_t hostOffset = offset * sizeof(value_t);
 
@@ -244,6 +264,19 @@ void BaseStorageCollection<storage_t>::cuda_freeDevice()
     acc_unmap_data(m_dataCollection.data());
 #endif
     CUDA_ERROR_CHECK(cudaFree(m_deviceDataCollection));
+}
+
+/*!
+ * Resize memory
+ */
+template<typename storage_t>
+void BaseStorageCollection<storage_t>::cuda_resize(size_t new_sz)
+{
+    std::size_t nStorages = m_storages.size();
+    for (std::size_t k = 0; k < nStorages; ++k) {
+        storage_t &storage = m_storages[k];
+        storage.cuda_resize(new_sz * sizeof(dev_value_type));
+    }
 }
 
 /*!

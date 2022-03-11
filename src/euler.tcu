@@ -424,8 +424,8 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, int problemType, 
         double3 interfaceCentroid = make_double3(interfaceCentroids[0][interfaceRawId], interfaceCentroids[1][interfaceRawId], interfaceCentroids[2][interfaceRawId]);
 
         int boundarySign = boundarySigns[i];
-        double3 interfaceNormal = make_double3(boundarySign * interfaceNormals[0][interfaceRawId], 
-                                               boundarySign * interfaceNormals[1][interfaceRawId], 
+        double3 interfaceNormal = make_double3(boundarySign * interfaceNormals[0][interfaceRawId],
+                                               boundarySign * interfaceNormals[1][interfaceRawId],
                                                boundarySign * interfaceNormals[2][interfaceRawId]);
 
         DeviceCollectionDataConstCursor<double> fluidCellConservativesCursor(cellConvervatives, fluidCellRawId);

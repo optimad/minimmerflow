@@ -75,20 +75,13 @@ void adaptMeshAndFields(double &minCellSize, ComputationInfo &computationInfo,
     computationInfo.postMeshAdaptation();
 
     // Reset and copy to GPU the relevant data, if needed.
-    computationInfo.cuda_finalize();
-    computationInfo.cuda_initialize();
+    computationInfo.cuda_resize();
 
     // Reset and copy to GPU the variables and RHS-data at cells
-    cellRHS.cuda_freeDevice();
-    cellConservatives.cuda_freeDevice();
-    cellPrimitives.cuda_freeDevice();
-    cellConservativesWork.cuda_freeDevice();
-
-    cellRHS.cuda_allocateDevice();
-    cellConservatives.cuda_allocateDevice();
-    cellPrimitives.cuda_allocateDevice();
-    cellConservativesWork.cuda_allocateDevice();
-
+    cellRHS.cuda_resize(mesh.getCellCount());
+    cellConservatives.cuda_resize(mesh.getCellCount());
+    cellPrimitives.cuda_resize(mesh.getCellCount());
+    cellConservativesWork.cuda_resize(mesh.getCellCount());
 
     cellRHS.cuda_updateDevice();
     cellConservatives.cuda_updateDevice();
@@ -99,7 +92,7 @@ void adaptMeshAndFields(double &minCellSize, ComputationInfo &computationInfo,
     int nSolvedBoundaryInterfaces = solvedBoundaryInterfaceRawIds.size();
     solvedBoundaryInterfaceBCs.resize(nSolvedBoundaryInterfaces);
 
-    for (std::size_t i = 0; i < nSolvedBoundaryInterfaces; ++i) {
+    for (int i = 0; i < nSolvedBoundaryInterfaces; ++i) {
         const std::size_t interfaceRawId = solvedBoundaryInterfaceRawIds[i];
         const Interface &interface = mesh.getInterfaces().rawAt(interfaceRawId);
 
@@ -112,13 +105,12 @@ void adaptMeshAndFields(double &minCellSize, ComputationInfo &computationInfo,
         }
     }
 #if ENABLE_CUDA
-    solvedBoundaryInterfaceBCs.cuda_freeDevice();
-    solvedBoundaryInterfaceBCs.cuda_allocateDevice();
+    solvedBoundaryInterfaceBCs.cuda_resize(computationInfo.getSolvedUniformInterfaceRawIds().size());
     solvedBoundaryInterfaceBCs.cuda_updateDevice();
 #endif
     // Find smallest cell
     minCellSize = std::numeric_limits<double>::max();
-    for (std::size_t i = 0; i < nSolvedCells; ++i) {
+    for (int i = 0; i < nSolvedCells; ++i) {
         const std::size_t cellRawId = solvedCellRawIds[i];
 
         minCellSize = std::min(computationInfo.rawGetCellSize(cellRawId), minCellSize);

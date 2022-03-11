@@ -113,6 +113,7 @@ public:
 #if ENABLE_CUDA
     virtual void cuda_initialize();
     virtual void cuda_finalize();
+    virtual void cuda_resize();
 #endif
 
 protected:

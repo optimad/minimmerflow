@@ -80,3 +80,29 @@ void ComputationInfo::cuda_finalize()
     m_solvedBoundaryInterfaceFluidRawIds.cuda_freeDevice();
     m_solvedBoundaryInterfaceSigns.cuda_freeDevice();
 }
+
+/*!
+ * Resize GPU allocated memory
+ */
+void ComputationInfo::cuda_resize()
+{
+    // Initialize mesh operations
+    MeshGeometricalInfo::cuda_resize();
+
+    // Allocate device memory
+    m_cellSolveMethods.cuda_resize(getSolvedCellRawIds().size());
+
+    m_solvedCellRawIds.cuda_resize(getSolvedCellRawIds().size());
+
+    std::cout <<  "CIcu 0" << std::endl;
+    std::cout <<  "Interface size " << getSolvedUniformInterfaceRawIds().size() << std::endl;
+    m_solvedUniformInterfaceRawIds.cuda_resize(getSolvedUniformInterfaceRawIds().size());
+    std::cout <<  "CIcu 1" << std::endl;
+    m_solvedUniformInterfaceOwnerRawIds.cuda_resize(getSolvedUniformInterfaceRawIds().size());
+    m_solvedUniformInterfaceNeighRawIds.cuda_resize(getSolvedUniformInterfaceRawIds().size());
+
+    m_solvedBoundaryInterfaceRawIds.cuda_resize(getSolvedBoundaryInterfaceRawIds().size());
+    m_solvedBoundaryInterfaceFluidRawIds.cuda_resize(getSolvedBoundaryInterfaceRawIds().size());
+    m_solvedBoundaryInterfaceSigns.cuda_resize(getSolvedBoundaryInterfaceRawIds().size());
+}
+

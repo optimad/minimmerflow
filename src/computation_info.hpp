@@ -55,6 +55,7 @@ public:
 #if ENABLE_CUDA
     void cuda_initialize() override;
     void cuda_finalize() override;
+    void cuda_resize() override;
 #endif
 
     void clearScalarStorages();
