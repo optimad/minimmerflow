@@ -32,6 +32,7 @@
 #include "storage.hpp"
 #include "utils.hpp"
 #include "memory.hpp"
+#include "communications.hpp"
 
 #include <bitpit_IO.hpp>
 #include <bitpit_voloctree.hpp>
@@ -308,6 +309,14 @@ void computation(int argc, char *argv[])
 
     log_memory_status();
 
+
+#if ENABLE_CUDA==1
+    std::unordered_map<int, ScalarStorage<std::size_t>> sourcesListsMap;
+    //std::unordered_map<int, ScalarStorageCollection<double>> sourcesValuesMap;
+    std::vector<std::unordered_map<int, ScalarStorage<double>>> conservativeWorkSourceValuesMap(N_FIELDS);
+    std::vector<std::unordered_map<int, ScalarStorage<double>>> conservativeSourceValuesMap(N_FIELDS);
+    std::vector<std::unordered_map<int, ScalarStorage<double>>> primitiveSourceValuesMap(N_FIELDS);
+#endif
 #if ENABLE_MPI
     // Creating ghost communications for exchanging solved data
     log::cout() << std::endl;
@@ -315,11 +324,28 @@ void computation(int argc, char *argv[])
 
     std::unique_ptr<GhostCommunicator> primitiveCommunicator;
     std::unique_ptr<GhostCommunicator> conservativeCommunicator;
+    std::unique_ptr<GhostCommunicator> init_conservativeCommunicator;
     std::unique_ptr<GhostCommunicator> conservativeWorkCommunicator;
 
+#if ENABLE_CUDA==1
+    std::vector<std::unique_ptr<CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>> primitiveGhostWriteStreamers(N_FIELDS);
+    std::vector<std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>> primitiveGhostReadStreamers(N_FIELDS);
+#else
     std::vector<std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>> primitiveGhostStreamers(N_FIELDS);
+#endif
+#if ENABLE_CUDA==1
+    std::vector<std::unique_ptr<CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>> conservativeGhostWriteStreamers(N_FIELDS);
+    std::vector<std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>> conservativeGhostReadStreamers(N_FIELDS);
+    std::vector<std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>> init_conservativeGhostStreamers(N_FIELDS);
+#else
     std::vector<std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>> conservativeGhostStreamers(N_FIELDS);
+#endif
+#if ENABLE_CUDA==1
+    std::vector<std::unique_ptr<CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>> conservativeWorkGhostWriteStreamers(N_FIELDS);
+    std::vector<std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>> conservativeWorkGhostReadStreamers(N_FIELDS);
+#else
     std::vector<std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>> conservativeWorkGhostStreamers(N_FIELDS);
+#endif
     if (mesh.isPartitioned()) {
         // Primitive fields
         primitiveCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh));
@@ -327,18 +353,37 @@ void computation(int argc, char *argv[])
         primitiveCommunicator->setRecvsContinuous(true);
 
         for (int k = 0; k < N_FIELDS; ++k) {
+#if ENABLE_CUDA==1
+            primitiveGhostReadStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellPrimitives[k])));
+            primitiveGhostWriteStreamers[k] = std::unique_ptr<CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>(
+                new CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&(primitiveSourceValuesMap[k]), 0, 0, sizeof(ScalarStorage<double>::value_type)));
+            primitiveCommunicator->addData(primitiveGhostWriteStreamers[k].get(), primitiveGhostReadStreamers[k].get());
+#else
             primitiveGhostStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellPrimitives[k])));
             primitiveCommunicator->addData(primitiveGhostStreamers[k].get());
+#endif
         }
 
         // Conservative fields
         conservativeCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh));
         conservativeCommunicator->resetExchangeLists();
         conservativeCommunicator->setRecvsContinuous(true);
+        init_conservativeCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh));
+        init_conservativeCommunicator->resetExchangeLists();
+        init_conservativeCommunicator->setRecvsContinuous(true);
 
         for (int k = 0; k < N_FIELDS; ++k) {
+#if ENABLE_CUDA==1
+            conservativeGhostReadStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellConservatives[k])));
+            conservativeGhostWriteStreamers[k] = std::unique_ptr<CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>(
+                new CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&(conservativeSourceValuesMap[k]), 0, 0, sizeof(ScalarStorage<double>::value_type)));
+            conservativeCommunicator->addData(conservativeGhostWriteStreamers[k].get(), conservativeGhostReadStreamers[k].get());
+            init_conservativeGhostStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellConservatives[k])));
+            init_conservativeCommunicator->addData(init_conservativeGhostStreamers[k].get());
+#else
             conservativeGhostStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellConservatives[k])));
             conservativeCommunicator->addData(conservativeGhostStreamers[k].get());
+#endif
         }
 
         // Conservative tields tmp
@@ -347,10 +392,51 @@ void computation(int argc, char *argv[])
         conservativeWorkCommunicator->setRecvsContinuous(true);
 
         for (int k = 0; k < N_FIELDS; ++k) {
+
+#if ENABLE_CUDA==1
+            conservativeWorkGhostReadStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellConservativesWork[k])));
+            conservativeWorkGhostWriteStreamers[k] = std::unique_ptr<CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>(
+                new CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&(conservativeWorkSourceValuesMap[k]), 0, 0, sizeof(ScalarStorage<double>::value_type)));
+            conservativeWorkCommunicator->addData(conservativeWorkGhostWriteStreamers[k].get(), conservativeWorkGhostReadStreamers[k].get());
+#else
             conservativeWorkGhostStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellConservativesWork[k])));
             conservativeWorkCommunicator->addData(conservativeWorkGhostStreamers[k].get());
+#endif
         }
     }
+
+#if ENABLE_CUDA
+    const std::vector<int> &sendRanks = conservativeWorkCommunicator->getSendRanks();
+    MPI_Barrier(MPI_COMM_WORLD);
+    std::size_t nSendRanks = sendRanks.size();
+    for (std::size_t n = 0; n < nSendRanks; ++n) {
+        int r = sendRanks[n];
+        const ListCommunicator::RankExchangeList & rankList = conservativeWorkCommunicator->getSendList(r);
+        // Store sources raw ids list on device
+        sourcesListsMap[r] = ScalarStorage<std::size_t>(rankList.size());
+        ScalarStorage<std::size_t> & sourceList = sourcesListsMap[r];
+        const auto & rankSources = mesh.getGhostCellExchangeSources(r);
+        for (std::size_t i = 0; i < rankList.size(); ++i) {
+            long cellId = rankSources[rankList[i]];
+            sourceList[i] = mesh.getCellIterator(cellId).getRawIndex();
+        }
+        sourceList.cuda_allocateDevice();
+        sourceList.cuda_updateDevice();
+        // Allocate source value storages on device
+        for (std::size_t k = 0; k < N_FIELDS; ++k) {
+            ScalarStorage<double> & primitiveSourceValues = primitiveSourceValuesMap[k][r];
+            ScalarStorage<double> & conservativeSourceValues = conservativeSourceValuesMap[k][r];
+            ScalarStorage<double> & conservativeWorkSourceValues = conservativeWorkSourceValuesMap[k][r];
+            primitiveSourceValues = ScalarStorage<double>(rankList.size());
+            conservativeSourceValues = ScalarStorage<double>(rankList.size());
+            conservativeWorkSourceValues = ScalarStorage<double>(rankList.size());
+            primitiveSourceValues.cuda_allocateDevice();
+            conservativeSourceValues.cuda_allocateDevice();
+            conservativeWorkSourceValues.cuda_allocateDevice();
+        }
+    }
+#endif
+
 #endif
 
     // Initial conditions - Conservatives initializion on CPU, Primitives initialization on GPU - TODO initial consrvatives on GPU
@@ -390,7 +476,32 @@ void computation(int argc, char *argv[])
     }
 
 #if ENABLE_CUDA && ENABLE_MPI
+    // This update is not for communication only and it must happen
     cellPrimitives.cuda_updateHost();
+#endif
+
+#if ENABLE_CUDA && ENABLE_MPI
+    // Communication streamer needs GPU values buffer to be correctly initialized
+    for (int i = 0; i < nSendRanks; ++i) {
+        int r = sendRanks[i];
+        std::size_t listSize = sourcesListsMap[r].size();
+        std::size_t *rankList = sourcesListsMap[r].data();
+        for (int k = 0; k < N_FIELDS; ++k) {
+            double *primitiveRankValues = primitiveSourceValuesMap[k][r].data();
+            double *conservativeRankValues = conservativeSourceValuesMap[k][r].data();
+#pragma acc parallel loop present(cellPrimitivesHostStorageCollection, cellConservativesHostStorageCollection, rankList, primitiveRankValues, conservativeRankValues)
+//#pragma acc parallel loop present(cellConservativesHostStorageCollection, rankList, conservativeRankValues)
+            for (std::size_t i = 0; i < listSize; ++i) {
+                const std::size_t cellRawId = rankList[i];
+                double *primitiveRankValue = &primitiveRankValues[i];
+                double *conservativeRankValue = &conservativeRankValues[i];
+                const double* conservativeTmp = &cellConservativesHostStorageCollection[k][cellRawId];
+                const double* primitiveTmp = &cellPrimitivesHostStorageCollection[k][cellRawId];
+                *primitiveRankValue = *primitiveTmp;
+                *conservativeRankValue = *conservativeTmp;
+            }
+        }
+    }
 #endif
 
 #if ENABLE_MPI
@@ -433,7 +544,7 @@ void computation(int argc, char *argv[])
     int step = 0;
     double t = tMin;
     double nextSave = tMin;
-    while (t < tMax  && step < 3) {
+    while (t < tMax && step < 200) {
         log::cout() << std::endl;
         log::cout() << "Step n. " << step << std::endl;
 
@@ -456,7 +567,42 @@ void computation(int argc, char *argv[])
             for (int i = 0; i < N_FIELDS; ++i) {
                 cellConservatives[i].cuda_updateDevice(cellConservatives[i].rawFind(firstGhostRawId), cellConservatives[i].end());
             }
-            //cellConservatives.cuda_updateDevice();
+            if(step == 2) {
+                std::stringstream ss;
+                ss << "ghosts_" << rank << ".txt";
+                std::ofstream out(ss.str().c_str());
+                if (rank == 0) {
+                    for (int i = 0; i < N_FIELDS; ++i) {
+                        std::cout << "RANK = " << rank << " FIELD = " << i << std::endl;
+                        out << "RANK = " << rank << " FIELD = " << i << std::endl;
+                        auto begin = cellConservatives[i].rawFind(firstGhostRawId);
+                        auto end = cellConservatives[i].end();
+                        for (auto it = begin; it != end; ++it ) {
+                            std::cout << *it  << "(" << rank<< ")" << " ";
+                            out << *it << " ";
+                        }
+                        std::cout << std::flush << std::endl;
+                        out << std::flush << std::endl;
+                    }
+                }
+                MPI_Barrier(MPI_COMM_WORLD);
+                if (rank == 1) {
+                    for (int i = 0; i < N_FIELDS; ++i) {
+                        std::cout << "RANK = " << rank << " FIELD = " << i << std::endl;
+                        out << "RANK = " << rank << " FIELD = " << i << std::endl;
+                        auto begin = cellConservatives[i].rawFind(firstGhostRawId);
+                        auto end = cellConservatives[i].end();
+                        for (auto it = begin; it != end; ++it ) {
+                            std::cout << *it  << "(" << rank<< ")" << " ";
+                            out << *it << " ";
+                        }
+                        std::cout << std::flush << std::endl;
+                        out << std::flush << std::endl;
+                    }
+                }
+                out.close();
+
+            }
             nvtxRangePop();
         }
 #endif
@@ -508,7 +654,23 @@ void computation(int argc, char *argv[])
 #if ENABLE_CUDA && ENABLE_MPI
         if (nProcessors > 1) {
             nvtxRangePushA("RK2_MPI_HU");
-            cellConservativesWork.cuda_updateHost();
+
+            for (int i = 0; i < nSendRanks; ++i) {
+                int r = sendRanks[i];
+                std::size_t listSize = sourcesListsMap[r].size();
+                std::size_t *rankList = sourcesListsMap[r].data();
+                for (int k = 0; k < N_FIELDS; ++k) {
+                    double *rankValues = conservativeWorkSourceValuesMap[k][r].data();
+#pragma acc parallel loop present(cellConservativesWorkHostStorageCollection, rankList, rankValues)
+                    for (std::size_t i = 0; i < listSize; ++i) {
+                        const std::size_t cellRawId = rankList[i];
+                        double *rankValue = &rankValues[i];
+                        const double* conservativeTmp = &cellConservativesWorkHostStorageCollection[k][cellRawId];
+                        *rankValue = *conservativeTmp;
+                    }
+                }
+            }
+
             nvtxRangePop();
         }
 #endif
@@ -523,12 +685,44 @@ void computation(int argc, char *argv[])
 #if ENABLE_CUDA && ENABLE_MPI
         if (nProcessors > 1) {
             nvtxRangePushA("RK2_MPI_DU");
-	    long firstGhostId = mesh.getFirstGhostCell().getId();
+            long firstGhostId = mesh.getFirstGhostCell().getId();
             long firstGhostRawId = mesh.getCellIterator(firstGhostId).getRawIndex();
             for (int i = 0; i < N_FIELDS; ++i) {
                 cellConservativesWork[i].cuda_updateDevice(cellConservativesWork[i].rawFind(firstGhostRawId), cellConservativesWork[i].end());
             }
-            //cellConservativesWork.cuda_updateDevice();
+//            std::stringstream ss;
+//            ss << "ghosts_" << rank << ".txt";
+//            std::ofstream out(ss.str().c_str());
+//            if (rank == 0) {
+//                for (int i = 0; i < N_FIELDS; ++i) {
+//                    std::cout << "RANK = " << rank << " FIELD = " << i << std::endl;
+//                    out << "RANK = " << rank << " FIELD = " << i << std::endl;
+//                    auto begin = cellConservativesWork[i].rawFind(firstGhostRawId);
+//                    auto end = cellConservativesWork[i].end();
+//                    for (auto it = begin; it != end; ++it ) {
+//                        std::cout << *it  << "(" << rank<< ")" << " ";
+//                        out << *it << " ";
+//                    }
+//                    std::cout << std::flush << std::endl;
+//                    out << std::flush << std::endl;
+//                }
+//            }
+//            MPI_Barrier(MPI_COMM_WORLD);
+//            if (rank == 1) {
+//                for (int i = 0; i < N_FIELDS; ++i) {
+//                    std::cout << "RANK = " << rank << " FIELD = " << i << std::endl;
+//                    out << "RANK = " << rank << " FIELD = " << i << std::endl;
+//                    auto begin = cellConservativesWork[i].rawFind(firstGhostRawId);
+//                    auto end = cellConservativesWork[i].end();
+//                    for (auto it = begin; it != end; ++it ) {
+//                        std::cout << *it  << "(" << rank<< ")" << " ";
+//                        out << *it << " ";
+//                    }
+//                    std::cout << std::flush << std::endl;
+//                    out << std::flush << std::endl;
+//                }
+//            }
+//            out.close();
             nvtxRangePop();
         }
 #endif
@@ -572,7 +766,21 @@ void computation(int argc, char *argv[])
 #if ENABLE_CUDA && ENABLE_MPI
         if (nProcessors > 1) {
             nvtxRangePushA("RK3_MPI_HU");
-            cellConservativesWork.cuda_updateHost();
+            for (int i = 0; i < nSendRanks; ++i) {
+                int r = sendRanks[i];
+                std::size_t listSize = sourcesListsMap[r].size();
+                std::size_t *rankList = sourcesListsMap[r].data();
+                for (int k = 0; k < N_FIELDS; ++k) {
+                    double *rankValues = conservativeWorkSourceValuesMap[k][r].data();
+#pragma acc parallel loop present(cellConservativesWorkHostStorageCollection, rankList, rankValues)
+                    for (std::size_t i = 0; i < listSize; ++i) {
+                        const std::size_t cellRawId = rankList[i];
+                        double *rankValue = &rankValues[i];
+                        const double* conservativeTmp = &cellConservativesWorkHostStorageCollection[k][cellRawId];
+                        *rankValue = *conservativeTmp;
+                    }
+                }
+            }
             nvtxRangePop();
         }
 #endif
@@ -592,7 +800,6 @@ void computation(int argc, char *argv[])
             for (int i = 0; i < N_FIELDS; ++i) {
                 cellConservativesWork[i].cuda_updateDevice(cellConservativesWork[i].rawFind(firstGhostRawId), cellConservativesWork[i].end());
             }
-            //cellConservativesWork.cuda_updateDevice();
             nvtxRangePop();
         }
 #endif
@@ -635,7 +842,22 @@ void computation(int argc, char *argv[])
 #if ENABLE_CUDA && ENABLE_MPI
         if (nProcessors > 1) {
             nvtxRangePushA("RKFinal_MPI_HU");
-            cellConservatives.cuda_updateHost();
+//            cellConservatives.cuda_updateHost();
+            for (int i = 0; i < nSendRanks; ++i) {
+                int r = sendRanks[i];
+                std::size_t listSize = sourcesListsMap[r].size();
+                std::size_t *rankList = sourcesListsMap[r].data();
+                for (int k = 0; k < N_FIELDS; ++k) {
+                    double *rankValues = conservativeSourceValuesMap[k][r].data();
+#pragma acc parallel loop present(cellConservativesHostStorageCollection, rankList, rankValues)
+                    for (std::size_t i = 0; i < listSize; ++i) {
+                        const std::size_t cellRawId = rankList[i];
+                        double *rankValue = &rankValues[i];
+                        const double* conservativeTmp = &cellConservativesHostStorageCollection[k][cellRawId];
+                        *rankValue = *conservativeTmp;
+                    }
+                }
+            }
             nvtxRangePop();
         }
 #endif
@@ -644,6 +866,8 @@ void computation(int argc, char *argv[])
         if (mesh.isPartitioned()) {
             conservativeCommunicator->startAllExchanges();
             conservativeCommunicator->completeAllExchanges();
+//            init_conservativeCommunicator->startAllExchanges();
+//            init_conservativeCommunicator->completeAllExchanges();
         }
 #endif
         nvtxRangePop(); // pop RKFinal range
@@ -681,6 +905,14 @@ void computation(int argc, char *argv[])
     }
     clock_t computeEnd = clock();
 
+    if (nProcessors > 1) {
+        long firstGhostId = mesh.getFirstGhostCell().getId();
+        long firstGhostRawId = mesh.getCellIterator(firstGhostId).getRawIndex();
+        for (int i = 0; i < N_FIELDS; ++i) {
+            cellConservatives[i].cuda_updateDevice(cellConservatives[i].rawFind(firstGhostRawId), cellConservatives[i].end());
+        }
+        cellConservatives.cuda_updateHost();
+    }
     // Save final data
     {
         std::array<double, N_FIELDS> conservatives;
