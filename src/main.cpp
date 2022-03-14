@@ -32,6 +32,7 @@
 #include "storage.hpp"
 #include "utils.hpp"
 #include "memory.hpp"
+#include "communications.hpp"
 
 #include <bitpit_IO.hpp>
 #include <bitpit_voloctree.hpp>
@@ -351,6 +352,29 @@ void computation(int argc, char *argv[])
             conservativeWorkCommunicator->addData(conservativeWorkGhostStreamers[k].get());
         }
     }
+
+#if ENABLE_CUDA
+    std::unordered_map<int, ScalarStorage<std::size_t>> sourcesListsMap;
+    std::unordered_map<int, ScalarStorageCollection<double>> sourcesValuesMap;
+    const std::vector<int> &sendRanks = conservativeWorkCommunicator->getSendRanks();
+    std::size_t nSendRanks = sendRanks.size();
+    for (std::size_t n = 0; n < nSendRanks; ++n) {
+        int rank = sendRanks[n];
+        const ListCommunicator::RankExchangeList & rankList = conservativeWorkCommunicator->getSendList(rank);
+        sourcesListsMap[rank] = ScalarStorage<std::size_t>(rankList.size(),0);
+        sourcesValuesMap[rank] = ScalarStorageCollection<double>(N_FIELDS, rankList.size());
+        ScalarStorage<std::size_t> & sourceList = sourcesListsMap[rank];
+        for (std::size_t i = 0; i < rankList.size(); ++i) {
+            sourceList[i] = mesh.getCells().find(rankList[i]).getRawIndex();
+        }
+        sourceList.cuda_allocateDevice();
+        sourceList.cuda_updateDevice();
+        ScalarStorageCollection<double> & sourceValues = sourcesValuesMap[rank];
+        sourceValues.cuda_allocateDevice();
+    }
+
+#endif
+
 #endif
 
     // Initial conditions - Conservatives initializion on CPU, Primitives initialization on GPU - TODO initial consrvatives on GPU
@@ -509,6 +533,13 @@ void computation(int argc, char *argv[])
         if (nProcessors > 1) {
             nvtxRangePushA("RK2_MPI_HU");
             cellConservativesWork.cuda_updateHost();
+
+            for (int rank = 0; rank < nSendRanks; ++rank) {
+                ScalarStorage<long> *rankList = sourcesListsMap[rank].data();
+                std::
+#pragma acc parallel loop present(cellConservativesWorkHostStorageCollection, rankList, )
+
+            }
             nvtxRangePop();
         }
 #endif

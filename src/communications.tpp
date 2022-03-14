@@ -198,6 +198,64 @@ void PiercedStorageBufferStreamer<value_t>::write(const int &rank, bitpit::SendB
     }
 }
 
+
+
+
+
+
+
+
+
+#if ENABLE_CUDA
+
+/*!
+    \class GPUListBufferStreamer
+
+    \brief The GPUListBufferStreamer class allows to stream list data from / to
+    the buffer of a ListCommunicator.
+*/
+
+/*!
+    Read the dataset from the buffer.
+
+    \param rank is the rank of the process who sent the data
+    \param buffer is the buffer where the data will be read from
+    \param list is the list of ids that will be read
+*/
+template<typename container_t>
+void GPUListBufferStreamer<container_t>::read(int const &rank, bitpit::RecvBuffer &buffer,
+                                           const std::vector<long> &list)
+{
+    BITPIT_UNUSED(rank);
+
+    container_t &container = this->getContainer();
+    for (const long k : list) {
+        buffer >> container[k];
+    }
+}
+
+/*!
+    Write the dataset to the buffer.
+
+    \param rank is the rank of the process who will receive the data
+    \param buffer is the buffer where the data will be written to
+    \param list is the list of ids that will be written
+*/
+template<typename container_t>
+void GPUListBufferStreamer<container_t>::write(const int &rank, bitpit::SendBuffer &buffer,
+                                            const std::vector<long> &list)
+{
+    BITPIT_UNUSED(rank);
+    CUDA_ERROR_CHECK(cudaMemcpy(this->CPUbuffer.getData(), m_container.cuda_getDeviceData(), m_container->cuda_DeviceSize() * sizeof(m_container::dev_value_t), cudaMemcpyDeviceToHost()));
+
+    //USA I k coerenti con remaplist
+//    const container_t &container = this->getContainer();
+//    for (const long k : list) {
+//        buffer << container[k];
+//    }
+}
+#endif
+
 #endif
 
 #endif

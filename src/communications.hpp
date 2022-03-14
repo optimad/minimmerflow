@@ -84,6 +84,19 @@ public:
 
 };
 
+template<typename container_t>
+class GPUGhostBufferStreamer : public BaseListBufferStreamer<container_t>
+{
+
+public:
+    using BaseListBufferStreamer<container_t>::BaseListBufferStreamer;
+    GPUListBufferStreamer();
+
+    void read(const int &rank, bitpit::RecvBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
+    void write(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
+};
+
+
 template<typename value_t>
 class PiercedStorageBufferStreamer : public ListBufferStreamer<bitpit::PiercedStorage<value_t, long>>
 {
