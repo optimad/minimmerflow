@@ -198,6 +198,76 @@ void PiercedStorageBufferStreamer<value_t>::write(const int &rank, bitpit::SendB
     }
 }
 
+
+
+
+
+
+
+
+
+#if ENABLE_CUDA
+
+template<typename container_t>
+CudaStorageBufferStreamer<container_t>::CudaStorageBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset, const size_t &itemSize)
+    : BaseListBufferStreamer<container_t>(container, itemSize),
+      m_readOffset(readOffset), m_writeOffset(writeOffset)
+{
+}
+
+template<typename container_t>
+CudaStorageBufferStreamer<container_t>::CudaStorageBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset)
+    : BaseListBufferStreamer<container_t>(container),
+      m_readOffset(readOffset), m_writeOffset(writeOffset)
+{
+}
+
+/*!
+    \class GPUListBufferStreamer
+
+    \brief The GPUListBufferStreamer class allows to stream list data from / to
+    the buffer of a ListCommunicator.
+*/
+
+/*!
+    Read the dataset from the buffer.
+
+    \param rank is the rank of the process who sent the data
+    \param buffer is the buffer where the data will be read from
+    \param list is the list of ids that will be read
+*/
+template<typename container_t>
+void CudaStorageBufferStreamer<container_t>::read(int const &rank, bitpit::RecvBuffer &CPUbuffer,
+                                           const std::vector<long> &list)
+{
+    BITPIT_UNUSED(rank);
+
+//    container_t &container = this->getContainer();
+//    for (const long k : list) {
+//        buffer >> container[k];
+//    }
+}
+
+/*!
+    Write the dataset to the buffer.
+
+    \param rank is the rank of the process who will receive the data
+    \param buffer is the buffer where the data will be written to
+    \param list is the list of ids that will be written
+*/
+template<typename container_t>
+void CudaStorageBufferStreamer<container_t>::write(const int &rank, bitpit::SendBuffer &CPUbuffer,
+                                            const std::vector<long> &list)
+{
+    auto & rankContainer = m_container[rank];
+    size_t storageSize = rankContainer[0].size();
+    for(int k = 0; k < N_FIELDS; ++k) {
+        CUDA_ERROR_CHECK(cudaMemcpy(this->CPUbuffer.getData() + k * storageSize,
+                rankContainer[k].cuda_getDeviceData(), rankContainer[k]->cuda_DeviceSize() * sizeof(m_container::dev_value_t), cudaMemcpyDeviceToHost()));
+    }
+}
+#endif
+
 #endif
 
 #endif

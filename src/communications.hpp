@@ -84,6 +84,24 @@ public:
 
 };
 
+template<typename container_t>
+class CudaStorageBufferStreamer : public BaseListBufferStreamer<container_t>
+{
+
+public:
+    //using BaseListBufferStreamer<container_t>::BaseListBufferStreamer;
+    CudaStorageBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset);
+    CudaStorageBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset, const size_t & itemSize);
+
+    void read(const int &rank, bitpit::RecvBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
+    void write(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
+
+protected:
+    size_t m_readOffset;
+    size_t m_writeOffset;
+};
+
+
 template<typename value_t>
 class PiercedStorageBufferStreamer : public ListBufferStreamer<bitpit::PiercedStorage<value_t, long>>
 {
