@@ -233,7 +233,7 @@ class StorageCollection : public BaseStorageCollection<ValueStorage<value_t, dev
 {
 
 public:
-    StorageCollection(std::size_t nStorages);
+    StorageCollection(std::size_t nStorages, std::size_t storagesSize);
 
 };
 

@@ -120,8 +120,8 @@ PiercedStorageCollection<value_t, dev_value_t, id_t>::PiercedStorageCollection(s
  * \param nStorages is the number of storages
  */
 template<typename value_t, typename dev_value_t>
-StorageCollection<value_t, dev_value_t>::StorageCollection(std::size_t nStorages)
-    : BaseStorageCollection<ValueStorage<value_t, dev_value_t>>(nStorages)
+StorageCollection<value_t, dev_value_t>::StorageCollection(std::size_t nStorages, std::size_t storagesSize)
+    : BaseStorageCollection<ValueStorage<value_t, dev_value_t>>(nStorages, storagesSize)
 {
 }
 

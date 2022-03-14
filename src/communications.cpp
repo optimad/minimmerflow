@@ -354,7 +354,7 @@ void ListCommunicator::addData(ExchangeBufferStreamer *writer, ExchangeBufferStr
     int writerItemSize = writer->getItemSize();
     int readerItemSize = reader->getItemSize();
     if (readerItemSize != writerItemSize) {
-        throw std::runtime_error("The item size of the writer differs from the item size of the reader");
+        throw std::runtime_error("The item size of the writer differs from the item size of the reader ");
     }
 
     m_itemSize += writerItemSize;
