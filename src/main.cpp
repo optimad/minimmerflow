@@ -42,6 +42,9 @@
 #endif
 #include <vector>
 #include <time.h>
+#if ENABLE_CUDA
+#include <cuda.h>
+#endif
 
 using namespace bitpit;
 
@@ -744,6 +747,15 @@ void computation(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
+    // Get the primary context and bind to it
+    CUcontext ctx;
+    CUdevice dev;
+    CUDA_DRIVER_ERROR_CHECK(cuInit(0)); // Initialize the driver API, before calling any other driver API function
+    CUDA_DRIVER_ERROR_CHECK(cuDevicePrimaryCtxRetain(&ctx, 0));
+    CUDA_DRIVER_ERROR_CHECK(cuCtxSetCurrent(ctx));
+    CUDA_DRIVER_ERROR_CHECK(cuCtxGetDevice(&dev));
+
+
     //
     // Initialization
     //
