@@ -25,20 +25,7 @@
 #ifndef __MINIMMEFLOW_ADAPTATIONMANAGER_TPP__
 #define __MINIMMEFLOW_ADAPTATIONMANAGER_TPP__
 
-
 #include <cuda.h>
-
-static inline void
-checkDrvError(CUresult res, const char *tok, const char *file, unsigned line)
-{
-    if (res != CUDA_SUCCESS) {
-        const char *errStr = NULL;
-        (void)cuGetErrorString(res, &errStr);
-        std::cerr << file << ':' << line << ' ' << tok
-            << "failed (" << (unsigned)res << "): " << errStr << std::endl;
-    }
-}
-#define CHECK_DRV(x) checkDrvError(x, #x, __FILE__, __LINE__);
 
 /*!
  * Set the CUdeviceptr
