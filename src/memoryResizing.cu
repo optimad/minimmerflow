@@ -26,8 +26,8 @@
 #define __MINIMMEFLOW_ADAPTATIONMANAGER_CU__
 
 #include "memoryResizing.hcu"
+#include "context.hpp"
 #include <cuda.h>
-
 
 /*!
  * Constructor
@@ -37,14 +37,24 @@ MemoryResizing::MemoryResizing()
     m_dp(nullptr), m_prop(), m_handles(), m_allocSize(0ULL), m_reservedSize(0ULL), m_chunkSize(0ULL)
 {
     CUresult status = CUDA_SUCCESS;
-    // TODO: This is where the cuda-gdb hangs:
-    status = cuInit(0);
-    CHECK_DRV(status);
-    int device;
-    (void)status;
 
-    CUDA_ERROR_CHECK(cudaGetDevice(&device));
-    assert(status == CUDA_SUCCESS);
+    // Get the current context
+    CUcontext curr_ctx;
+    CUDA_DRIVER_ERROR_CHECK(cuCtxGetCurrent(&curr_ctx));
+    assert(status == CUDA_SUCCESS); // Blocking if status is not CUDA_SUCCESS
+
+    // If there is no context, use the primary context
+    if (curr_ctx == nullptr)
+    {
+        // This is a safe way to get the primary context:
+        curr_ctx = context::getPrimaryContext();
+        status = cuCtxSetCurrent(curr_ctx);
+        CUDA_DRIVER_ERROR_CHECK(status);
+    }
+
+    // Get the device
+    CUdevice device;
+    CUDA_DRIVER_ERROR_CHECK(cuCtxGetDevice(&device));
 
     m_prop.type = CU_MEM_ALLOCATION_TYPE_PINNED;
     m_prop.location.type = CU_MEM_LOCATION_TYPE_DEVICE;
@@ -53,8 +63,7 @@ MemoryResizing::MemoryResizing()
     m_accessDesc.location = m_prop.location;
     m_accessDesc.flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE;
 
-    status = cuMemGetAllocationGranularity(&m_chunkSize, &m_prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM);
-    CHECK_DRV(status);
+    CUDA_DRIVER_ERROR_CHECK(cuMemGetAllocationGranularity(&m_chunkSize, &m_prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM));
     assert(status == CUDA_SUCCESS);
 }
 
@@ -69,16 +78,16 @@ MemoryResizing::~MemoryResizing()
     if (m_dp != nullptr) {
         if (*m_dp != 0ULL) {
             status = cuMemUnmap(*m_dp, m_allocSize);
-            CHECK_DRV(status);
+            CUDA_DRIVER_ERROR_CHECK(status);
             assert(status == CUDA_SUCCESS);
             for (size_t i = 0; i < m_vaRanges.size(); i++) {
                 status = cuMemAddressFree(m_vaRanges[i].start, m_vaRanges[i].sz);
-                CHECK_DRV(status);
+                CUDA_DRIVER_ERROR_CHECK(status);
                 assert(status == CUDA_SUCCESS);
             }
             for (size_t i = 0ULL; i < m_handles.size(); i++) {
                 status = cuMemRelease(m_handles[i]);
-                CHECK_DRV(status);
+                CUDA_DRIVER_ERROR_CHECK(status);
                 assert(status == CUDA_SUCCESS);
             }
         }
@@ -102,7 +111,7 @@ CUresult MemoryResizing::cuda_reserve(size_t new_sz)
     const size_t aligned_sz = ((new_sz + m_chunkSize - 1) / m_chunkSize) * m_chunkSize;
 
     status = cuMemAddressReserve(&new_ptr, (aligned_sz - m_reservedSize), 0ULL, *m_dp + m_reservedSize, 0ULL);
-    CHECK_DRV(status);
+    CUDA_DRIVER_ERROR_CHECK(status);
 
     // Try to reserve an address just after what we already have reserved
     if (status != CUDA_SUCCESS || (new_ptr != *m_dp + m_reservedSize)) {
@@ -111,22 +120,22 @@ CUresult MemoryResizing::cuda_reserve(size_t new_sz)
         }
         // Slow path - try to find a new address reservation big enough for us
         status = cuMemAddressReserve(&new_ptr, aligned_sz, 0ULL, 0U, 0);
-        CHECK_DRV(status);
+        CUDA_DRIVER_ERROR_CHECK(status);
         if (status == CUDA_SUCCESS && *m_dp != 0ULL) {
             CUdeviceptr ptr = new_ptr;
             // Found one, now unmap our previous allocations
             status = cuMemUnmap(*m_dp, m_allocSize);
-            CHECK_DRV(status);
+            CUDA_DRIVER_ERROR_CHECK(status);
             assert(status == CUDA_SUCCESS);
             for (size_t i = 0ULL; i < m_handles.size(); i++) {
                 const size_t hdl_sz = m_handleSizes[i];
                 // And remap them, enabling their access
                 status = cuMemMap(ptr, hdl_sz, 0ULL, m_handles[i], 0ULL);
-                CHECK_DRV(status);
+                CUDA_DRIVER_ERROR_CHECK(status);
                 if (status != CUDA_SUCCESS)
                     break;
                 status = cuMemSetAccess(ptr, hdl_sz, &m_accessDesc, 1ULL);
-                CHECK_DRV(status);
+                CUDA_DRIVER_ERROR_CHECK(status);
                 if (status != CUDA_SUCCESS)
                     break;
                 ptr += hdl_sz;
@@ -134,10 +143,10 @@ CUresult MemoryResizing::cuda_reserve(size_t new_sz)
             if (status != CUDA_SUCCESS) {
                 // Failed the mapping somehow... clean up!
                 status = cuMemUnmap(new_ptr, aligned_sz);
-                CHECK_DRV(status);
+                CUDA_DRIVER_ERROR_CHECK(status);
                 assert(status == CUDA_SUCCESS);
                 status = cuMemAddressFree(new_ptr, aligned_sz);
-                CHECK_DRV(status);
+                CUDA_DRIVER_ERROR_CHECK(status);
                 assert(status == CUDA_SUCCESS);
             }
             else {
@@ -182,19 +191,19 @@ CUresult MemoryResizing::cuda_grow(std::size_t new_sz)
     // Round up to the next chunk size
     const size_t sz = ((size_diff + m_chunkSize - 1) / m_chunkSize) * m_chunkSize;
     status = cuda_reserve(m_allocSize + sz);
-    CHECK_DRV(status);
+    CUDA_DRIVER_ERROR_CHECK(status);
 
     if (status != CUDA_SUCCESS) {
         return status;
     }
     status = cuMemCreate(&handle, sz, &m_prop, 0);
-    CHECK_DRV(status);
+    CUDA_DRIVER_ERROR_CHECK(status);
     if (status == CUDA_SUCCESS) {
         status = cuMemMap(*m_dp + m_allocSize, sz, 0ULL, handle, 0ULL);
-        CHECK_DRV(status);
+        CUDA_DRIVER_ERROR_CHECK(status);
         if (status == CUDA_SUCCESS) {
             status = cuMemSetAccess(*m_dp + m_allocSize, sz, &m_accessDesc, 1ULL);
-            CHECK_DRV(status);
+            CUDA_DRIVER_ERROR_CHECK(status);
             if (status == CUDA_SUCCESS) {
                 m_handles.push_back(handle);
                 m_handleSizes.push_back(sz);
