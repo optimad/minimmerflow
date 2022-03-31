@@ -37,11 +37,12 @@ class MemoryResizing
 {
 public:
 
-     MemoryResizing();
-    ~MemoryResizing();
+    CUdeviceptr m_dp;
 
-    template<typename T>
-    void cuda_setPtr(T **ptr);
+    MemoryResizing();
+   ~MemoryResizing();
+
+    CUdeviceptr getCUdeviceptr();
 
     CUresult cuda_grow(std::size_t new_sz);
 
@@ -51,7 +52,6 @@ protected:
 
 private:
 
-    CUdeviceptr *m_dp;
     CUmemAllocationProp m_prop;
     CUmemAccessDesc m_accessDesc;
     struct Range {
@@ -67,9 +67,8 @@ private:
 
     CUresult cuda_reserve(size_t new_sz);
     void cuda_addVARange(CUdeviceptr new_ptr, size_t new_range);
+    void cuda_addHandleInfo(CUmemGenericAllocationHandle &handle, size_t sz);
 
 };
-
-    #include "memoryResizing.tpp"
 
 #endif
