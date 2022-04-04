@@ -327,7 +327,7 @@ void computation(int argc, char *argv[])
     std::vector<std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>> primitiveGhostStreamers(N_FIELDS);
     std::vector<std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>> conservativeGhostStreamers(N_FIELDS);
 #if ENABLE_CUDA==1
-    std::vector<std::unique_ptr<ExchangeBufferStreamer> conservativeWorkGhostWriteStreamers;
+    std::vector<std::unique_ptr<ExchangeBufferStreamer>> conservativeWorkGhostWriteStreamers(N_FIELDS);
     std::vector<std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>> conservativeWorkGhostReadStreamers(N_FIELDS);
 #else
     std::vector<std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>> conservativeWorkGhostStreamers(N_FIELDS);
@@ -364,7 +364,7 @@ void computation(int argc, char *argv[])
             conservativeWorkGhostReadStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellConservativesWork[k])));
             conservativeWorkGhostWriteStreamers[k] = std::unique_ptr<CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>(
                 new CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&(sourcesValuesMap[k]), 0, 0));
-            conservativeWorkCommunicator->addData(conservativeWorkGhostReadStreamers[k].get(), conservativeWorkGhostWriteStreamers.get());
+            conservativeWorkCommunicator->addData(conservativeWorkGhostReadStreamers[k].get(), conservativeWorkGhostWriteStreamers[k].get());
 
 #else
             conservativeWorkGhostStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellConservativesWork[k])));
@@ -557,14 +557,14 @@ void computation(int argc, char *argv[])
 
             for (int rank = 0; rank < nSendRanks; ++rank) {
                 std::size_t listSize = sourcesListsMap[rank].size();
-                long *rankList = sourcesListsMap[rank].data();
+		std::size_t *rankList = sourcesListsMap[rank].data();
                 for (int k = 0; k < N_FIELDS; ++k) {
                 double *rankValues = sourcesValuesMap[k][rank].data();
 #pragma acc parallel loop present(cellConservativesWorkHostStorageCollection, rankList, rankValues)
                 for (std::size_t i = 0; i < listSize; ++i) {
                         const std::size_t cellRawId = rankList[i];
                         double *rankValue = &rankValues[i];
-                        const double* conservativeTmp = cellConservativesWorkHostStorageCollection[k][cellRawId];
+                        const double* conservativeTmp = &cellConservativesWorkHostStorageCollection[k][cellRawId];
                         *rankValue = *conservativeTmp;
                     }
                 }

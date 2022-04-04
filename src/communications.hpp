@@ -35,6 +35,20 @@
 #include <vector>
 #include <unordered_map>
 
+
+class ExchangeRecvBuffer : public bitpit::RecvBuffer
+{
+public:
+    using bitpit::RecvBuffer();
+    using bitpit::getFront();
+}
+class ExchangeSendBuffer : public bitpit::SendBuffer
+{
+public:
+    using bitpit::SendBuffer();
+    using bitpit::getFront();
+}
+
 class ExchangeBufferStreamer
 {
 

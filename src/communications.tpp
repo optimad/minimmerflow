@@ -29,6 +29,8 @@
 
 #include <bitpit_IO.hpp>
 
+#include "utils_cuda.hpp"
+
 /*!
     \class BaseListBufferStreamer
 
@@ -248,24 +250,22 @@ void CudaStorageBufferStreamer<container_t>::read(int const &rank, bitpit::RecvB
 //    }
 }
 
-/*!
-    Write the dataset to the buffer.
-
-    \param rank is the rank of the process who will receive the data
-    \param buffer is the buffer where the data will be written to
-    \param list is the list of ids that will be written
-*/
-template<typename container_t>
-void CudaStorageBufferStreamer<container_t>::write(const int &rank, bitpit::SendBuffer &CPUbuffer,
-                                            const std::vector<long> &list)
-{
-    auto & rankContainer = m_container[rank];
-    size_t storageSize = rankContainer[0].size();
-    for(int k = 0; k < N_FIELDS; ++k) {
-        CUDA_ERROR_CHECK(cudaMemcpy(this->CPUbuffer.getData() + k * storageSize,
-                rankContainer[k].cuda_getDeviceData(), rankContainer[k]->cuda_DeviceSize() * sizeof(m_container::dev_value_t), cudaMemcpyDeviceToHost()));
-    }
-}
+///*!
+//    Write the dataset to the buffer.
+//
+//    \param rank is the rank of the process who will receive the data
+//    \param buffer is the buffer where the data will be written to
+//    \param list is the list of ids that will be written
+//*/
+//template<typename container_t>
+//void CudaStorageBufferStreamer<container_t>::write(const int &rank, bitpit::SendBuffer &CPUbuffer,
+//                                            const std::vector<long> &list)
+//{
+//    container_t &container = this->getContainer();
+//    auto & rankContainer = container[rank];
+//    size_t storageSize = rankContainer.size();
+//    cudaMemcpy(this->CPUbuffer.getData(), rankContainer.cuda_getDeviceData(), rankContainer->cuda_DeviceSize() * sizeof(m_container::dev_value_t), cudaMemcpyDeviceToHost());
+//}
 #endif
 
 #endif
