@@ -544,7 +544,7 @@ void computation(int argc, char *argv[])
     int step = 0;
     double t = tMin;
     double nextSave = tMin;
-    while (t < tMax && step < 200) {
+    while (t < tMax && step < 3) {
         log::cout() << std::endl;
         log::cout() << "Step n. " << step << std::endl;
 
@@ -567,42 +567,42 @@ void computation(int argc, char *argv[])
             for (int i = 0; i < N_FIELDS; ++i) {
                 cellConservatives[i].cuda_updateDevice(cellConservatives[i].rawFind(firstGhostRawId), cellConservatives[i].end());
             }
-            if(step == 2) {
-                std::stringstream ss;
-                ss << "ghosts_" << rank << ".txt";
-                std::ofstream out(ss.str().c_str());
-                if (rank == 0) {
-                    for (int i = 0; i < N_FIELDS; ++i) {
-                        std::cout << "RANK = " << rank << " FIELD = " << i << std::endl;
-                        out << "RANK = " << rank << " FIELD = " << i << std::endl;
-                        auto begin = cellConservatives[i].rawFind(firstGhostRawId);
-                        auto end = cellConservatives[i].end();
-                        for (auto it = begin; it != end; ++it ) {
-                            std::cout << *it  << "(" << rank<< ")" << " ";
-                            out << *it << " ";
-                        }
-                        std::cout << std::flush << std::endl;
-                        out << std::flush << std::endl;
-                    }
-                }
-                MPI_Barrier(MPI_COMM_WORLD);
-                if (rank == 1) {
-                    for (int i = 0; i < N_FIELDS; ++i) {
-                        std::cout << "RANK = " << rank << " FIELD = " << i << std::endl;
-                        out << "RANK = " << rank << " FIELD = " << i << std::endl;
-                        auto begin = cellConservatives[i].rawFind(firstGhostRawId);
-                        auto end = cellConservatives[i].end();
-                        for (auto it = begin; it != end; ++it ) {
-                            std::cout << *it  << "(" << rank<< ")" << " ";
-                            out << *it << " ";
-                        }
-                        std::cout << std::flush << std::endl;
-                        out << std::flush << std::endl;
-                    }
-                }
-                out.close();
-
-            }
+//            if(step == 2) {
+//                std::stringstream ss;
+//                ss << "ghosts_" << rank << ".txt";
+//                std::ofstream out(ss.str().c_str());
+//                if (rank == 0) {
+//                    for (int i = 0; i < N_FIELDS; ++i) {
+//                        std::cout << "RANK = " << rank << " FIELD = " << i << std::endl;
+//                        out << "RANK = " << rank << " FIELD = " << i << std::endl;
+//                        auto begin = cellConservatives[i].rawFind(firstGhostRawId);
+//                        auto end = cellConservatives[i].end();
+//                        for (auto it = begin; it != end; ++it ) {
+//                            std::cout << *it  << "(" << rank<< ")" << " ";
+//                            out << *it << " ";
+//                        }
+//                        std::cout << std::flush << std::endl;
+//                        out << std::flush << std::endl;
+//                    }
+//                }
+//                MPI_Barrier(MPI_COMM_WORLD);
+//                if (rank == 1) {
+//                    for (int i = 0; i < N_FIELDS; ++i) {
+//                        std::cout << "RANK = " << rank << " FIELD = " << i << std::endl;
+//                        out << "RANK = " << rank << " FIELD = " << i << std::endl;
+//                        auto begin = cellConservatives[i].rawFind(firstGhostRawId);
+//                        auto end = cellConservatives[i].end();
+//                        for (auto it = begin; it != end; ++it ) {
+//                            std::cout << *it  << "(" << rank<< ")" << " ";
+//                            out << *it << " ";
+//                        }
+//                        std::cout << std::flush << std::endl;
+//                        out << std::flush << std::endl;
+//                    }
+//                }
+//                out.close();
+//
+//            }
             nvtxRangePop();
         }
 #endif
@@ -676,10 +676,12 @@ void computation(int argc, char *argv[])
 #endif
 
 #if ENABLE_MPI
+        nvtxRangePushA("RK2_COMM");
         if (mesh.isPartitioned()) {
             conservativeWorkCommunicator->startAllExchanges();
             conservativeWorkCommunicator->completeAllExchanges();
         }
+        nvtxRangePop();
 #endif
 
 #if ENABLE_CUDA && ENABLE_MPI

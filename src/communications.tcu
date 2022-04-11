@@ -25,6 +25,8 @@
 #ifndef __MINIMMERFLOW_COMMUNICATIONS_TCU__
 #define __MINIMMERFLOW_COMMUNICATIONS_TCU__
 
+#include <nvtx3/nvToolsExt.h>
+
 /*!
     Write the dataset to the buffer.
 
@@ -40,10 +42,15 @@ void CudaStorageBufferStreamer<container_t>::write(const int &rank, bitpit::Send
     auto & rankContainer = container[rank];
     std::size_t rankContainerSize = rankContainer.size();
     std::vector<double> temp(rankContainerSize, 10.0);
+    nvtxRangePushA("STREAMER_WRITE_CUDAMCPY");
     cudaMemcpy(temp.data(), rankContainer.cuda_deviceData(), rankContainer.cuda_deviceDataSize() * sizeof(typename container_t::mapped_type::dev_value_type), cudaMemcpyDeviceToHost);
+    nvtxRangePop();
+    nvtxRangePushA("STREAMER_WRITE_BUFFERSTREAMING");
     for (double t : temp) {
         CPUbuffer << t;
     }
+    nvtxRangePop();
+
 }
 
 
