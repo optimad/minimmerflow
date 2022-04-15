@@ -94,10 +94,7 @@ void ComputationInfo::cuda_resize()
 
     m_solvedCellRawIds.cuda_resize(getSolvedCellRawIds().size());
 
-    std::cout <<  "CIcu 0" << std::endl;
-    std::cout <<  "Interface size " << getSolvedUniformInterfaceRawIds().size() << std::endl;
     m_solvedUniformInterfaceRawIds.cuda_resize(getSolvedUniformInterfaceRawIds().size());
-    std::cout <<  "CIcu 1" << std::endl;
     m_solvedUniformInterfaceOwnerRawIds.cuda_resize(getSolvedUniformInterfaceRawIds().size());
     m_solvedUniformInterfaceNeighRawIds.cuda_resize(getSolvedUniformInterfaceRawIds().size());
 

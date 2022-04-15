@@ -69,7 +69,6 @@ protected:
     using container_t::container_t;
 
 #if ENABLE_CUDA
-    dev_value_t *m_deviceData;
 
     virtual std::size_t cuda_deviceDataSize(std::size_t count) const = 0;
 #endif

@@ -34,7 +34,9 @@ namespace adaptation {
 */
 void markCellsForRefinement(VolOctree &mesh)
 {
-    mesh.markCellForRefinement(0);
+    for (int iter = 0; iter < mesh.getCellCount(); iter++) {
+        mesh.markCellForRefinement(iter);
+    }
 }
 
 /*
@@ -98,11 +100,13 @@ void meshAdaptation(VolOctree &mesh, ScalarStorage<std::size_t> &parentIDs,
     for (int k = 0; k < N_FIELDS; k++) {
         parentCellRHS[k].resize(tempParentIDs.size());
         parentCellConservatives[k].resize(tempParentIDs.size());
+        parentCellRHS[k].cuda_resize(tempParentIDs.size());
+        parentCellConservatives[k].cuda_resize(tempParentIDs.size());
     }
-    parentCellRHS.cuda_allocateDevice();
-    parentCellConservatives.cuda_allocateDevice();
-    parentCellRHS.cuda_updateDevice();
-    parentCellConservatives.cuda_updateDevice();
+//  parentCellRHS.cuda_allocateDevice();
+//  parentCellConservatives.cuda_allocateDevice();
+//  parentCellRHS.cuda_updateDevice();
+//  parentCellConservatives.cuda_updateDevice();
 #endif
 
     bool squeeshPatchStorage = false;
@@ -140,7 +144,7 @@ void meshAdaptation(VolOctree &mesh, ScalarStorage<std::size_t> &parentIDs,
     tempParentIDs.cuda_freeDevice();
 #endif
     mesh.adaptionCleanup();
-    mesh.write();
+//  mesh.write();
 }
 
 /*

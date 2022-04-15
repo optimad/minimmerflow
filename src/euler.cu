@@ -23,6 +23,7 @@
 \*---------------------------------------------------------------------------*/
 
 #include "euler.hcu"
+#include "test.hcu"
 #include "utils_cuda.hpp"
 
 #define uint64  unsigned long long

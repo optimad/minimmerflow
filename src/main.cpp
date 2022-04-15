@@ -124,8 +124,8 @@ void adaptMeshAndFields(double &minCellSize, ComputationInfo &computationInfo,
     parentIDs.cuda_updateDevice();
     currentIDs.cuda_allocateDevice();
     currentIDs.cuda_updateDevice();
-    adaptation::mapFields(parentIDs, currentIDs, parentCellRHS,
-                          parentCellConservatives, cellRHS, cellConservatives);
+    adaptation::mapFields(parentIDs, currentIDs, parentCellRHS, parentCellConservatives,
+                          cellRHS, cellConservatives);
 
     //TODO: When OpenACC is on again, remove the following 4 lines updating
     //the host
@@ -502,7 +502,7 @@ void computation(int argc, char *argv[])
     double t = tMin;
     double nextSave = tMin;
 //  while (t < tMax) {
-    while (t < tMax && step < 2) {
+    while (t < tMax && step < 50) {
         log::cout() << std::endl;
         log::cout() << "Step n. " << step << std::endl;
 
@@ -669,6 +669,7 @@ void computation(int argc, char *argv[])
             diskTime += clock() - diskStart;
             nextSave += (tMax - tMin) / nSaves;
         }
+        if (step == 2)
         adaptMeshAndFields(minCellSize, computationInfo, mesh, cellRHS,
                            cellConservatives, cellPrimitives,
                            cellConservativesWork, solvedCellRawIds,
