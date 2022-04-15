@@ -34,7 +34,9 @@ namespace adaptation {
 */
 void markCellsForRefinement(VolOctree &mesh)
 {
-    mesh.markCellForRefinement(0);
+    for (int iter = 0; iter < mesh.getCellCount(); iter++) {
+        mesh.markCellForRefinement(iter);
+    }
 }
 
 /*
@@ -140,7 +142,7 @@ void meshAdaptation(VolOctree &mesh, ScalarStorage<std::size_t> &parentIDs,
     tempParentIDs.cuda_freeDevice();
 #endif
     mesh.adaptionCleanup();
-    mesh.write();
+//  mesh.write();
 }
 
 /*

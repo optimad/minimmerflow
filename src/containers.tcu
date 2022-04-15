@@ -70,7 +70,7 @@ void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_freeDevice()
 #if ENABLE_OPENACC
     acc_unmap_data(this->data());
 #endif
-    CUDA_ERROR_CHECK(cudaFree(m_deviceData));
+//  CUDA_ERROR_CHECK(cudaFree(m_deviceData));
 }
 
 /*!
