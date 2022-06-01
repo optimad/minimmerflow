@@ -210,26 +210,19 @@ void PiercedStorageBufferStreamer<value_t>::write(const int &rank, bitpit::SendB
 
 #if ENABLE_CUDA
 
-template<typename container_t>
-CudaStorageBufferStreamer<container_t>::CudaStorageBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset, const size_t &itemSize)
-    : BaseListBufferStreamer<container_t>(container, itemSize),
-      m_readOffset(readOffset), m_writeOffset(writeOffset)
-{
-}
-
-template<typename container_t>
-CudaStorageBufferStreamer<container_t>::CudaStorageBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset)
-    : BaseListBufferStreamer<container_t>(container),
-      m_readOffset(readOffset), m_writeOffset(writeOffset)
-{
-}
-
 /*!
     \class GPUListBufferStreamer
 
     \brief The GPUListBufferStreamer class allows to stream list data from / to
     the buffer of a ListCommunicator.
 */
+
+template<typename container_t>
+CudaStorageBufferStreamer<container_t>::CudaStorageBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset)
+    : BaseListBufferStreamer<container_t>(container),
+      m_readOffset(readOffset), m_writeOffset(writeOffset), m_maxBufferSize(0)
+{
+}
 
 /*!
     Read the dataset from the buffer.

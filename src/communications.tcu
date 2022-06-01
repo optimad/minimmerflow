@@ -41,17 +41,41 @@ void CudaStorageBufferStreamer<container_t>::write(const int &rank, bitpit::Send
     container_t &container = this->getContainer();
     auto & rankContainer = container[rank];
     std::size_t rankContainerSize = rankContainer.size();
-    std::vector<double> temp(rankContainerSize, 10.0);
+    //std::vector<double> temp(rankContainerSize, 10.0);
     nvtxRangePushA("STREAMER_WRITE_CUDAMCPY");
-    cudaMemcpy(temp.data(), rankContainer.cuda_deviceData(), rankContainer.cuda_deviceDataSize() * sizeof(typename container_t::mapped_type::dev_value_type), cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_temp.data(), rankContainer.cuda_deviceData(), rankContainer.cuda_deviceDataSize() * sizeof(typename container_t::mapped_type::dev_value_type), cudaMemcpyDeviceToHost);
     nvtxRangePop();
     nvtxRangePushA("STREAMER_WRITE_BUFFERSTREAMING");
-    for (double t : temp) {
-        CPUbuffer << t;
+    for (size_t i = 0; i < rankContainerSize; ++i) {
+        CPUbuffer << m_temp[i];
     }
+//    for (double t : temp) {
+//        CPUbuffer << t;
+//    }
     nvtxRangePop();
 
 }
 
+template<typename container_t>
+CudaStorageBufferStreamer<container_t>::CudaStorageBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset, const size_t &itemSize, size_t writeBufferSize)
+    : BaseListBufferStreamer<container_t>(container, itemSize),
+      m_readOffset(readOffset), m_writeOffset(writeOffset), m_maxBufferSize(writeBufferSize), m_temp(writeBufferSize, 0.0)
+{
+    size_t bytes = writeBufferSize * sizeof(double);
+    cudaError_t err = cudaHostRegister(m_temp.data(), bytes, cudaHostRegisterDefault);
+    if (err != cudaSuccess) {
+        std::cerr << "CUDA runtime error in cudaHostRegister " << cudaGetErrorString(err) << std::endl;
+    }
+
+}
+
+template<typename container_t>
+CudaStorageBufferStreamer<container_t>::~CudaStorageBufferStreamer()
+{
+    cudaError_t err = cudaHostUnregister(m_temp.data());
+    if (err != cudaSuccess) {
+        std::cerr << "CUDA runtime error in cudaHostUnregister " << cudaGetErrorString(err) << std::endl;
+    }
+}
 
 #endif
