@@ -352,11 +352,20 @@ void computation(int argc, char *argv[])
         primitiveCommunicator->resetExchangeLists();
         primitiveCommunicator->setRecvsContinuous(true);
 
+        size_t writeBufferSize = 0;
+        for(auto & rankList : primitiveCommunicator->getSendList()) {
+            if (writeBufferSize < rankList.second.size()) {
+                writeBufferSize = rankList.second.size();
+            }
+        }
+        std::cout << "Max buffer size = " << writeBufferSize << std::endl;
+
+
         for (int k = 0; k < N_FIELDS; ++k) {
 #if ENABLE_CUDA==1
             primitiveGhostReadStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellPrimitives[k])));
             primitiveGhostWriteStreamers[k] = std::unique_ptr<CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>(
-                new CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&(primitiveSourceValuesMap[k]), 0, 0, sizeof(ScalarStorage<double>::value_type)));
+                new CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&(primitiveSourceValuesMap[k]), 0, 0, sizeof(ScalarStorage<double>::value_type), writeBufferSize));
             primitiveCommunicator->addData(primitiveGhostWriteStreamers[k].get(), primitiveGhostReadStreamers[k].get());
 #else
             primitiveGhostStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellPrimitives[k])));
@@ -376,7 +385,7 @@ void computation(int argc, char *argv[])
 #if ENABLE_CUDA==1
             conservativeGhostReadStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellConservatives[k])));
             conservativeGhostWriteStreamers[k] = std::unique_ptr<CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>(
-                new CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&(conservativeSourceValuesMap[k]), 0, 0, sizeof(ScalarStorage<double>::value_type)));
+                new CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&(conservativeSourceValuesMap[k]), 0, 0, sizeof(ScalarStorage<double>::value_type), writeBufferSize));
             conservativeCommunicator->addData(conservativeGhostWriteStreamers[k].get(), conservativeGhostReadStreamers[k].get());
             init_conservativeGhostStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellConservatives[k])));
             init_conservativeCommunicator->addData(init_conservativeGhostStreamers[k].get());
@@ -396,7 +405,7 @@ void computation(int argc, char *argv[])
 #if ENABLE_CUDA==1
             conservativeWorkGhostReadStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellConservativesWork[k])));
             conservativeWorkGhostWriteStreamers[k] = std::unique_ptr<CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>(
-                new CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&(conservativeWorkSourceValuesMap[k]), 0, 0, sizeof(ScalarStorage<double>::value_type)));
+                new CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&(conservativeWorkSourceValuesMap[k]), 0, 0, sizeof(ScalarStorage<double>::value_type), writeBufferSize));
             conservativeWorkCommunicator->addData(conservativeWorkGhostWriteStreamers[k].get(), conservativeWorkGhostReadStreamers[k].get());
 #else
             conservativeWorkGhostStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellConservativesWork[k])));
