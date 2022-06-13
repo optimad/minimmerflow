@@ -100,11 +100,11 @@ void meshAdaptation(VolOctree &mesh, ScalarStorage<std::size_t> &parentIDs,
     for (int k = 0; k < N_FIELDS; k++) {
         parentCellRHS[k].resize(tempParentIDs.size());
         parentCellConservatives[k].resize(tempParentIDs.size());
-        parentCellRHS[k].cuda_resize(tempParentIDs.size());
-        parentCellConservatives[k].cuda_resize(tempParentIDs.size());
+//      parentCellRHS[k].cuda_resize(tempParentIDs.size());
+//      parentCellConservatives[k].cuda_resize(tempParentIDs.size());
     }
-//  parentCellRHS.cuda_allocateDevice();
-//  parentCellConservatives.cuda_allocateDevice();
+    parentCellRHS.cuda_allocateDevice();
+    parentCellConservatives.cuda_allocateDevice();
 //  parentCellRHS.cuda_updateDevice();
 //  parentCellConservatives.cuda_updateDevice();
 #endif

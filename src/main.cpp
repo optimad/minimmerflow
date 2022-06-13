@@ -65,8 +65,8 @@ void adaptMeshAndFields(double &minCellSize, ComputationInfo &computationInfo,
 
     ScalarStorageCollection<double> parentCellRHS(N_FIELDS);
     ScalarStorageCollection<double> parentCellConservatives(N_FIELDS);
-    parentCellRHS.cuda_allocateDevice();
-    parentCellConservatives.cuda_allocateDevice();
+//  parentCellRHS.cuda_allocateDevice();
+//  parentCellConservatives.cuda_allocateDevice();
 
     adaptation::meshAdaptation(mesh, parentIDs, currentIDs, parentCellRHS,
                                parentCellConservatives, cellRHS,
