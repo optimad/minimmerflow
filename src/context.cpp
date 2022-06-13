@@ -48,7 +48,7 @@ CUcontext getPrimaryContext()
         (primary_state_check_result == CUDA_ERROR_DEINITIALIZED)
      || (primary_state_check_result == CUDA_ERROR_NOT_INITIALIZED);
 
-    // Check whether the primary context exists and if not, ratain it
+    // Check whether the primary context exists and if not, retain it
     if (unInitializedContext)
         CUDA_DRIVER_ERROR_CHECK(cuDevicePrimaryCtxRetain(&primary_context, device));
 
