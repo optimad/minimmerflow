@@ -46,6 +46,8 @@
 #include <cuda.h>
 #endif
 
+#include "test.hpp"
+
 using namespace bitpit;
 
 void adaptMeshAndFields(double &minCellSize, ComputationInfo &computationInfo,
@@ -769,7 +771,55 @@ int main(int argc, char *argv[])
     //
     // Computation
     //
-    computation(argc, argv);
+//  computation(argc, argv);
+    ScalarStorage<std::size_t> parentIDs;
+    std::size_t initSize = 1024;
+    for (std::size_t iter = 0; iter < initSize*initSize; iter++) {
+        parentIDs.push_back(1);
+    }
+    parentIDs.cuda_allocateDevice();
+    parentIDs.cuda_updateDevice();
+
+    test::plotContainer(parentIDs, parentIDs.cuda_deviceDataSize());
+
+
+    for (std::size_t iter = 0; iter < initSize*initSize; iter++) {
+        parentIDs[iter] = 0;
+    }
+    parentIDs.cuda_updateHost();
+    double sum = 0;
+    for (std::size_t iter = 0; iter < initSize*initSize; iter++) {
+        if (parentIDs[iter] != 2) std::cout <<  "problem1 parentIDs[" << iter << "] " << parentIDs[iter] << std::endl;
+        sum += parentIDs[iter];
+    }
+
+    double valSum = 2 * initSize * initSize;
+
+
+
+
+    parentIDs.clear();
+    parentIDs.resize(0);
+    std::size_t newSize = 4*initSize;
+    for (std::size_t iter = 0; iter < newSize*newSize; iter++) {
+        parentIDs.push_back(2);
+    }
+    parentIDs.cuda_resize(parentIDs.cuda_deviceDataSize());
+    parentIDs.cuda_updateDevice();
+    test::plotContainer(parentIDs, parentIDs.cuda_deviceDataSize());
+
+
+    for (std::size_t iter = 0; iter < newSize*newSize; iter++) {
+        parentIDs[iter] = 0;
+    }
+    parentIDs.cuda_updateHost();
+
+    sum = 0;
+    for (std::size_t iter = 0; iter < newSize*newSize; iter++) {
+        if (parentIDs[iter] != 3) std::cout <<  "problem2 parentIDs[" << iter << "] " << parentIDs[iter] << std::endl;
+        sum += parentIDs[iter];
+    }
+    valSum = 3 * newSize * newSize;
 
     //
     // Finalization

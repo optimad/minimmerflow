@@ -53,8 +53,8 @@ void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_allocateDevice()
 {
     std::size_t deviceBytes = this->cuda_deviceDataSize() * sizeof(dev_value_t);
 
+//  CUDA_ERROR_CHECK(cudaMalloc((void **) &m_dp, deviceBytes));
     this->cuda_resize(this->cuda_deviceDataSize());
-
 }
 
 /*!
