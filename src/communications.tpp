@@ -200,67 +200,6 @@ void PiercedStorageBufferStreamer<value_t>::write(const int &rank, bitpit::SendB
     }
 }
 
-
-
-
-
-
-
-
-
-#if ENABLE_CUDA
-
-/*!
-    \class GPUListBufferStreamer
-
-    \brief The GPUListBufferStreamer class allows to stream list data from / to
-    the buffer of a ListCommunicator.
-*/
-
-template<typename container_t>
-CudaStorageBufferStreamer<container_t>::CudaStorageBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset)
-    : BaseListBufferStreamer<container_t>(container),
-      m_readOffset(readOffset), m_writeOffset(writeOffset), m_maxBufferSize(0)
-{
-}
-
-/*!
-    Read the dataset from the buffer.
-
-    \param rank is the rank of the process who sent the data
-    \param buffer is the buffer where the data will be read from
-    \param list is the list of ids that will be read
-*/
-template<typename container_t>
-void CudaStorageBufferStreamer<container_t>::read(int const &rank, bitpit::RecvBuffer &CPUbuffer,
-                                           const std::vector<long> &list)
-{
-    BITPIT_UNUSED(rank);
-
-//    container_t &container = this->getContainer();
-//    for (const long k : list) {
-//        buffer >> container[k];
-//    }
-}
-
-///*!
-//    Write the dataset to the buffer.
-//
-//    \param rank is the rank of the process who will receive the data
-//    \param buffer is the buffer where the data will be written to
-//    \param list is the list of ids that will be written
-//*/
-//template<typename container_t>
-//void CudaStorageBufferStreamer<container_t>::write(const int &rank, bitpit::SendBuffer &CPUbuffer,
-//                                            const std::vector<long> &list)
-//{
-//    container_t &container = this->getContainer();
-//    auto & rankContainer = container[rank];
-//    size_t storageSize = rankContainer.size();
-//    cudaMemcpy(this->CPUbuffer.getData(), rankContainer.cuda_getDeviceData(), rankContainer->cuda_DeviceSize() * sizeof(m_container::dev_value_t), cudaMemcpyDeviceToHost());
-//}
-#endif
-
 #endif
 
 #endif
