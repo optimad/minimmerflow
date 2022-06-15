@@ -35,6 +35,7 @@
 #include <vector>
 #include <unordered_map>
 
+#include "cuda_runtime_api.h"
 
 //class ExchangeRecvBuffer : public bitpit::RecvBuffer
 //{
@@ -61,6 +62,7 @@ public:
 
     virtual void read(const int &rank, bitpit::RecvBuffer &buffer, const std::vector<long> &list = std::vector<long>()) = 0;
     virtual void write(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>()) = 0;
+    virtual void finalizeWrite(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>());
 
 private:
     size_t m_itemSize;
@@ -104,20 +106,24 @@ class CudaStorageBufferStreamer : public BaseListBufferStreamer<container_t>
 
 public:
     //using BaseListBufferStreamer<container_t>::BaseListBufferStreamer;
-    CudaStorageBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset);
+    //CudaStorageBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset);
     CudaStorageBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset, const size_t & itemSize, size_t maxBufferSize);
     ~CudaStorageBufferStreamer();
 
     void read(const int &rank, bitpit::RecvBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
     void write(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
+    void finalizeWrite(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
+
+    void initializeCUDAObjects();
+    std::unordered_map<int, cudaStream_t> m_cudaStreams; //like this rank cannot share GPU
 
 protected:
     size_t m_readOffset;
     size_t m_writeOffset;
     size_t m_maxBufferSize;
-    std::vector<double> m_temp;
+    std::unordered_map<int, std::vector<double>> m_temp;
+    int m_currentCudaStream;
 };
-
 
 template<typename value_t>
 class PiercedStorageBufferStreamer : public ListBufferStreamer<bitpit::PiercedStorage<value_t, long>>
@@ -177,6 +183,8 @@ public:
 
     void remapRecvList(const std::unordered_map<long, long> &mapper);
     void remapRecvList(const std::unordered_map<int, std::vector<long>> &mapper);
+
+    void initializaCudaObjects();
 
 protected:
     size_t m_itemSize;

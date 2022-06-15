@@ -514,6 +514,15 @@ void computation(int argc, char *argv[])
 #endif
 
 #if ENABLE_MPI
+    log::cout() << "Initial communication..."  << std::endl;
+    for (int k = 0; k < N_FIELDS; ++k) {
+        primitiveGhostWriteStreamers[k].get()->initializeCUDAObjects();
+        conservativeGhostWriteStreamers[k].get()->initializeCUDAObjects();
+        conservativeWorkGhostWriteStreamers[k].get()->initializeCUDAObjects();
+    }
+
+
+
     if (mesh.isPartitioned()) {
         conservativeCommunicator->startAllExchanges();
         primitiveCommunicator->startAllExchanges();

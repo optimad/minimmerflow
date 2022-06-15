@@ -61,6 +61,11 @@ void ExchangeBufferStreamer::setItemSize(const size_t &itemSize)
     m_itemSize = itemSize;
 }
 
+void ExchangeBufferStreamer::finalizeWrite(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list)
+{
+    //Do nothing
+}
+
 /*!
  * \class ListCommunicator
  *
@@ -365,42 +370,6 @@ void ListCommunicator::addData(ExchangeBufferStreamer *writer, ExchangeBufferStr
 
     // Update exchange info
     updateExchangeInfo();
-}
-
-/*!
- * Send ghosts data using non-blocking communications
- *
- * \param cellData is the container of the cell data
- */
-void ListCommunicator::startAllExchanges()
-{
-    if (getCommunicator() == MPI_COMM_NULL || !hasData()) {
-        return;
-    }
-
-    // Start the receives
-    for (int rank : getRecvRanks()) {
-        if (!isRecvActive(rank)) {
-            startRecv(rank);
-        }
-    }
-
-    // Wait previous sends
-    waitAllSends();
-
-    // Fill the buffer with the given field and start sending the data
-    for (int rank : getSendRanks()) {
-        // Get send buffer
-        SendBuffer &buffer = getSendBuffer(rank);
-
-        // Write the buffer
-        for (ExchangeBufferStreamer *streamer : m_writers) {
-            streamer->write(rank, buffer, getStreamableSendList(rank, streamer));
-        }
-
-        // Start the send
-        startSend(rank);
-    }
 }
 
 /*!
