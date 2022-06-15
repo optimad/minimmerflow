@@ -280,6 +280,9 @@ void BaseStorageCollection<storage_t>::cuda_resize(size_t new_sz)
     for (std::size_t k = 0; k < nStorages; ++k) {
         storage_t &storage = m_storages[k];
         storage.cuda_resize(new_sz);
+
+        dev_value_type *storageDEviceData = storage.cuda_deviceData();
+        CUDA_ERROR_CHECK(cudaMemcpy(m_deviceDataCollection + k, &storageDEviceData, sizeof(dev_value_type *), cudaMemcpyHostToDevice));
     }
 }
 
