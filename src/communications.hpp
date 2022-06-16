@@ -122,6 +122,8 @@ protected:
     size_t m_writeOffset;
     size_t m_maxBufferSize;
     std::unordered_map<int, std::vector<double>> m_temp;
+    std::unordered_map<int, double*> m_pointers;
+    size_t m_offset;
     int m_currentCudaStream;
 };
 
@@ -150,9 +152,10 @@ public:
         LIST_RECV
     };
 
-    ListCommunicator(const MPI_Comm &communicator);
+    ListCommunicator(const MPI_Comm &communicator, std::string name);
 
-    virtual ~ListCommunicator() = default;
+    ~ListCommunicator();
+//    virtual ~ListCommunicator() = default;
 
     size_t getItemSize() const;
 
@@ -184,7 +187,10 @@ public:
     void remapRecvList(const std::unordered_map<long, long> &mapper);
     void remapRecvList(const std::unordered_map<int, std::vector<long>> &mapper);
 
-    void initializaCudaObjects();
+    void initializeCudaObjects();
+    void finalizeCudaObjects();
+
+    std::string m_name;
 
 protected:
     size_t m_itemSize;
@@ -211,7 +217,7 @@ class GhostCommunicator : public ListCommunicator
 {
 
 public:
-    GhostCommunicator(const bitpit::PatchKernel *patch);
+    GhostCommunicator(const bitpit::PatchKernel *patch, std::string name);
 
     void resetExchangeLists();
     void setExchangeLists(const ExchangeList &sendList, const ExchangeList &recvList);

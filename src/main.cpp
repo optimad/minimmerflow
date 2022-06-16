@@ -348,7 +348,7 @@ void computation(int argc, char *argv[])
 #endif
     if (mesh.isPartitioned()) {
         // Primitive fields
-        primitiveCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh));
+        primitiveCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh, "primitive"));
         primitiveCommunicator->resetExchangeLists();
         primitiveCommunicator->setRecvsContinuous(true);
 
@@ -374,10 +374,10 @@ void computation(int argc, char *argv[])
         }
 
         // Conservative fields
-        conservativeCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh));
+        conservativeCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh, "conservative"));
         conservativeCommunicator->resetExchangeLists();
         conservativeCommunicator->setRecvsContinuous(true);
-        init_conservativeCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh));
+        init_conservativeCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh, "init_conservative"));
         init_conservativeCommunicator->resetExchangeLists();
         init_conservativeCommunicator->setRecvsContinuous(true);
 
@@ -396,7 +396,7 @@ void computation(int argc, char *argv[])
         }
 
         // Conservative tields tmp
-        conservativeWorkCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh));
+        conservativeWorkCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh, "conservative work"));
         conservativeWorkCommunicator->resetExchangeLists();
         conservativeWorkCommunicator->setRecvsContinuous(true);
 
@@ -524,6 +524,13 @@ void computation(int argc, char *argv[])
 
 
     if (mesh.isPartitioned()) {
+        log::cout() << "Conservative cuda objects initialization" << std::endl;
+        conservativeCommunicator->initializeCudaObjects();
+        log::cout() << "Conservative WORK cuda objects initialization" << std::endl;
+        conservativeWorkCommunicator->initializeCudaObjects();
+        log::cout() << "Primitive cuda objects initialization" << std::endl;
+        primitiveCommunicator->initializeCudaObjects();
+
         conservativeCommunicator->startAllExchanges();
         primitiveCommunicator->startAllExchanges();
         conservativeCommunicator->completeAllExchanges();
@@ -1002,6 +1009,18 @@ void computation(int argc, char *argv[])
     cellRHS.cuda_freeDevice();
     computationInfo.cuda_finalize();
     euler::cuda_finalize();
+#endif
+
+#if ENABLE_MPI
+    // finalize Communicators
+    if (mesh.isPartitioned()) {
+        log::cout() << "Conservative cuda objects finalize" << std::endl;
+        conservativeCommunicator->finalizeCudaObjects();
+        log::cout() << "Conservative WORK cuda objects finalize" << std::endl;
+        conservativeWorkCommunicator->finalizeCudaObjects();
+        log::cout() << "Primitive cuda objects finalize" << std::endl;
+        primitiveCommunicator->finalizeCudaObjects();
+    }
 #endif
 }
 

@@ -78,9 +78,9 @@ void ExchangeBufferStreamer::finalizeWrite(const int &rank, bitpit::SendBuffer &
  *
  * \param patch is the patch
  */
-ListCommunicator::ListCommunicator(const MPI_Comm &communicator)
+ListCommunicator::ListCommunicator(const MPI_Comm &communicator, std::string name)
     : DataCommunicator(communicator),
-      m_itemSize(0)
+      m_itemSize(0), m_name(name)
 {
 }
 
@@ -575,8 +575,8 @@ const ListCommunicator::RankExchangeList & ListCommunicator::getStreamableRecvLi
  *
  * \param patch is the patch
  */
-GhostCommunicator::GhostCommunicator(const PatchKernel *patch)
-    : ListCommunicator(patch->getCommunicator()),
+GhostCommunicator::GhostCommunicator(const PatchKernel *patch, std::string name)
+    : ListCommunicator(patch->getCommunicator(), name),
       m_patch(patch)
 {
 }

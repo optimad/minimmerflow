@@ -42,31 +42,30 @@ void CudaStorageBufferStreamer<container_t>::write(const int &rank, bitpit::Send
     container_t &container = this->getContainer();
     auto & rankContainer = container[rank];
     std::size_t rankContainerSize = rankContainer.size();
-    //std::vector<double> temp(rankContainerSize, 10.0);
 
     nvtxRangePushA("STREAMER_WRITE_CUDAMCPY");
-    cudaMemcpyAsync(m_temp[rank].data(), rankContainer.cuda_deviceData(), rankContainer.cuda_deviceDataSize() * sizeof(typename container_t::mapped_type::dev_value_type),
+    cudaMemcpyAsync(CPUbuffer.getFront().data() + m_offset, rankContainer.cuda_deviceData(), rankContainer.cuda_deviceDataSize() * sizeof(typename container_t::mapped_type::dev_value_type),
             cudaMemcpyDeviceToHost, m_cudaStreams[rank]);
-//    cudaMemcpyAsync(m_temp[rank].data(), rankContainer.cuda_deviceData(), rankContainer.cuda_deviceDataSize() * sizeof(typename container_t::mapped_type::dev_value_type),
-//            cudaMemcpyDeviceToHost, m_cudaStreams[rank]);
-//    cudaMemcpy(m_temp[rank].data(), rankContainer.cuda_deviceData(), rankContainer.cuda_deviceDataSize() * sizeof(typename container_t::mapped_type::dev_value_type),
-//            cudaMemcpyDeviceToHost);
+    m_offset += rankContainer.cuda_deviceDataSize() * sizeof(typename container_t::mapped_type::dev_value_type);
     nvtxRangePop();
 }
 
 template<typename container_t>
 void CudaStorageBufferStreamer<container_t>::finalizeWrite(const int &rank, bitpit::SendBuffer &CPUbuffer, const std::vector<long> &list)
 {
-    //Do nothing
-    //cudaStreamSynchronize(m_cudaStreams[rank]);
-    nvtxRangePushA("STREAMER_WRITE_BUFFERSTREAMING");
-    container_t &container = this->getContainer();
-    auto & rankContainer = container[rank];
-    std::size_t rankContainerSize = rankContainer.size();
-    for (size_t i = 0; i < rankContainerSize; ++i) {
-        CPUbuffer << m_temp[rank][i];
-    }
-    nvtxRangePop();
+//    //Do nothing
+//    //cudaStreamSynchronize(m_cudaStreams[rank]);
+//    nvtxRangePushA("STREAMER_WRITE_BUFFERSTREAMING");
+//    container_t &container = this->getContainer();
+//    auto & rankContainer = container[rank];
+//    std::size_t rankContainerSize = rankContainer.size();
+//    for (size_t i = 0; i < rankContainerSize; ++i) {
+//        CPUbuffer << m_temp[rank][i];
+//    }
+//
+//    nvtxRangePop();
+    cudaStreamSynchronize(m_cudaStreams[rank]);
+    m_offset = 0;
 }
 
 /*!
@@ -93,7 +92,7 @@ void CudaStorageBufferStreamer<container_t>::read(int const &rank, bitpit::RecvB
 template<typename container_t>
 CudaStorageBufferStreamer<container_t>::CudaStorageBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset, const size_t &itemSize, size_t writeBufferSize)
     : BaseListBufferStreamer<container_t>(container, itemSize),
-      m_readOffset(readOffset), m_writeOffset(writeOffset), m_maxBufferSize(writeBufferSize), m_cudaStreams(0), m_currentCudaStream(-1)
+      m_readOffset(readOffset), m_writeOffset(writeOffset), m_maxBufferSize(writeBufferSize), m_cudaStreams(0), m_currentCudaStream(-1), m_offset(0)
 {
 }
 
@@ -103,10 +102,6 @@ CudaStorageBufferStreamer<container_t>::~CudaStorageBufferStreamer()
     for (auto & rankContainer : *(this->m_container)) {
         int rank = rankContainer.first;
         cudaStreamDestroy(m_cudaStreams[rank]);
-        cudaError_t err = cudaHostUnregister(m_temp[rank].data());
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA runtime error in cudaHostUnregister " << cudaGetErrorString(err) << std::endl;
-        }
     }
 }
 
@@ -115,14 +110,6 @@ void CudaStorageBufferStreamer<container_t>::initializeCUDAObjects()
 {
     for (auto & rankContainer : *(this->m_container)) {
         int rank = rankContainer.first;
-        m_temp[rank] = std::vector<double>(m_maxBufferSize, 0.0);
-
-        size_t bytes = m_maxBufferSize * sizeof(double);
-        cudaError_t err = cudaHostRegister(m_temp[rank].data(), bytes, cudaHostRegisterDefault);
-        if (err != cudaSuccess) {
-            std::cerr << "CUDA runtime error in cudaHostRegister " << cudaGetErrorString(err) << " on buffer for rank " << rank << std::endl;
-        }
-
         if (m_cudaStreams.find(rank) == m_cudaStreams.end()) {
             m_cudaStreams[rank] = cudaStream_t();
             cudaStreamCreate(&m_cudaStreams[rank]);
@@ -132,53 +119,4 @@ void CudaStorageBufferStreamer<container_t>::initializeCUDAObjects()
 
     m_cudaStreams.reserve((*(this->m_container)).size());
 }
-
-/*!
- * Send ghosts data using non-blocking communications
- *
- * \param cellData is the container of the cell data
- */
-void ListCommunicator::startAllExchanges()
-{
-    if (getCommunicator() == MPI_COMM_NULL || !hasData()) {
-        return;
-    }
-
-    // Start the receives
-    for (int rank : getRecvRanks()) {
-        if (!isRecvActive(rank)) {
-            startRecv(rank);
-        }
-    }
-
-    // Wait previous sends
-    waitAllSends();
-
-    // Fill the buffer with the given field and start sending the data
-    for (int rank : getSendRanks()) {
-        // Get send buffer
-        bitpit::SendBuffer &buffer = getSendBuffer(rank);
-
-        // Write the buffer
-        for (ExchangeBufferStreamer *streamer : m_writers) {
-            streamer->write(rank, buffer, getStreamableSendList(rank, streamer));
-        }
-
-        for (ExchangeBufferStreamer *streamer : m_writers) {
-            cudaStreamSynchronize(static_cast<CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>*>(streamer)->m_cudaStreams[rank]);
-        }
-
-        for (ExchangeBufferStreamer *streamer : m_writers) {
-            streamer->finalizeWrite(rank, buffer, getStreamableSendList(rank, streamer));
-        }
-
-        cudaDeviceSynchronize();
-
-        // Start the send
-        startSend(rank);
-    }
-}
-
-
-
 #endif
