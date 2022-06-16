@@ -107,7 +107,7 @@ class CudaStorageBufferStreamer : public BaseListBufferStreamer<container_t>
 public:
     //using BaseListBufferStreamer<container_t>::BaseListBufferStreamer;
     //CudaStorageBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset);
-    CudaStorageBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset, const size_t & itemSize, size_t maxBufferSize);
+    CudaStorageBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset, const size_t & itemSize, const std::unordered_map<int, size_t> & rankOffsets, int fieldId);
     ~CudaStorageBufferStreamer();
 
     void read(const int &rank, bitpit::RecvBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
@@ -120,11 +120,7 @@ public:
 protected:
     size_t m_readOffset;
     size_t m_writeOffset;
-    size_t m_maxBufferSize;
-    std::unordered_map<int, std::vector<double>> m_temp;
-    std::unordered_map<int, double*> m_pointers;
-    size_t m_offset;
-    int m_currentCudaStream;
+    std::unordered_map<int, size_t> m_rankOffsets;
 };
 
 template<typename value_t>
@@ -256,6 +252,18 @@ private:
     CommunicationsManager();
     CommunicationsManager(const CommunicationsManager &other) = delete;
     CommunicationsManager(CommunicationsManager &&other) = delete;
+
+};
+
+class OpenACCStreams
+{
+public:
+    OpenACCStreams(int nFields);
+    ~OpenACCStreams();
+    std::vector<int> m_streamIds;
+
+private:
+    std::vector<cudaStream_t> m_cudaStreams;
 
 };
 

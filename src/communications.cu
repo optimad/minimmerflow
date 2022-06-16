@@ -68,9 +68,7 @@ void ListCommunicator::startAllExchanges()
             streamer->write(rank, buffer, getStreamableSendList(rank, streamer));
         }
 
-        for (ExchangeBufferStreamer *streamer : m_writers) {
-            streamer->finalizeWrite(rank, buffer, getStreamableSendList(rank, streamer));
-        }
+        cudaDeviceSynchronize();
 
         // Start the send
         startSend(rank);
@@ -85,10 +83,8 @@ void ListCommunicator::initializeCudaObjects()
     for (int rank : getSendRanks()) {
         bitpit::SendBuffer &buffer = getSendBuffer(rank);
         std::size_t bufferSize = buffer.getSize();
-        std::cout << "---------------------------------------------- " << bufferSize << std::endl;
         size_t bytes = bufferSize * sizeof(char);
         cudaError_t err = cudaHostRegister(buffer.getFront().data(), bytes, cudaHostRegisterDefault);
-        std::cout << "FRONT Registration address " << (void *)buffer.getFront().data()  << " isDouble? " << buffer.isDouble() << " Comm " << m_name << std::endl;
         if (err != cudaSuccess) {
             std::cout << "CUDA runtime error in cudaHostRegister " << cudaGetErrorString(err) << " on buffer for rank " << rank << std::endl;
         }
@@ -101,7 +97,6 @@ void ListCommunicator::finalizeCudaObjects()
     }
     for (int rank : getSendRanks()) {
         bitpit::SendBuffer &buffer = getSendBuffer(rank);
-        //std::cout << "FRONT UnRegistration address " << (void *)buffer.getFront().data()  << " isDouble? " << buffer.isDouble() << std::endl;
         cudaError_t err = cudaHostUnregister(buffer.getFront().data());
         if (err != cudaSuccess) {
             std::cout << "CUDA runtime error in cudaHostUnregister " << cudaGetErrorString(err)  << " pointer " << (void *)buffer.getFront().data()
@@ -113,4 +108,21 @@ void ListCommunicator::finalizeCudaObjects()
 
 ListCommunicator::~ListCommunicator()
 {
+}
+
+OpenACCStreams::OpenACCStreams(int nFields)
+{
+    m_cudaStreams.resize(nFields);
+    m_streamIds.resize(nFields, 0);
+    for (int i = 0; i < nFields; ++i) {
+        m_streamIds[i] = i;
+        cudaStreamCreate(&(m_cudaStreams[i]));
+        acc_set_cuda_stream(m_streamIds[i], m_cudaStreams[i]);
+    }
+}
+OpenACCStreams::~OpenACCStreams()
+{
+    for (int i = 0; i < m_cudaStreams.size(); ++i) {
+        cudaStreamDestroy(m_cudaStreams[i]);
+    }
 }

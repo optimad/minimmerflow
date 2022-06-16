@@ -28,6 +28,8 @@
 #include <nvtx3/nvToolsExt.h>
 #include <bitpit_communications.hpp>
 
+#include <iostream>
+
 /*!
     Write the dataset to the buffer.
 
@@ -44,28 +46,20 @@ void CudaStorageBufferStreamer<container_t>::write(const int &rank, bitpit::Send
     std::size_t rankContainerSize = rankContainer.size();
 
     nvtxRangePushA("STREAMER_WRITE_CUDAMCPY");
-    cudaMemcpyAsync(CPUbuffer.getFront().data() + m_offset, rankContainer.cuda_deviceData(), rankContainer.cuda_deviceDataSize() * sizeof(typename container_t::mapped_type::dev_value_type),
+    cudaMemcpyAsync(CPUbuffer.getFront().data() + (m_rankOffsets.at(rank) * sizeof(typename container_t::mapped_type::dev_value_type)),
+            rankContainer.cuda_deviceData(), rankContainer.cuda_deviceDataSize() * sizeof(typename container_t::mapped_type::dev_value_type),
             cudaMemcpyDeviceToHost, m_cudaStreams[rank]);
-    m_offset += rankContainer.cuda_deviceDataSize() * sizeof(typename container_t::mapped_type::dev_value_type);
+//    std::cout << " Offset = " << m_rankOffsets.at(rank) << std::endl;
     nvtxRangePop();
 }
 
 template<typename container_t>
 void CudaStorageBufferStreamer<container_t>::finalizeWrite(const int &rank, bitpit::SendBuffer &CPUbuffer, const std::vector<long> &list)
 {
-//    //Do nothing
-//    //cudaStreamSynchronize(m_cudaStreams[rank]);
-//    nvtxRangePushA("STREAMER_WRITE_BUFFERSTREAMING");
-//    container_t &container = this->getContainer();
-//    auto & rankContainer = container[rank];
-//    std::size_t rankContainerSize = rankContainer.size();
-//    for (size_t i = 0; i < rankContainerSize; ++i) {
-//        CPUbuffer << m_temp[rank][i];
-//    }
-//
-//    nvtxRangePop();
-    cudaStreamSynchronize(m_cudaStreams[rank]);
-    m_offset = 0;
+    //Do nothing
+    BITPIT_UNUSED(rank);
+    BITPIT_UNUSED(CPUbuffer);
+    BITPIT_UNUSED(list);
 }
 
 /*!
@@ -79,21 +73,23 @@ template<typename container_t>
 void CudaStorageBufferStreamer<container_t>::read(int const &rank, bitpit::RecvBuffer &CPUbuffer,
                                            const std::vector<long> &list)
 {
+    //Do nothing
     BITPIT_UNUSED(rank);
-
-//    container_t &container = this->getContainer();
-//    for (const long k : list) {
-//        buffer >> container[k];
-//    }
+    BITPIT_UNUSED(CPUbuffer);
+    BITPIT_UNUSED(list);
 }
 
 
 
 template<typename container_t>
-CudaStorageBufferStreamer<container_t>::CudaStorageBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset, const size_t &itemSize, size_t writeBufferSize)
+CudaStorageBufferStreamer<container_t>::CudaStorageBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset, const size_t &itemSize,
+        const std::unordered_map<int, size_t> & rankOffsets, int fieldId)
     : BaseListBufferStreamer<container_t>(container, itemSize),
-      m_readOffset(readOffset), m_writeOffset(writeOffset), m_maxBufferSize(writeBufferSize), m_cudaStreams(0), m_currentCudaStream(-1), m_offset(0)
+      m_readOffset(readOffset), m_writeOffset(writeOffset), m_cudaStreams(0)
 {
+    for (auto offset : rankOffsets) {
+        m_rankOffsets[offset.first] = offset.second * fieldId;
+    }
 }
 
 template<typename container_t>
