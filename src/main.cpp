@@ -50,6 +50,8 @@
 
 using namespace bitpit;
 
+// This test takes a ScalarStorage, resizes it, increments on GPU its elements
+// and copies it back to CPU to validate the sum of its elements
 void test1()
 {
     ScalarStorage<std::size_t> simpleContainer;
@@ -113,7 +115,8 @@ void test1()
 
 }
 
-
+// This test takes a ScalarStorageCollection, resizes it, increments on GPU its
+// elements and copies it back to CPU to validate the sum of its elements
 void test2()
 {
     ScalarStorageCollection<std::size_t> collectionContainer(N_FIELDS);
@@ -198,8 +201,11 @@ void test2()
     }
 }
 
+
+// Resizes the CFD mesh, as needed for test3
 void adaptMeshAndFields(ComputationInfo &computationInfo, VolOctree &mesh,
-                        ScalarPiercedStorage<std::size_t> &cellFoo, const problem::ProblemType problemType)
+                        ScalarPiercedStorage<std::size_t> &cellFoo,
+                        const problem::ProblemType problemType)
 {
 
     adaptation::meshAdaptation(mesh);
@@ -227,6 +233,9 @@ void adaptMeshAndFields(ComputationInfo &computationInfo, VolOctree &mesh,
 }
 
 
+// This test takes a ScalarPiercedStorage, resizes it, increments on GPU its
+// elements and copies it back to CPU to validate the sum of its elements.
+// Tip: Run it with 2048 cells per direction, to cause its failure.
 void test3(int argc, char *argv[])
 {
     // Initialize process information
