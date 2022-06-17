@@ -31,10 +31,12 @@ namespace test {
 
 void plotContainer(ScalarStorage<std::size_t> &container, std::size_t size);
 void plotContainerCollection(ScalarStorageCollection<std::size_t> &container, std::size_t size);
+void plotPiercedStorage(ScalarPiercedStorage<std::size_t> &container, std::size_t size);
 
 #if ENABLE_CUDA
 void cuda_plotContainer(ScalarStorage<std::size_t> &container, std::size_t size);
 void cuda_plotContainerCollection(ScalarStorageCollection<std::size_t> &container, std::size_t size);
+void cuda_plotPiercedStorage(ScalarPiercedStorage<std::size_t> &container, std::size_t size);
 #endif
 
 }

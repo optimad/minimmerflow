@@ -33,13 +33,7 @@ namespace adaptation {
 
 void markCellsForRefinement(bitpit::VolOctree &mesh);
 
-void meshAdaptation(bitpit::VolOctree &mesh,
-                    ScalarStorage<std::size_t> &parentIDs,
-                    ScalarStorage<std::size_t> &currentIDs,
-                    ScalarStorageCollection<double> &parentCellRHS,
-                    ScalarStorageCollection<double> &parentCellConservatives,
-                    ScalarPiercedStorageCollection<double> &cellRHS,
-                    ScalarPiercedStorageCollection<double> &cellConservatives);
+void meshAdaptation(bitpit::VolOctree &mesh);
 
 #if ENABLE_CUDA
 void mapField(ScalarStorage<std::size_t> &parentIDs,
@@ -60,9 +54,7 @@ void cuda_mapField(ScalarStorage<std::size_t> &parentIDs,
 void mapFields(ScalarStorage<std::size_t> &parentIDs,
                ScalarStorage<std::size_t> &currentIDs,
                ScalarStorageCollection<double> &parentCellRHS,
-               ScalarStorageCollection<double> &parentCellConservatives,
-               ScalarPiercedStorageCollection<double> &cellRHS,
-               ScalarPiercedStorageCollection<double> &cellConservatives);
+               ScalarPiercedStorageCollection<double> &cellRHS);
 
 }
 

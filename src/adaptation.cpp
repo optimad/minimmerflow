@@ -56,12 +56,7 @@ void markCellsForRefinement(VolOctree &mesh)
  * \param[out] field of primitives at cells
  * \param[out] field of conservativesWork at cells
  */
-void meshAdaptation(VolOctree &mesh, ScalarStorage<std::size_t> &parentIDs,
-                    ScalarStorage<std::size_t> &currentIDs,
-                    ScalarStorageCollection<double> &parentCellRHS,
-                    ScalarStorageCollection<double> &parentCellConservatives,
-                    ScalarPiercedStorageCollection<double> &cellRHS,
-                    ScalarPiercedStorageCollection<double> &cellConservatives)
+void meshAdaptation(VolOctree &mesh)
 {
     std::vector<adaption::Info> adaptionData;
     markCellsForRefinement(mesh);
@@ -70,9 +65,6 @@ void meshAdaptation(VolOctree &mesh, ScalarStorage<std::size_t> &parentIDs,
 
     const std::size_t cellSize = mesh.getCellCount();
 
-#if ENABLE_CUDA
-    ScalarStorage<std::size_t> tempParentIDs;
-#endif
     for (const adaption::Info &adaptionInfo : adaptionData) {
         // Consider only cell refinements
         if (adaptionInfo.entity != adaption::Entity::ENTITY_CELL) {
@@ -80,34 +72,7 @@ void meshAdaptation(VolOctree &mesh, ScalarStorage<std::size_t> &parentIDs,
         } else if (adaptionInfo.type != adaption::TYPE_REFINEMENT) {
             continue;
         }
-
-        // Save parent data
-        for (long parentId : adaptionInfo.previous) {
-            long parentRawId = mesh.getVertex(parentId).getId();
-#if ENABLE_CUDA
-            tempParentIDs.push_back(parentRawId);
-#else
-            for (int iField = 0; iField < N_FIELDS; iField++) {
-                parentCellRHS[parentRawId * N_FIELDS + iField] = cellRHS.at(parentId, iField);
-                parentCellConservatives[parentRawId * N_FIELDS + iField] = cellConservatives.at(parentId, iField);
-            }
-#endif
-        }
     }
-#if ENABLE_CUDA
-    tempParentIDs.cuda_allocateDevice();
-    tempParentIDs.cuda_updateDevice();
-    for (int k = 0; k < N_FIELDS; k++) {
-        parentCellRHS[k].resize(tempParentIDs.size());
-        parentCellConservatives[k].resize(tempParentIDs.size());
-//      parentCellRHS[k].cuda_resize(tempParentIDs.size());
-//      parentCellConservatives[k].cuda_resize(tempParentIDs.size());
-    }
-    parentCellRHS.cuda_allocateDevice();
-    parentCellConservatives.cuda_allocateDevice();
-//  parentCellRHS.cuda_updateDevice();
-//  parentCellConservatives.cuda_updateDevice();
-#endif
 
     bool squeeshPatchStorage = false;
     adaptionData = mesh.adaptionAlter(trackAdaptation, squeeshPatchStorage);
@@ -119,30 +84,7 @@ void meshAdaptation(VolOctree &mesh, ScalarStorage<std::size_t> &parentIDs,
         } else if (adaptionInfo.type != adaption::TYPE_REFINEMENT) {
             continue;
         }
-
-        // Assign data to children
-        long parentId = adaptionInfo.previous.front();
-        for (long currentId : adaptionInfo.current) {
-            long parentRawId = mesh.getVertex(parentId).getId();
-            long currentRawId = mesh.getVertex(currentId).getId();
-#if ENABLE_CUDA
-            currentIDs.push_back(currentRawId);
-            parentIDs.push_back(parentRawId);
-#else
-            for (int iField = 0; iField < N_FIELDS; iField++) {
-                cellRHS.set(currentId, iField, parentCellRHS[N_FIELDS * parentRawId + iField];
-                cellConservatives.set(currentId, iField, parentCellConservatives[N_FIELDS * parentRawId + iField];
-            }
-#endif
-        }
     }
-
-#if ENABLE_CUDA
-    cuda_storeParentField(tempParentIDs, parentCellRHS, cellRHS);
-    cuda_storeParentField(tempParentIDs, parentCellConservatives, cellConservatives);
-
-    tempParentIDs.cuda_freeDevice();
-#endif
     mesh.adaptionCleanup();
 //  mesh.write();
 }
@@ -181,22 +123,17 @@ void mapField(ScalarStorage<std::size_t> &parentIDs,
 void mapFields(ScalarStorage<std::size_t> &parentIDs,
                ScalarStorage<std::size_t> &currentIDs,
                ScalarStorageCollection<double> &parentCellRHS,
-               ScalarStorageCollection<double> &parentCellConservatives,
-               ScalarPiercedStorageCollection<double> &cellRHS,
-               ScalarPiercedStorageCollection<double> &cellConservatives)
+               ScalarPiercedStorageCollection<double> &cellRHS)
 {
 #if ENABLE_CUDA
     mapField(parentIDs, currentIDs, parentCellRHS, cellRHS);
-    mapField(parentIDs, currentIDs, parentCellConservatives, cellConservatives);
 #else
     BITPIT_UNUSED(parentIDs);
     BITPIT_UNUSED(currentIDs);
 
     BITPIT_UNUSED(parentCellRHS);
-    BITPIT_UNUSED(parentCellConservatives);
 
     BITPIT_UNUSED(cellRHS);
-    BITPIT_UNUSED(cellConservatives);
 #endif
 }
 

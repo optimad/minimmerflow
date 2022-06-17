@@ -198,6 +198,258 @@ void test2()
     }
 }
 
+void adaptMeshAndFields(ComputationInfo &computationInfo, VolOctree &mesh,
+                        ScalarPiercedStorage<std::size_t> &cellFoo, const problem::ProblemType problemType)
+{
+
+    adaptation::meshAdaptation(mesh);
+
+#if ENABLE_CUDA
+    // Resize CPU containers holding geometrical and computations-related info
+    computationInfo.postMeshAdaptation();
+
+    // Reset and copy to GPU the relevant data, if needed.
+    computationInfo.cuda_resize();
+
+    // Reset and copy to GPU the variables and Foo-data at cells
+    cellFoo.cuda_resize(mesh.getCellCount());
+    cellFoo.cuda_updateDevice();
+#endif
+
+
+//  adaptation::mapFields(parentIDs, currentIDs, parentCellFoo, cellFoo);
+
+    //TODO: When OpenACC is on again, remove the following 4 lines updating
+    //the host
+//  cellFoo.cuda_updateHost();
+
+    log_memory_status();
+}
+
+
+void test3(int argc, char *argv[])
+{
+    // Initialize process information
+    int nProcessors;
+    int rank;
+#if ENABLE_MPI
+    MPI_Comm_size(MPI_COMM_WORLD, &nProcessors);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+#else
+    nProcessors = 1;
+    rank        = 0;
+#endif
+
+    // Initialize logger
+    log::manager().initialize(log::COMBINED, "minimmerflow", true, ".", nProcessors, rank);
+#if ENABLE_DEBUG==1
+    log::cout().setVisibility(log::GLOBAL);
+#endif
+
+    // Log file header
+    log::cout() << "o=====================================================o" << std::endl;
+    log::cout() << "|                                                     |" << std::endl;
+    log::cout() << "|                    minimmerflow  Solver                   |" << std::endl;
+    log::cout() << "|                                                     |" << std::endl;
+    log::cout() << "o=====================================================o" << std::endl;
+
+    // Initialize configuration file
+    config::reset("minimmerflow", 1);
+    config::read("settings.xml");
+
+    // Problem info
+    const problem::ProblemType problemType = problem::getProblemType();
+
+    int dimensions;
+    double length;
+    std::array<double, 3> origin;
+    problem::getDomainData(problemType, dimensions, &origin, &length);
+
+    const double tMin = problem::getStartTime(problemType, dimensions);
+    const double tMax = problem::getEndTime(problemType, dimensions);
+
+    log::cout() << std::endl;
+    log::cout() << "Domain info: "  << std::endl;
+    log::cout() << "  Origin .... " << origin << std::endl;
+    log::cout() << "  Length .... " << length << std::endl;
+
+    log::cout() << std::endl;
+    log::cout() << "Time info: "  << std::endl;
+    log::cout() << "  Initial .... " << tMin << std::endl;
+    log::cout() << "  Final .... " << tMax << std::endl;
+
+    // Discretization parameters
+    const int order = config::root["discretization"]["space"].get<int>("order");
+
+    const double cfl = config::root["discretization"]["time"].get<double>("CFL");
+
+    long nCellsPerDirection;
+    if (argc > 1) {
+        nCellsPerDirection = atoi(argv[1]);
+    } else {
+        nCellsPerDirection = config::root["discretization"]["space"].get<long>("nCells");
+    }
+
+    log::cout() << std::endl;
+    log::cout() << "Space distretization info..."  << std::endl;
+    log::cout() << "  Order .... " << order << std::endl;
+    log::cout() << "  Cells per direction .... " << nCellsPerDirection << std::endl;
+
+    log::cout() << std::endl;
+    log::cout() << "Time distretization info: "  << std::endl;
+    log::cout() << "  CFL .... " << cfl << std::endl;
+
+    // Output parametes
+    int nSaves = std::numeric_limits<int>::max();
+    if (argc > 2) {
+        nSaves = atoi(argv[2]);
+    }
+
+    // Create the mesh
+    log::cout() << std::endl;
+    log::cout() << "Mesh initialization..."  << std::endl;
+
+    unsigned int initialRefs = 0;
+    const unsigned int maxInitialCellsProc = 1024;
+    if (nProcessors>1) {
+        while (pow(nCellsPerDirection , dimensions) > maxInitialCellsProc * nProcessors) {
+            if ( (nCellsPerDirection%2) != 0) {
+                break;
+            }
+
+            log::cout() << "Would create " << pow(nCellsPerDirection , dimensions) << " octants/processor. Reducing " << std::endl;
+            nCellsPerDirection /= 2;
+            initialRefs++;
+        }
+    }
+
+    log::cout() << "*** Calling VolOctree constructor with " << nCellsPerDirection
+                << " cells per direction, which will be uniformly refined " <<  initialRefs
+                << " times." << std::endl;
+
+#if ENABLE_MPI
+    VolOctree mesh(dimensions, origin, length, length / nCellsPerDirection, MPI_COMM_WORLD);
+#else
+    VolOctree mesh(dimensions, origin, length, length / nCellsPerDirection);
+#endif
+
+    mesh.initializeAdjacencies();
+    mesh.initializeInterfaces();
+
+    mesh.update();
+
+#if ENABLE_MPI
+    if (nProcessors > 1) {
+        mesh.partition(false, true);
+    }
+#endif
+
+    for (unsigned int k=0; k<initialRefs; ++k){
+        for (VolOctree::CellConstIterator cellItr = mesh.cellConstBegin(); cellItr != mesh.cellConstEnd(); ++cellItr) {
+            mesh.markCellForRefinement(cellItr.getId());
+        }
+
+        log::cout() << "*** Mesh marked for refinement. Call update\n";
+        mesh.update();
+        log::cout() << "+++ mesh.update() DONE.\n";
+        nCellsPerDirection *= 2;
+    }
+
+    {
+        std::stringstream basename;
+        basename << "background_" << nCellsPerDirection;
+        mesh.getVTK().setName(basename.str().c_str());
+    }
+
+#if ENABLE_MPI
+    if (nProcessors > 1) {
+        log::cout() << "*** Call partition\n";
+        mesh.partition(false, true);
+        log::cout() << "+++ mesh.partition() DONE.\n";
+    }
+#endif
+    mesh.write();
+
+    log_memory_status();
+
+    // Initialize body info
+    body::initialize();
+
+    // Initialize computation data
+    log::cout() << std::endl;
+    log::cout() << "Computation data initialization..."  << std::endl;
+
+    ComputationInfo computationInfo(&mesh);
+#if ENABLE_CUDA
+    computationInfo.cuda_initialize();
+#endif
+
+    ScalarPiercedStorage<std::size_t> cellFoo;
+    cellFoo.setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    cellFoo.cuda_allocateDevice();
+
+    std::cout << "Bef cellFoo.data()" << cellFoo.data() << std::endl;
+    cellFoo.cuda_fillDevice(1);
+
+    cellFoo.cuda_updateHost();
+
+    std::size_t sum = 0;
+    for (int iter = 0; iter < cellFoo.cuda_deviceDataSize(); iter++) {
+        sum += cellFoo[iter];
+    }
+    std::cout << "validated 1st sum = " << cellFoo.cuda_deviceDataSize()
+              << " and sum = " << sum << std::endl;
+
+
+
+    log_memory_status();
+
+    // Initialize storage
+    log::cout() << std::endl;
+    log::cout() << "Storage initialization..."  << std::endl;
+
+    log_memory_status();
+
+    // Initialize reconstruction
+    log::cout() << std::endl;
+    log::cout() << "Reconstruction initialization..."  << std::endl;
+
+    log_memory_status();
+
+    adaptMeshAndFields(computationInfo, mesh, cellFoo, problemType);
+    std::cout << "Aft cellFoo.data()" << cellFoo.data() << std::endl;
+    std::cout << "main 0" << std::endl;
+
+    std::cout << "cellFoo.data()" << cellFoo.data() << std::endl;
+    cellFoo.cuda_fillDevice(1);
+    test::plotPiercedStorage(cellFoo, cellFoo.cuda_deviceDataSize());
+    std::cout << "cellFoo.data()" << cellFoo.data() << std::endl;
+
+    cellFoo.cuda_updateHost();
+
+    sum = 0;
+    for (int iter = 0; iter < cellFoo.cuda_deviceDataSize(); iter++) {
+        sum += cellFoo[iter];
+    }
+    std::cout << "validated 2nd sum = " << 2 * cellFoo.cuda_deviceDataSize()
+              << " and sum = " << sum << std::endl;
+
+    if (sum == 2 * cellFoo.cuda_deviceDataSize()) {
+        std::cout << "\nTEST #3: SUCCESSFULL" << std::endl;
+    } else {
+        std::cout << "\nTEST #3: UNSUCCESSFULL" << std::endl;
+    }
+
+    log_memory_status();
+
+    // Clean-up
+#if ENABLE_CUDA
+    cellFoo.cuda_freeDevice();
+    computationInfo.cuda_finalize();
+#endif
+
+}
+
 int main(int argc, char *argv[])
 {
     // Get the primary context and bind to it
@@ -237,6 +489,18 @@ int main(int argc, char *argv[])
     }
     catch(std::exception & e){
         std::cout << "TEST #2 exited with an error of type : " << e.what() << std::endl;
+        return 1;
+    }
+
+
+    // test3
+    try{
+        std::cout << "EXECUTING TEST #3" << std::endl;
+        test3(argc, argv);
+        std::cout << "\n" << std::endl;
+    }
+    catch(std::exception & e){
+        std::cout << "TEST #3 exited with an error of type : " << e.what() << std::endl;
         return 1;
     }
 

@@ -59,6 +59,16 @@ __global__ void dev_plotContainerCollection(std::size_t **deviceData, std::size_
 }
 
 
+__global__ void dev_plotScalarStorage(std::size_t *deviceData, std::size_t size)
+{
+    // Process interfaces
+    std::size_t i = blockIdx.x*blockDim.x + threadIdx.x;
+    if  (i < size)  {
+        deviceData[i] += 1;
+    }
+}
+
+
 void cuda_plotContainer(ScalarStorage<std::size_t> &container, std::size_t size)
 {
     int numThreads = 4;
@@ -73,6 +83,14 @@ void cuda_plotContainerCollection(ScalarStorageCollection<std::size_t> &containe
     int numBlocks = ((size + numThreads - 1) / numThreads);
 
     dev_plotContainerCollection<<<numBlocks,numThreads>>>(container.cuda_deviceCollectionData(), size);
+}
+
+void cuda_plotPiercedStorage(ScalarPiercedStorage<std::size_t> &container, std::size_t size)
+{
+    int numThreads = 4;
+    int numBlocks = ((size + numThreads - 1) / numThreads);
+
+    dev_plotScalarStorage<<<numBlocks,numThreads>>>(container.cuda_deviceData(), size);
 }
 
 }
