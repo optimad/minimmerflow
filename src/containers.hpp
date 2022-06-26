@@ -25,7 +25,6 @@
 #ifndef __MINIMMERFLOW_CONTAINERS_HPP__
 #define __MINIMMERFLOW_CONTAINERS_HPP__
 
-#include <communications.hpp>
 #include <utils_cuda.hpp>
 
 #include <bitpit_containers.hpp>
@@ -35,6 +34,7 @@
 #endif
 #include <vector>
 #include <array>
+
 
 template<typename container_t, typename value_t, typename dev_value_t>
 class ValueBaseStorage : public container_t
@@ -114,11 +114,6 @@ extern template class ValuePiercedStorage<std::size_t, std::size_t>;
 extern template class ValuePiercedStorage<double, double>;
 extern template class ValuePiercedStorage<std::array<double, 3>, double>;
 
-#if ENABLE_MPI
-template<typename value_t>
-using ValuePiercedStorageBufferStreamer = PiercedStorageBufferStreamer<value_t>;
-#endif
-
 template<typename value_t, typename dev_value_t = value_t>
 class ValueStorage : public ValueBaseStorage<std::vector<value_t>, value_t, dev_value_t>
 {
@@ -169,6 +164,8 @@ public:
 
     value_type ** collectionData();
     const value_type * const * collectionData() const;
+
+    std::size_t getNofStorages() const;
 
 #if ENABLE_CUDA
     void cuda_allocateDevice();

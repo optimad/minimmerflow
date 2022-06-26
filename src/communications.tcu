@@ -115,4 +115,86 @@ void CudaStorageBufferStreamer<container_t>::initializeCUDAObjects()
 
     m_cudaStreams.reserve((*(this->m_container)).size());
 }
+
+
+/*!
+    Write the dataset to the buffer.
+
+    \param rank is the rank of the process who will receive the data
+    \param buffer is the buffer where the data will be written to
+    \param list is the list of ids that will be written
+*/
+template<typename container_t>
+void CudaStorageCollectionBufferStreamer<container_t>::write(const int &rank, bitpit::SendBuffer &CPUbuffer,
+                                            const std::vector<long> &list)
+{
+    container_t &container = this->getContainer();
+    auto & rankContainer = container[rank];
+    std::size_t rankContainerSize = rankContainer.size();
+
+    nvtxRangePushA("STREAMER_WRITE_CUDAMCPY");
+    cudaMemcpyAsync(CPUbuffer.getFront().data(), rankContainer.cuda_deviceData(), rankContainer.cuda_deviceDataSize() * sizeof(typename container_t::mapped_type::dev_value_type),
+            cudaMemcpyDeviceToHost, m_cudaStreams[rank]);
+    nvtxRangePop();
+}
+
+template<typename container_t>
+void CudaStorageCollectionBufferStreamer<container_t>::finalizeWrite(const int &rank, bitpit::SendBuffer &CPUbuffer, const std::vector<long> &list)
+{
+    //Do nothing
+    BITPIT_UNUSED(rank);
+    BITPIT_UNUSED(CPUbuffer);
+    BITPIT_UNUSED(list);
+}
+
+/*!
+    Read the dataset from the buffer.
+
+    \param rank is the rank of the process who sent the data
+    \param buffer is the buffer where the data will be read from
+    \param list is the list of ids that will be read
+*/
+template<typename container_t>
+void CudaStorageCollectionBufferStreamer<container_t>::read(int const &rank, bitpit::RecvBuffer &CPUbuffer,
+                                           const std::vector<long> &list)
+{
+    //Do nothing
+    BITPIT_UNUSED(rank);
+    BITPIT_UNUSED(CPUbuffer);
+    BITPIT_UNUSED(list);
+}
+
+
+
+template<typename container_t>
+CudaStorageCollectionBufferStreamer<container_t>::CudaStorageCollectionBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset, const size_t &itemSize)
+    : BaseListBufferStreamer<container_t>(container, itemSize),
+      m_readOffset(readOffset), m_writeOffset(writeOffset), m_cudaStreams(0)
+{
+}
+
+template<typename container_t>
+CudaStorageCollectionBufferStreamer<container_t>::~CudaStorageCollectionBufferStreamer()
+{
+    for (auto & rankContainer : *(this->m_container)) {
+        int rank = rankContainer.first;
+        cudaStreamDestroy(m_cudaStreams[rank]);
+    }
+}
+
+template<typename container_t>
+void CudaStorageCollectionBufferStreamer<container_t>::initializeCUDAObjects()
+{
+    for (auto & rankContainer : *(this->m_container)) {
+        int rank = rankContainer.first;
+        if (m_cudaStreams.find(rank) == m_cudaStreams.end()) {
+            m_cudaStreams[rank] = cudaStream_t();
+            cudaStreamCreate(&m_cudaStreams[rank]);
+        }
+
+    }
+
+    m_cudaStreams.reserve((*(this->m_container)).size());
+}
+
 #endif

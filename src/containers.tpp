@@ -91,6 +91,13 @@ const typename BaseStorageCollection<storage_t>::value_type * const * BaseStorag
     return m_dataCollection.data();
 }
 
+template<typename storage_t>
+std::size_t BaseStorageCollection<storage_t>::getNofStorages() const
+{
+    return m_storages.size();
+}
+
+
 /*!
  * Constructor
  *

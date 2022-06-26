@@ -200,6 +200,83 @@ void PiercedStorageBufferStreamer<value_t>::write(const int &rank, bitpit::SendB
     }
 }
 
+
+/*!
+ * \class PiercedStorageCollectionBufferStreamer
+ *
+ * \brief The PiercedStorageCollectiponBufferStreamer class allows to write and read the
+ * data contained in a PiercedStorageCollection to/from the buffer of a DataCommunicator.
+ */
+
+/*!
+    Creates a new streamer
+
+    \param container is the container that holds the data that will be
+    exchanged
+*/
+template<typename value_t>
+PiercedStorageCollectionBufferStreamer<value_t>::PiercedStorageCollectionBufferStreamer(PiercedStorageCollection<value_t, value_t> *container)
+    : ListBufferStreamer<PiercedStorageCollection<value_t, value_t>>(container, sizeof(typename bitpit::PiercedStorage<value_t, long>::value_type)){
+}
+
+/*!
+    Creates a new streamer
+
+    \param container is the container that holds the data that will be
+    exchanged
+    \param itemSize is the size, expressed in bytes, of the single item that
+    will be exchanged
+*/
+template<typename value_t>
+PiercedStorageCollectionBufferStreamer<value_t>::PiercedStorageCollectionBufferStreamer(PiercedStorageCollection<value_t, value_t> *container, const size_t &itemSize)
+    : ListBufferStreamer<PiercedStorageCollection<value_t, value_t>>(container, itemSize)
+{
+}
+
+/*!
+    Read the dataset from the buffer.
+
+    \param rank is the rank of the process who sent the data
+    \param buffer is the buffer where the data will be read from
+    \param list is the list of ids that will be read
+*/
+template<typename value_t>
+void PiercedStorageCollectionBufferStreamer<value_t>::read(int const &rank, bitpit::RecvBuffer &buffer,
+                                           const std::vector<long> &list)
+{
+    BITPIT_UNUSED(rank);
+
+    PiercedStorageCollection<value_t, value_t> &container = this->getContainer();
+    std::size_t nFields = container.getNofStorages();
+    for (std::size_t i = 0; i < nFields; ++i) {
+        for (const long k : list) {
+            buffer >> container[i].at(k);
+        }
+    }
+}
+
+/*!
+    Write the dataset to the buffer.
+
+    \param rank is the rank of the process who will receive the data
+    \param buffer is the buffer where the data will be written to
+    \param list is the list of ids that will be written
+*/
+template<typename value_t>
+void PiercedStorageCollectionBufferStreamer<value_t>::write(const int &rank, bitpit::SendBuffer &buffer,
+                                            const std::vector<long> &list)
+{
+    BITPIT_UNUSED(rank);
+
+    PiercedStorageCollection<value_t, value_t> &container = this->getContainer();
+    std::size_t nFields = container.getNofStorages();
+    for (std::size_t i = 0; i < nFields; ++i) {
+        for (const long k : list) {
+            buffer << container[i].at(k);
+        }
+    }
+}
+
 #endif
 
 #endif

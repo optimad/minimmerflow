@@ -35,6 +35,7 @@
 // Explicit instantiation
 
 template class CudaStorageBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>;
+template class CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>;
 
 
 /*!
