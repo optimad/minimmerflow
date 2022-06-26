@@ -27,6 +27,8 @@
 #ifndef __MINIMMERFLOW_COMMUNICATIONS_HPP__
 #define __MINIMMERFLOW_COMMUNICATIONS_HPP__
 
+#include <containers.hpp>
+
 #include <bitpit_containers.hpp>
 #include <bitpit_communications.hpp>
 #include <bitpit_patchkernel.hpp>
@@ -123,6 +125,29 @@ protected:
     std::unordered_map<int, size_t> m_rankOffsets;
 };
 
+template<typename container_t>
+class CudaStorageCollectionBufferStreamer : public BaseListBufferStreamer<container_t>
+{
+
+public:
+    //using BaseListBufferStreamer<container_t>::BaseListBufferStreamer;
+    //CudaStorageBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset);
+    CudaStorageCollectionBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset, const size_t & itemSize);
+    ~CudaStorageCollectionBufferStreamer();
+
+    void read(const int &rank, bitpit::RecvBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
+    void write(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
+    void finalizeWrite(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
+
+    void initializeCUDAObjects();
+    std::unordered_map<int, cudaStream_t> m_cudaStreams; //like this rank cannot share GPU
+
+protected:
+    size_t m_readOffset;
+    size_t m_writeOffset;
+};
+
+
 template<typename value_t>
 class PiercedStorageBufferStreamer : public ListBufferStreamer<bitpit::PiercedStorage<value_t, long>>
 {
@@ -135,6 +160,30 @@ public:
     void write(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
 
 };
+
+template<typename value_t>
+class PiercedStorageCollectionBufferStreamer : public ListBufferStreamer<PiercedStorageCollection<value_t, value_t>>
+{
+
+public:
+    typedef value_t value_type;
+
+    PiercedStorageCollectionBufferStreamer(PiercedStorageCollection<value_t, value_t> *container);
+    PiercedStorageCollectionBufferStreamer(PiercedStorageCollection<value_t, value_t> *container, const size_t &itemSize);
+
+    void read(const int &rank, bitpit::RecvBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
+    void write(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
+
+};
+
+#if ENABLE_MPI
+template<typename value_t>
+using ValuePiercedStorageBufferStreamer = PiercedStorageBufferStreamer<value_t>;
+template<typename value_t>
+using ValuePiercedStorageCollectionBufferStreamer = PiercedStorageCollectionBufferStreamer<value_t>;
+#endif
+
+
 
 class ListCommunicator : public bitpit::DataCommunicator
 {
