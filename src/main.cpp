@@ -50,9 +50,22 @@
 
 using namespace bitpit;
 
+static inline void
+checkDrvError(CUresult res, const char *tok, const char *file, unsigned line)
+{
+    if (res != CUDA_SUCCESS) {
+        const char *errStr = NULL;
+        (void)cuGetErrorString(res, &errStr);
+        std::cerr << file << ':' << line << ' ' << tok
+                  << "failed (" << (unsigned)res << "): " << errStr << std::endl;
+    }
+}
+
+#define CHECK_DRV(x) checkDrvError(x, #x, __FILE__, __LINE__);
+
 // This test takes a ScalarStorage, resizes it, increments on GPU its elements
 // and copies it back to CPU to validate the sum of its elements
-void test1()
+void test1A()
 {
     ScalarStorage<std::size_t> simpleContainer;
     std::size_t initSize = 1024;
@@ -108,9 +121,80 @@ void test1()
               << " and valSum = " << valSum
               << std::endl;
     if (sum == valSum) {
-        std::cout << "\nTEST #1: SUCCESSFULL" << std::endl;
+        std::cout << "\nTEST #1A: SUCCESSFULL" << std::endl;
     } else {
-        std::cout << "\nTEST #1: UNSUCCESSFULL" << std::endl;
+        std::cout << "\nTEST #1A: UNSUCCESSFULL" << std::endl;
+    }
+
+}
+
+
+// This test takes two ScalarStorages, resizes one of them, increments on GPU its elements
+// and copies it back to CPU to validate the sum of its elements
+void test1B()
+{
+    std::cout << "Ok 0" << std::endl;
+    std::size_t initSize = 1000000000;
+//  std::vector<std::size_t> v1(initSize);
+    ScalarStorage<std::size_t> simpleContainer1(initSize);
+    std::cout << "Ok 1" << std::endl;
+//  std::vector<std::size_t> v2(initSize);
+    ScalarStorage<std::size_t> simpleContainer2(initSize);
+
+    std::cout << "Cuda Allocation" << std::endl;
+    simpleContainer1.cuda_allocateDevice();
+    simpleContainer2.cuda_allocateDevice();
+    std::cout << "Cuda Update" << std::endl;
+    simpleContainer1.cuda_updateDevice();
+    simpleContainer2.cuda_updateDevice();
+    simpleContainer1.cuda_fillDevice(1);
+    test::plotContainer(simpleContainer1, simpleContainer1.cuda_deviceDataSize());
+    simpleContainer1.cuda_updateHost();
+
+    std::size_t sum = 0;
+    for (std::size_t iter = 0; iter < initSize; iter++) {
+        sum += simpleContainer1[iter];
+    }
+    std::size_t valSum = 2 * initSize;
+
+    std::cout << "Resized containers: sum = " << sum
+              << " and valSum = " << valSum
+              << std::endl;
+    std::cout << "Begin of CPU resizing" << std::endl;
+
+    // Resize simpleContainer1
+    simpleContainer1.clear();
+    simpleContainer1.resize(0);
+//  std::size_t newSize = 2*initSize;
+    std::size_t newSize = 1010000000;
+    for (std::size_t iter = 0; iter < newSize; iter++) {
+        simpleContainer1.push_back(2);
+    }
+    std::cout << "End of CPU resizing" << std::endl;
+    simpleContainer1.cuda_resize(simpleContainer1.cuda_deviceDataSize());
+    simpleContainer1.cuda_updateDevice();
+    test::plotContainer(simpleContainer1, simpleContainer1.cuda_deviceDataSize());
+
+
+    for (std::size_t iter = 0; iter < newSize; iter++) {
+        simpleContainer1[iter] = 0;
+    }
+    simpleContainer1.cuda_updateHost();
+
+    sum = 0;
+    for (std::size_t iter = 0; iter < newSize; iter++) {
+        if (simpleContainer1[iter] != 3) std::cout <<  "problem2 simpleContainer1[" << iter << "] " << simpleContainer1[iter] << std::endl;
+        sum += simpleContainer1[iter];
+    }
+    valSum = 3 * newSize;
+
+    std::cout << "Resized containers: sum = " << sum
+              << " and valSum = " << valSum
+              << std::endl;
+    if (sum == valSum) {
+        std::cout << "\nTEST #1B: SUCCESSFULL" << std::endl;
+    } else {
+        std::cout << "\nTEST #1B: UNSUCCESSFULL" << std::endl;
     }
 
 }
@@ -394,6 +478,7 @@ void test3(int argc, char *argv[])
 #endif
 
     ScalarPiercedStorage<std::size_t> cellFoo;
+//  cellFoo.rawReserve(4 * (&mesh.getCellCount()));
     cellFoo.setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
     cellFoo.cuda_allocateDevice();
 
@@ -464,10 +549,21 @@ int main(int argc, char *argv[])
     // Get the primary context and bind to it
     CUcontext ctx;
     CUdevice dev;
-    CUDA_DRIVER_ERROR_CHECK(cuInit(0)); // Initialize the driver API, before calling any other driver API function
-    CUDA_DRIVER_ERROR_CHECK(cuDevicePrimaryCtxRetain(&ctx, 0));
-    CUDA_DRIVER_ERROR_CHECK(cuCtxSetCurrent(ctx));
-    CUDA_DRIVER_ERROR_CHECK(cuCtxGetDevice(&dev));
+
+    CHECK_DRV(cuInit(0));
+    CHECK_DRV(cuDevicePrimaryCtxRetain(&ctx, 0));
+    CHECK_DRV(cuCtxSetCurrent(ctx));
+    CHECK_DRV(cuCtxGetDevice(&dev));
+
+//  CUcontext context{0};
+//  CUDA_DRIVER_ERROR_CHECK(cuCtxGetCurrent(&context));
+//  CUdevice device;
+//  CUDA_DRIVER_ERROR_CHECK(cuCtxGetDevice(&device));
+//  CUcontext primary_context;
+//  CUDA_DRIVER_ERROR_CHECK(cuDevicePrimaryCtxRetain(&primary_context, device));
+//  unsigned int flags;
+//  int active;
+//  CUresult primary_state_check_result = cuDevicePrimaryCtxGetState(device, &flags, &active);
 
 
     //
@@ -479,38 +575,62 @@ int main(int argc, char *argv[])
     MPI_Init(&argc, &argv);
 #endif
 
-    // test1
-    try{
-        std::cout << "EXECUTING TEST #1" << std::endl;
-        test1();
-        std::cout << "\n" << std::endl;
+    bool runTest1A = false;
+    bool runTest1B = true;
+    bool runTest2 = false;
+    bool runTest3 = false;
+
+    // test1A
+    if (runTest1A) {
+        try{
+            std::cout << "EXECUTING TEST #1A" << std::endl;
+            test1A();
+            std::cout << "\n" << std::endl;
+        }
+        catch(std::exception & e){
+            std::cout << "TEST #1A exited with an error of type : " << e.what() << std::endl;
+            return 1;
+        }
     }
-    catch(std::exception & e){
-        std::cout << "TEST #1 exited with an error of type : " << e.what() << std::endl;
-        return 1;
+
+    // test1B
+    if (runTest1B) {
+        try{
+            std::cout << "EXECUTING TEST #1B" << std::endl;
+            test1B();
+            std::cout << "\n" << std::endl;
+        }
+        catch(std::exception & e){
+            std::cout << "TEST #1B exited with an error of type : " << e.what() << std::endl;
+            return 1;
+        }
     }
 
     // test2
-    try{
-        std::cout << "EXECUTING TEST #2" << std::endl;
-        test2();
-        std::cout << "\n" << std::endl;
-    }
-    catch(std::exception & e){
-        std::cout << "TEST #2 exited with an error of type : " << e.what() << std::endl;
-        return 1;
+    if (runTest2) {
+        try{
+            std::cout << "EXECUTING TEST #2" << std::endl;
+            test2();
+            std::cout << "\n" << std::endl;
+        }
+        catch(std::exception & e){
+            std::cout << "TEST #2 exited with an error of type : " << e.what() << std::endl;
+            return 1;
+        }
     }
 
 
     // test3
-    try{
-        std::cout << "EXECUTING TEST #3" << std::endl;
-        test3(argc, argv);
-        std::cout << "\n" << std::endl;
-    }
-    catch(std::exception & e){
-        std::cout << "TEST #3 exited with an error of type : " << e.what() << std::endl;
-        return 1;
+    if (runTest3) {
+        try{
+            std::cout << "EXECUTING TEST #3" << std::endl;
+            test3(argc, argv);
+            std::cout << "\n" << std::endl;
+        }
+        catch(std::exception & e){
+            std::cout << "TEST #3 exited with an error of type : " << e.what() << std::endl;
+            return 1;
+        }
     }
 
     //
