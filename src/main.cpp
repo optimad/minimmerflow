@@ -44,6 +44,7 @@
 #include <time.h>
 #if ENABLE_CUDA
 #include <cuda.h>
+#include "cuda_runtime.h"
 #endif
 
 #include "test.hpp"
@@ -62,6 +63,37 @@ checkDrvError(CUresult res, const char *tok, const char *file, unsigned line)
 }
 
 #define CHECK_DRV(x) checkDrvError(x, #x, __FILE__, __LINE__);
+
+
+// Cuda-driver version of test 0
+void test0DR() {
+
+  MemoryResizing foo;
+
+  std::cout << "TOTAL DEVICE MEMORY: " << foo.totalMemSize() << std::endl;
+  std::cout << foo << std::endl;
+
+  size_t chunk_bytes = 1024*1024;
+  for (size_t requested = chunk_bytes; requested < foo.totalMemSize(); requested *= 2) {
+    std::cout << "\n--- grow request (bytes) : " << requested << std::endl;
+    foo.cuda_grow(requested);
+    std::cout << foo << "\n" << std::endl;
+  }
+
+  foo.free();
+
+  std::cout << foo << std::endl;
+}
+
+
+// Cuda-runtime version of test 0
+void test0RT() {
+  // trick to build primary context
+  cudaSetDevice(0); cudaFree(0);
+
+  test0DR();
+}
+
 
 // This test takes a ScalarStorage, resizes it, increments on GPU its elements
 // and copies it back to CPU to validate the sum of its elements
@@ -546,99 +578,120 @@ void test3(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-    // Get the primary context and bind to it
-    CUcontext ctx;
-    CUdevice dev;
 
-    CHECK_DRV(cuInit(0));
-    CHECK_DRV(cuDevicePrimaryCtxRetain(&ctx, 0));
-    CHECK_DRV(cuCtxSetCurrent(ctx));
-    CHECK_DRV(cuCtxGetDevice(&dev));
+    bool basicTest = false;
+    if (basicTest) {
+        test0RT();
+    } else {
 
-//  CUcontext context{0};
-//  CUDA_DRIVER_ERROR_CHECK(cuCtxGetCurrent(&context));
-//  CUdevice device;
-//  CUDA_DRIVER_ERROR_CHECK(cuCtxGetDevice(&device));
-//  CUcontext primary_context;
-//  CUDA_DRIVER_ERROR_CHECK(cuDevicePrimaryCtxRetain(&primary_context, device));
-//  unsigned int flags;
-//  int active;
-//  CUresult primary_state_check_result = cuDevicePrimaryCtxGetState(device, &flags, &active);
+        // Get the primary context and bind to it
+        CUcontext ctx;
+        CUdevice dev;
 
+        CHECK_DRV(cuInit(0));
+        CHECK_DRV(cuDevicePrimaryCtxRetain(&ctx, 0));
+        CHECK_DRV(cuCtxSetCurrent(ctx));
+        CHECK_DRV(cuCtxGetDevice(&dev));
 
-    //
-    // Initialization
-    //
-
-#if ENABLE_MPI
-    // MPI Initialization
-    MPI_Init(&argc, &argv);
-#endif
-
-    bool runTest1A = false;
-    bool runTest1B = true;
-    bool runTest2 = false;
-    bool runTest3 = false;
-
-    // test1A
-    if (runTest1A) {
-        try{
-            std::cout << "EXECUTING TEST #1A" << std::endl;
-            test1A();
-            std::cout << "\n" << std::endl;
-        }
-        catch(std::exception & e){
-            std::cout << "TEST #1A exited with an error of type : " << e.what() << std::endl;
-            return 1;
-        }
-    }
-
-    // test1B
-    if (runTest1B) {
-        try{
-            std::cout << "EXECUTING TEST #1B" << std::endl;
-            test1B();
-            std::cout << "\n" << std::endl;
-        }
-        catch(std::exception & e){
-            std::cout << "TEST #1B exited with an error of type : " << e.what() << std::endl;
-            return 1;
-        }
-    }
-
-    // test2
-    if (runTest2) {
-        try{
-            std::cout << "EXECUTING TEST #2" << std::endl;
-            test2();
-            std::cout << "\n" << std::endl;
-        }
-        catch(std::exception & e){
-            std::cout << "TEST #2 exited with an error of type : " << e.what() << std::endl;
-            return 1;
-        }
-    }
+    //  CUcontext context{0};
+    //  CUDA_DRIVER_ERROR_CHECK(cuCtxGetCurrent(&context));
+    //  CUdevice device;
+    //  CUDA_DRIVER_ERROR_CHECK(cuCtxGetDevice(&device));
+    //  CUcontext primary_context;
+    //  CUDA_DRIVER_ERROR_CHECK(cuDevicePrimaryCtxRetain(&primary_context, device));
+    //  unsigned int flags;
+    //  int active;
+    //  CUresult primary_state_check_result = cuDevicePrimaryCtxGetState(device, &flags, &active);
 
 
-    // test3
-    if (runTest3) {
-        try{
-            std::cout << "EXECUTING TEST #3" << std::endl;
-            test3(argc, argv);
-            std::cout << "\n" << std::endl;
-        }
-        catch(std::exception & e){
-            std::cout << "TEST #3 exited with an error of type : " << e.what() << std::endl;
-            return 1;
-        }
-    }
-
-    //
-    // Finalization
-    //
+        //
+        // Initialization
+        //
 
 #if ENABLE_MPI
-    // MPI finalization
-    MPI_Finalize();
+        // MPI Initialization
+        MPI_Init(&argc, &argv);
 #endif
+
+        bool runTest0 = false;
+        bool runTest1A = true;
+        bool runTest1B = false;
+        bool runTest2 = false;
+        bool runTest3 = false;
+
+        // test0
+        if (runTest0) {
+            try{
+                std::cout << "EXECUTING TEST #0DR" << std::endl;
+                test0DR();
+                std::cout << "\n" << std::endl;
+            }
+            catch(std::exception & e){
+                std::cout << "TEST #0DR exited with an error of type : " << e.what() << std::endl;
+                return 1;
+            }
+        }
+
+        // test1A
+        if (runTest1A) {
+            try{
+                std::cout << "EXECUTING TEST #1A" << std::endl;
+                test1A();
+                std::cout << "\n" << std::endl;
+            }
+            catch(std::exception & e){
+                std::cout << "TEST #1A exited with an error of type : " << e.what() << std::endl;
+                return 1;
+            }
+        }
+
+        // test1B
+        if (runTest1B) {
+            try{
+                std::cout << "EXECUTING TEST #1B" << std::endl;
+                test1B();
+                std::cout << "\n" << std::endl;
+            }
+            catch(std::exception & e){
+                std::cout << "TEST #1B exited with an error of type : " << e.what() << std::endl;
+                return 1;
+            }
+        }
+
+        // test2
+        if (runTest2) {
+            try{
+                std::cout << "EXECUTING TEST #2" << std::endl;
+                test2();
+                std::cout << "\n" << std::endl;
+            }
+            catch(std::exception & e){
+                std::cout << "TEST #2 exited with an error of type : " << e.what() << std::endl;
+                return 1;
+            }
+        }
+
+
+        // test3
+        if (runTest3) {
+            try{
+                std::cout << "EXECUTING TEST #3" << std::endl;
+                test3(argc, argv);
+                std::cout << "\n" << std::endl;
+            }
+            catch(std::exception & e){
+                std::cout << "TEST #3 exited with an error of type : " << e.what() << std::endl;
+                return 1;
+            }
+        }
+
+        //
+        // Finalization
+        //
+
+#if ENABLE_MPI
+        // MPI finalization
+        MPI_Finalize();
+#endif
+    }
 }
