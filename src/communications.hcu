@@ -31,5 +31,8 @@
 
 #include <vector>
 
+//template <int BLOCK_SIZE>
+//__global__ dev_scatterDataAfterMPIComm(int n_fields, const long * sizes, const double * mpiBuffer, double * deviceStorage);
+
 #endif
 
