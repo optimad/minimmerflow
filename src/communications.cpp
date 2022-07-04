@@ -66,6 +66,11 @@ void ExchangeBufferStreamer::finalizeWrite(const int &rank, bitpit::SendBuffer &
     //Do nothing
 }
 
+void ExchangeBufferStreamer::finalizeRead(const int &rank, bitpit::RecvBuffer &buffer, const std::vector<long> &list)
+{
+    //Do nothing
+}
+
 /*!
  * \class ListCommunicator
  *
@@ -421,6 +426,7 @@ int ListCommunicator::completeAnyRecv(const std::vector<int> &blacklist)
     // Read the buffer
     for (ExchangeBufferStreamer *streamer : m_readers) {
         streamer->read(rank, buffer, getStreamableRecvList(rank, streamer));
+        streamer->finalizeRead(rank, buffer, getStreamableRecvList(rank, streamer));
     }
 
     return rank;

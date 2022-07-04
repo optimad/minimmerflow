@@ -63,6 +63,7 @@ public:
     size_t getItemSize() const;
 
     virtual void read(const int &rank, bitpit::RecvBuffer &buffer, const std::vector<long> &list = std::vector<long>()) = 0;
+    virtual void finalizeRead(const int &rank, bitpit::RecvBuffer &buffer, const std::vector<long> &list = std::vector<long>());
     virtual void write(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>()) = 0;
     virtual void finalizeWrite(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>());
 
@@ -136,15 +137,20 @@ public:
     ~CudaStorageCollectionBufferStreamer();
 
     void read(const int &rank, bitpit::RecvBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
+    void finalizeRead(const int &rank, bitpit::RecvBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
     void write(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
     void finalizeWrite(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
 
     void initializeCUDAObjects();
+    void initializePointers(ScalarPiercedStorageCollection<double> * storage, std::unordered_map<int, ScalarStorage<std::size_t>> * targets);
     std::unordered_map<int, cudaStream_t> m_cudaStreams; //like this rank cannot share GPU
 
 protected:
     size_t m_readOffset;
     size_t m_writeOffset;
+
+    ScalarPiercedStorageCollection<double> * m_deviceStorage;
+    std::unordered_map<int, ScalarStorage<std::size_t>> * m_targetLists;
 };
 
 

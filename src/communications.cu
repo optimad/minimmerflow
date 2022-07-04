@@ -90,6 +90,16 @@ void ListCommunicator::initializeCudaObjects()
             std::cout << "CUDA runtime error in cudaHostRegister " << cudaGetErrorString(err) << " on buffer for rank " << rank << std::endl;
         }
     }
+    for (int rank : getRecvRanks()) {
+        bitpit::RecvBuffer &buffer = getRecvBuffer(rank);
+        std::size_t bufferSize = buffer.getSize();
+        size_t bytes = bufferSize * sizeof(char);
+        cudaError_t err = cudaHostRegister(buffer.getFront().data(), bytes, cudaHostRegisterDefault);
+        if (err != cudaSuccess) {
+            std::cout << "CUDA runtime error in cudaHostRegister " << cudaGetErrorString(err) << " on buffer for rank " << rank << std::endl;
+        }
+    }
+
 }
 void ListCommunicator::finalizeCudaObjects()
 {
@@ -100,7 +110,15 @@ void ListCommunicator::finalizeCudaObjects()
         bitpit::SendBuffer &buffer = getSendBuffer(rank);
         cudaError_t err = cudaHostUnregister(buffer.getFront().data());
         if (err != cudaSuccess) {
-            std::cout << "CUDA runtime error in cudaHostUnregister " << cudaGetErrorString(err)  << " pointer " << (void *)buffer.getFront().data()
+            std::cout << "CUDA runtime error in cudaHostUnregister (SEND)" << cudaGetErrorString(err)  << " pointer " << (void *)buffer.getFront().data()
+                    << " Comm " << m_name << std::endl;
+        }
+    }
+    for (int rank : getRecvRanks()) {
+        bitpit::RecvBuffer &buffer = getRecvBuffer(rank);
+        cudaError_t err = cudaHostUnregister(buffer.getFront().data());
+        if (err != cudaSuccess) {
+            std::cout << "CUDA runtime error in cudaHostUnregister (RECV)" << cudaGetErrorString(err)  << " pointer " << (void *)buffer.getFront().data()
                     << " Comm " << m_name << std::endl;
         }
     }
