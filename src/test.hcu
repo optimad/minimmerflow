@@ -32,6 +32,7 @@ namespace test {
 __global__ void dev_plotContainer(std::size_t *deviceData, std::size_t size);
 __global__ void dev_plotContainerCollection(std::size_t **deviceData, std::size_t size);
 __global__ void dev_plotScalarStorage(std::size_t *deviceData, std::size_t size);
+__global__ void dev_plotScalarStorageCollection(std::size_t *deviceData, std::size_t size);
 
 }
 

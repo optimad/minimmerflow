@@ -45,11 +45,11 @@ __global__ void dev_plotContainerCollection(std::size_t **deviceData, std::size_
     // Process interfaces
     std::size_t i = blockIdx.x*blockDim.x + threadIdx.x;
     if  (i < size)  {
-//      printf(" TEST pointer0 %p ", deviceData[0]);
-//      printf(" TEST pointer1 %p ", deviceData[1]);
-//      printf(" TEST pointer2 %p ", deviceData[2]);
-//      printf(" TEST pointer3 %p ", deviceData[3]);
-//      printf(" TEST pointer4 %p ", deviceData[4]);
+//      printf(" TEST pointer0 %ld ", deviceData[0][i]);
+//      printf(" TEST pointer1 %ld ", deviceData[1][i]);
+//      printf(" TEST pointer2 %ld ", deviceData[2][i]);
+//      printf(" TEST pointer3 %ld ", deviceData[3][i]);
+//      printf(" TEST pointer4 %ld ", deviceData[4][i]);
         deviceData[0][i] += 1;
         deviceData[1][i] += 1;
         deviceData[2][i] += 1;
@@ -91,6 +91,14 @@ void cuda_plotPiercedStorage(ScalarPiercedStorage<std::size_t> &container, std::
     int numBlocks = ((size + numThreads - 1) / numThreads);
 
     dev_plotScalarStorage<<<numBlocks,numThreads>>>(container.cuda_deviceData(), size);
+}
+
+void cuda_plotPiercedStorageCollection(ScalarPiercedStorageCollection<std::size_t> &container, std::size_t size)
+{
+    int numThreads = 4;
+    int numBlocks = ((size + numThreads - 1) / numThreads);
+
+    dev_plotContainerCollection<<<numBlocks,numThreads>>>(container.cuda_deviceCollectionData(), size);
 }
 
 }

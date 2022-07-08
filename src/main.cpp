@@ -80,9 +80,7 @@ void test0DR() {
     std::cout << foo << "\n" << std::endl;
   }
 
-  foo.free();
 
-  std::cout << foo << std::endl;
 }
 
 
@@ -122,18 +120,25 @@ void test1A()
 
     std::size_t valSum = 2 * initSize * initSize;
 
-    std::cout << "Non-resized containers: sum = " << sum
+    std::cout << "Non-resized container: sum = " << sum
               << " and valSum = " << valSum
               << std::endl;
+
+    std::cout << "Non-resized container Stats: " << simpleContainer << std::endl;
 
 
     simpleContainer.clear();
     simpleContainer.resize(0);
     std::size_t newSize = 4*initSize;
+
+    std::cout << "---> Resize from " << initSize * initSize << " to "  << newSize * newSize << std::endl;
+
     for (std::size_t iter = 0; iter < newSize*newSize; iter++) {
         simpleContainer.push_back(2);
     }
     simpleContainer.cuda_resize(simpleContainer.cuda_deviceDataSize());
+    std::cout << "cuda deviceDataSize " << simpleContainer.cuda_deviceDataSize() << std::endl;
+    std::cout << "Resized container Stats: " << simpleContainer << std::endl;
     simpleContainer.cuda_updateDevice();
     test::plotContainer(simpleContainer, simpleContainer.cuda_deviceDataSize());
 
@@ -165,18 +170,15 @@ void test1A()
 // and copies it back to CPU to validate the sum of its elements
 void test1B()
 {
-    std::cout << "Ok 0" << std::endl;
     std::size_t initSize = 1000000000;
 //  std::vector<std::size_t> v1(initSize);
     ScalarStorage<std::size_t> simpleContainer1(initSize);
-    std::cout << "Ok 1" << std::endl;
+    std::cout << "TOTAL DEVICE MEMORY: " << simpleContainer1.totalMemSize() << std::endl;
 //  std::vector<std::size_t> v2(initSize);
     ScalarStorage<std::size_t> simpleContainer2(initSize);
 
-    std::cout << "Cuda Allocation" << std::endl;
     simpleContainer1.cuda_allocateDevice();
     simpleContainer2.cuda_allocateDevice();
-    std::cout << "Cuda Update" << std::endl;
     simpleContainer1.cuda_updateDevice();
     simpleContainer2.cuda_updateDevice();
     simpleContainer1.cuda_fillDevice(1);
@@ -198,6 +200,7 @@ void test1B()
     simpleContainer1.clear();
     simpleContainer1.resize(0);
 //  std::size_t newSize = 2*initSize;
+//  std::size_t newSize = 1010000000; // THIS WORKS ON CPU/GPU
     std::size_t newSize = 1010000000;
     for (std::size_t iter = 0; iter < newSize; iter++) {
         simpleContainer1.push_back(2);
@@ -324,6 +327,8 @@ void adaptMeshAndFields(ComputationInfo &computationInfo, VolOctree &mesh,
                         const problem::ProblemType problemType)
 {
 
+    std::cout << "TOTAL DEVICE MEMORY: " << cellFoo.totalMemSize() << std::endl;
+
     adaptation::meshAdaptation(mesh);
 
 #if ENABLE_CUDA
@@ -348,10 +353,76 @@ void adaptMeshAndFields(ComputationInfo &computationInfo, VolOctree &mesh,
     log_memory_status();
 }
 
+// Resizes the CFD mesh, as needed for test3
+void adaptMeshAndFieldCollection(ComputationInfo &computationInfo, VolOctree &mesh,
+                        ScalarPiercedStorageCollection<std::size_t> &cellFoo,
+                        const problem::ProblemType problemType)
+{
+
+    std::cout << "TOTAL DEVICE MEMORY: " << cellFoo[0].totalMemSize() << std::endl;
+
+    adaptation::meshAdaptation(mesh);
+
+#if ENABLE_CUDA
+    // Resize CPU containers holding geometrical and computations-related info
+    computationInfo.postMeshAdaptation();
+
+    // Reset and copy to GPU the relevant data, if needed.
+    computationInfo.cuda_resize();
+
+    // Reset and copy to GPU the variables and Foo-data at cells
+    cellFoo.cuda_resize(mesh.getCellCount());
+    cellFoo.cuda_updateDevice();
+#endif
+
+
+//  adaptation::mapFields(parentIDs, currentIDs, parentCellFoo, cellFoo);
+
+    //TODO: When OpenACC is on again, remove the following 4 lines updating
+    //the host
+//  cellFoo.cuda_updateHost();
+
+    log_memory_status();
+}
+// Resizes the CFD mesh, as needed for test3
+void adaptMeshAndFieldCollection2(ComputationInfo &computationInfo, VolOctree &mesh,
+                        ScalarPiercedStorageCollection<std::size_t> &cellFoo,
+                        ScalarPiercedStorageCollection<std::size_t> &cellFoo2,
+                        const problem::ProblemType problemType)
+{
+
+    std::cout << "TOTAL DEVICE MEMORY: " << cellFoo[0].totalMemSize() << std::endl;
+
+    adaptation::meshAdaptation(mesh);
+
+#if ENABLE_CUDA
+    // Resize CPU containers holding geometrical and computations-related info
+    computationInfo.postMeshAdaptation();
+
+    // Reset and copy to GPU the relevant data, if needed.
+    computationInfo.cuda_resize();
+
+    // Reset and copy to GPU the variables and Foo-data at cells
+    cellFoo.cuda_resize(mesh.getCellCount());
+    cellFoo.cuda_updateDevice();
+
+    cellFoo2.cuda_resize(mesh.getCellCount());
+    cellFoo2.cuda_updateDevice();
+#endif
+
+
+//  adaptation::mapFields(parentIDs, currentIDs, parentCellFoo, cellFoo);
+
+    //TODO: When OpenACC is on again, remove the following 4 lines updating
+    //the host
+//  cellFoo.cuda_updateHost();
+
+    log_memory_status();
+}
+
 
 // This test takes a ScalarPiercedStorage, resizes it, increments on GPU its
 // elements and copies it back to CPU to validate the sum of its elements.
-// Tip: Run it with 2048 cells per direction, to cause its failure.
 void test3(int argc, char *argv[])
 {
     // Initialize process information
@@ -576,6 +647,504 @@ void test3(int argc, char *argv[])
 
 }
 
+// This test takes a ScalarPiercedStorageCollection, resizes it, increments on GPU its
+// elements and copies it back to CPU to validate the sum of its elements.
+void test4(int argc, char *argv[])
+{
+    // Initialize process information
+    int nProcessors;
+    int rank;
+#if ENABLE_MPI
+    MPI_Comm_size(MPI_COMM_WORLD, &nProcessors);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+#else
+    nProcessors = 1;
+    rank        = 0;
+#endif
+
+    // Initialize logger
+    log::manager().initialize(log::COMBINED, "minimmerflow", true, ".", nProcessors, rank);
+#if ENABLE_DEBUG==1
+    log::cout().setVisibility(log::GLOBAL);
+#endif
+
+    // Log file header
+    log::cout() << "o=====================================================o" << std::endl;
+    log::cout() << "|                                                     |" << std::endl;
+    log::cout() << "|                    minimmerflow  Solver                   |" << std::endl;
+    log::cout() << "|                                                     |" << std::endl;
+    log::cout() << "o=====================================================o" << std::endl;
+
+    // Initialize configuration file
+    config::reset("minimmerflow", 1);
+    config::read("settings.xml");
+
+    // Problem info
+    const problem::ProblemType problemType = problem::getProblemType();
+
+    int dimensions;
+    double length;
+    std::array<double, 3> origin;
+    problem::getDomainData(problemType, dimensions, &origin, &length);
+
+    const double tMin = problem::getStartTime(problemType, dimensions);
+    const double tMax = problem::getEndTime(problemType, dimensions);
+
+    log::cout() << std::endl;
+    log::cout() << "Domain info: "  << std::endl;
+    log::cout() << "  Origin .... " << origin << std::endl;
+    log::cout() << "  Length .... " << length << std::endl;
+
+    log::cout() << std::endl;
+    log::cout() << "Time info: "  << std::endl;
+    log::cout() << "  Initial .... " << tMin << std::endl;
+    log::cout() << "  Final .... " << tMax << std::endl;
+
+    // Discretization parameters
+    const int order = config::root["discretization"]["space"].get<int>("order");
+
+    const double cfl = config::root["discretization"]["time"].get<double>("CFL");
+
+    long nCellsPerDirection;
+    if (argc > 1) {
+        nCellsPerDirection = atoi(argv[1]);
+    } else {
+        nCellsPerDirection = config::root["discretization"]["space"].get<long>("nCells");
+    }
+
+    log::cout() << std::endl;
+    log::cout() << "Space distretization info..."  << std::endl;
+    log::cout() << "  Order .... " << order << std::endl;
+    log::cout() << "  Cells per direction .... " << nCellsPerDirection << std::endl;
+
+    log::cout() << std::endl;
+    log::cout() << "Time distretization info: "  << std::endl;
+    log::cout() << "  CFL .... " << cfl << std::endl;
+
+    // Output parametes
+    int nSaves = std::numeric_limits<int>::max();
+    if (argc > 2) {
+        nSaves = atoi(argv[2]);
+    }
+
+    // Create the mesh
+    log::cout() << std::endl;
+    log::cout() << "Mesh initialization..."  << std::endl;
+
+    unsigned int initialRefs = 0;
+    const unsigned int maxInitialCellsProc = 1024;
+    if (nProcessors>1) {
+        while (pow(nCellsPerDirection , dimensions) > maxInitialCellsProc * nProcessors) {
+            if ( (nCellsPerDirection%2) != 0) {
+                break;
+            }
+
+            log::cout() << "Would create " << pow(nCellsPerDirection , dimensions) << " octants/processor. Reducing " << std::endl;
+            nCellsPerDirection /= 2;
+            initialRefs++;
+        }
+    }
+
+    log::cout() << "*** Calling VolOctree constructor with " << nCellsPerDirection
+                << " cells per direction, which will be uniformly refined " <<  initialRefs
+                << " times." << std::endl;
+
+#if ENABLE_MPI
+    VolOctree mesh(dimensions, origin, length, length / nCellsPerDirection, MPI_COMM_WORLD);
+#else
+    VolOctree mesh(dimensions, origin, length, length / nCellsPerDirection);
+#endif
+
+    mesh.initializeAdjacencies();
+    mesh.initializeInterfaces();
+
+    mesh.update();
+
+#if ENABLE_MPI
+    if (nProcessors > 1) {
+        mesh.partition(false, true);
+    }
+#endif
+
+    for (unsigned int k=0; k<initialRefs; ++k){
+        for (VolOctree::CellConstIterator cellItr = mesh.cellConstBegin(); cellItr != mesh.cellConstEnd(); ++cellItr) {
+            mesh.markCellForRefinement(cellItr.getId());
+        }
+
+        log::cout() << "*** Mesh marked for refinement. Call update\n";
+        mesh.update();
+        log::cout() << "+++ mesh.update() DONE.\n";
+        nCellsPerDirection *= 2;
+    }
+
+    {
+        std::stringstream basename;
+        basename << "background_" << nCellsPerDirection;
+        mesh.getVTK().setName(basename.str().c_str());
+    }
+
+#if ENABLE_MPI
+    if (nProcessors > 1) {
+        log::cout() << "*** Call partition\n";
+        mesh.partition(false, true);
+        log::cout() << "+++ mesh.partition() DONE.\n";
+    }
+#endif
+    mesh.write();
+
+    log_memory_status();
+
+    // Initialize body info
+    body::initialize();
+
+    // Initialize computation data
+    log::cout() << std::endl;
+    log::cout() << "Computation data initialization..."  << std::endl;
+
+    ComputationInfo computationInfo(&mesh);
+#if ENABLE_CUDA
+    computationInfo.cuda_initialize();
+#endif
+
+    ScalarPiercedStorageCollection<std::size_t> cellFoo(N_FIELDS);
+    cellFoo[0].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    cellFoo[1].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    cellFoo[2].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    cellFoo[3].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    cellFoo[4].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    cellFoo.cuda_allocateDevice();
+
+    cellFoo[0].cuda_fillDevice(0);
+    cellFoo[1].cuda_fillDevice(1);
+    cellFoo[2].cuda_fillDevice(2);
+    cellFoo[3].cuda_fillDevice(3);
+    cellFoo[4].cuda_fillDevice(4);
+
+    cellFoo.cuda_updateHost();
+
+    std::vector<std::size_t> sum(N_FIELDS, 0);
+    for (int iter = 0; iter < mesh.getCellCount(); iter++) {
+        sum[0] += cellFoo[0][iter];
+        sum[1] += cellFoo[1][iter];
+        sum[2] += cellFoo[2][iter];
+        sum[3] += cellFoo[3][iter];
+        sum[4] += cellFoo[4][iter];
+    }
+    std::cout << "validated 1st sum[0] = " << mesh.getCellCount() * 0  << " and sum[0] = " << sum[0] << std::endl;
+    std::cout << "validated 1st sum[1] = " << mesh.getCellCount() * 1  << " and sum[1] = " << sum[1] << std::endl;
+    std::cout << "validated 1st sum[2] = " << mesh.getCellCount() * 2  << " and sum[2] = " << sum[2] << std::endl;
+    std::cout << "validated 1st sum[3] = " << mesh.getCellCount() * 3  << " and sum[3] = " << sum[3] << std::endl;
+    std::cout << "validated 1st sum[4] = " << mesh.getCellCount() * 4  << " and sum[4] = " << sum[4] << std::endl;
+
+    log_memory_status();
+
+    // Initialize storage
+    log::cout() << std::endl;
+    log::cout() << "Storage initialization..."  << std::endl;
+
+    log_memory_status();
+
+    // Initialize reconstruction
+    log::cout() << std::endl;
+    log::cout() << "Reconstruction initialization..."  << std::endl;
+
+    log_memory_status();
+
+    adaptMeshAndFieldCollection(computationInfo, mesh, cellFoo, problemType);
+    cellFoo[0].cuda_fillDevice(0);
+    cellFoo[1].cuda_fillDevice(1);
+    cellFoo[2].cuda_fillDevice(2);
+    cellFoo[3].cuda_fillDevice(3);
+    cellFoo[4].cuda_fillDevice(4);
+
+    test::plotPiercedStorageCollection(cellFoo, mesh.getCellCount());
+
+    cellFoo.cuda_updateHost();
+
+    sum = std::vector<std::size_t>(N_FIELDS, 0);
+    for (int iter = 0; iter < mesh.getCellCount(); iter++) {
+        sum[0] += cellFoo[0][iter];
+        sum[1] += cellFoo[1][iter];
+        sum[2] += cellFoo[2][iter];
+        sum[3] += cellFoo[3][iter];
+        sum[4] += cellFoo[4][iter];
+    }
+    std::cout << "validated 2nd sum[0] = " << mesh.getCellCount() * 1  << " and sum[0] = " << sum[0] << std::endl;
+    std::cout << "validated 2nd sum[1] = " << mesh.getCellCount() * 2  << " and sum[1] = " << sum[1] << std::endl;
+    std::cout << "validated 2nd sum[2] = " << mesh.getCellCount() * 3  << " and sum[2] = " << sum[2] << std::endl;
+    std::cout << "validated 2nd sum[3] = " << mesh.getCellCount() * 4  << " and sum[3] = " << sum[3] << std::endl;
+    std::cout << "validated 2nd sum[4] = " << mesh.getCellCount() * 5  << " and sum[4] = " << sum[4] << std::endl;
+
+    if (
+           (sum[0] ==      mesh.getCellCount())
+        && (sum[1] ==  2 * mesh.getCellCount())
+        && (sum[2] ==  3 * mesh.getCellCount())
+        && (sum[3] ==  4 * mesh.getCellCount())
+        && (sum[4] ==  5 * mesh.getCellCount())
+    ) {
+        std::cout << "\nTEST #4: SUCCESSFULL" << std::endl;
+    } else {
+        std::cout << "\nTEST #4: UNSUCCESSFULL" << std::endl;
+    }
+
+    log_memory_status();
+
+    // Clean-up
+#if ENABLE_CUDA
+    cellFoo.cuda_freeDevice();
+    computationInfo.cuda_finalize();
+#endif
+}
+
+
+// This test takes two ScalarPiercedStorageCollection containers, resizes the first, increments on GPU its
+// elements and copies it back to CPU to validate the sum of its elements.
+void test5(int argc, char *argv[])
+{
+    // Initialize process information
+    int nProcessors;
+    int rank;
+#if ENABLE_MPI
+    MPI_Comm_size(MPI_COMM_WORLD, &nProcessors);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+#else
+    nProcessors = 1;
+    rank        = 0;
+#endif
+
+    // Initialize logger
+    log::manager().initialize(log::COMBINED, "minimmerflow", true, ".", nProcessors, rank);
+#if ENABLE_DEBUG==1
+    log::cout().setVisibility(log::GLOBAL);
+#endif
+
+    // Log file header
+    log::cout() << "o=====================================================o" << std::endl;
+    log::cout() << "|                                                     |" << std::endl;
+    log::cout() << "|                    minimmerflow  Solver                   |" << std::endl;
+    log::cout() << "|                                                     |" << std::endl;
+    log::cout() << "o=====================================================o" << std::endl;
+
+    // Initialize configuration file
+    config::reset("minimmerflow", 1);
+    config::read("settings.xml");
+
+    // Problem info
+    const problem::ProblemType problemType = problem::getProblemType();
+
+    int dimensions;
+    double length;
+    std::array<double, 3> origin;
+    problem::getDomainData(problemType, dimensions, &origin, &length);
+
+    log::cout() << std::endl;
+    log::cout() << "Domain info: "  << std::endl;
+    log::cout() << "  Origin .... " << origin << std::endl;
+    log::cout() << "  Length .... " << length << std::endl;
+
+    long nCellsPerDirection;
+    if (argc > 1) {
+        nCellsPerDirection = atoi(argv[1]);
+    } else {
+        nCellsPerDirection = config::root["discretization"]["space"].get<long>("nCells");
+    }
+
+    log::cout() << std::endl;
+    log::cout() << "  Cells per direction .... " << nCellsPerDirection << std::endl;
+
+    // Output parametes
+    int nSaves = std::numeric_limits<int>::max();
+    if (argc > 2) {
+        nSaves = atoi(argv[2]);
+    }
+
+    // Create the mesh
+    log::cout() << std::endl;
+    log::cout() << "Mesh initialization..."  << std::endl;
+
+    unsigned int initialRefs = 0;
+    const unsigned int maxInitialCellsProc = 1024;
+    if (nProcessors>1) {
+        while (pow(nCellsPerDirection , dimensions) > maxInitialCellsProc * nProcessors) {
+            if ( (nCellsPerDirection%2) != 0) {
+                break;
+            }
+
+            log::cout() << "Would create " << pow(nCellsPerDirection , dimensions) << " octants/processor. Reducing " << std::endl;
+            nCellsPerDirection /= 2;
+            initialRefs++;
+        }
+    }
+
+    log::cout() << "*** Calling VolOctree constructor with " << nCellsPerDirection
+                << " cells per direction, which will be uniformly refined " <<  initialRefs
+                << " times." << std::endl;
+
+#if ENABLE_MPI
+    VolOctree mesh(dimensions, origin, length, length / nCellsPerDirection, MPI_COMM_WORLD);
+#else
+    VolOctree mesh(dimensions, origin, length, length / nCellsPerDirection);
+#endif
+
+    mesh.initializeAdjacencies();
+    mesh.initializeInterfaces();
+
+    mesh.update();
+
+#if ENABLE_MPI
+    if (nProcessors > 1) {
+        mesh.partition(false, true);
+    }
+#endif
+
+    for (unsigned int k=0; k<initialRefs; ++k){
+        for (VolOctree::CellConstIterator cellItr = mesh.cellConstBegin(); cellItr != mesh.cellConstEnd(); ++cellItr) {
+            mesh.markCellForRefinement(cellItr.getId());
+        }
+
+        log::cout() << "*** Mesh marked for refinement. Call update\n";
+        mesh.update();
+        log::cout() << "+++ mesh.update() DONE.\n";
+        nCellsPerDirection *= 2;
+    }
+
+    {
+        std::stringstream basename;
+        basename << "background_" << nCellsPerDirection;
+        mesh.getVTK().setName(basename.str().c_str());
+    }
+
+#if ENABLE_MPI
+    if (nProcessors > 1) {
+        log::cout() << "*** Call partition\n";
+        mesh.partition(false, true);
+        log::cout() << "+++ mesh.partition() DONE.\n";
+    }
+#endif
+    mesh.write();
+
+    log_memory_status();
+
+    // Initialize body info
+    body::initialize();
+
+    // Initialize computation data
+    log::cout() << std::endl;
+    log::cout() << "Computation data initialization..."  << std::endl;
+
+    ComputationInfo computationInfo(&mesh);
+#if ENABLE_CUDA
+    computationInfo.cuda_initialize();
+#endif
+
+    // Allocate 1st container
+    ScalarPiercedStorageCollection<std::size_t> cellFoo(N_FIELDS);
+    cellFoo[0].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    cellFoo[1].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    cellFoo[2].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    cellFoo[3].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    cellFoo[4].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    cellFoo.cuda_allocateDevice();
+
+    cellFoo[0].cuda_fillDevice(0);
+    cellFoo[1].cuda_fillDevice(1);
+    cellFoo[2].cuda_fillDevice(2);
+    cellFoo[3].cuda_fillDevice(3);
+    cellFoo[4].cuda_fillDevice(4);
+    cellFoo.cuda_updateHost();
+
+
+    // Allocate 2nd container
+    ScalarPiercedStorageCollection<std::size_t> cellFoo2(N_FIELDS);
+    cellFoo2[0].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    cellFoo2[1].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    cellFoo2[2].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    cellFoo2[3].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    cellFoo2[4].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    cellFoo2.cuda_allocateDevice();
+
+    cellFoo2[0].cuda_fillDevice(0);
+    cellFoo2[1].cuda_fillDevice(1);
+    cellFoo2[2].cuda_fillDevice(2);
+    cellFoo2[3].cuda_fillDevice(3);
+    cellFoo2[4].cuda_fillDevice(4);
+    cellFoo2.cuda_updateHost();
+
+    std::vector<std::size_t> sum(N_FIELDS, 0);
+    for (int iter = 0; iter < mesh.getCellCount(); iter++) {
+        sum[0] += cellFoo[0][iter];
+        sum[1] += cellFoo[1][iter];
+        sum[2] += cellFoo[2][iter];
+        sum[3] += cellFoo[3][iter];
+        sum[4] += cellFoo[4][iter];
+    }
+    std::cout << "validated 1st sum[0] = " << mesh.getCellCount() * 0  << " and sum[0] = " << sum[0] << std::endl;
+    std::cout << "validated 1st sum[1] = " << mesh.getCellCount() * 1  << " and sum[1] = " << sum[1] << std::endl;
+    std::cout << "validated 1st sum[2] = " << mesh.getCellCount() * 2  << " and sum[2] = " << sum[2] << std::endl;
+    std::cout << "validated 1st sum[3] = " << mesh.getCellCount() * 3  << " and sum[3] = " << sum[3] << std::endl;
+    std::cout << "validated 1st sum[4] = " << mesh.getCellCount() * 4  << " and sum[4] = " << sum[4] << std::endl;
+
+    log_memory_status();
+
+    // Initialize storage
+    log::cout() << std::endl;
+    log::cout() << "Storage initialization..."  << std::endl;
+
+    log_memory_status();
+
+    // Initialize reconstruction
+    log::cout() << std::endl;
+    log::cout() << "Reconstruction initialization..."  << std::endl;
+
+    log_memory_status();
+
+    adaptMeshAndFieldCollection(computationInfo, mesh, cellFoo, problemType);
+    cellFoo[0].cuda_fillDevice(0);
+    cellFoo[1].cuda_fillDevice(1);
+    cellFoo[2].cuda_fillDevice(2);
+    cellFoo[3].cuda_fillDevice(3);
+    cellFoo[4].cuda_fillDevice(4);
+
+    test::plotPiercedStorageCollection(cellFoo, mesh.getCellCount());
+
+    cellFoo.cuda_updateHost();
+
+    sum = std::vector<std::size_t>(N_FIELDS, 0);
+    for (int iter = 0; iter < mesh.getCellCount(); iter++) {
+        sum[0] += cellFoo[0][iter];
+        sum[1] += cellFoo[1][iter];
+        sum[2] += cellFoo[2][iter];
+        sum[3] += cellFoo[3][iter];
+        sum[4] += cellFoo[4][iter];
+    }
+    std::cout << "validated 2nd sum[0] = " << mesh.getCellCount() * 1  << " and sum[0] = " << sum[0] << std::endl;
+    std::cout << "validated 2nd sum[1] = " << mesh.getCellCount() * 2  << " and sum[1] = " << sum[1] << std::endl;
+    std::cout << "validated 2nd sum[2] = " << mesh.getCellCount() * 3  << " and sum[2] = " << sum[2] << std::endl;
+    std::cout << "validated 2nd sum[3] = " << mesh.getCellCount() * 4  << " and sum[3] = " << sum[3] << std::endl;
+    std::cout << "validated 2nd sum[4] = " << mesh.getCellCount() * 5  << " and sum[4] = " << sum[4] << std::endl;
+
+    if (
+           (sum[0] ==      mesh.getCellCount())
+        && (sum[1] ==  2 * mesh.getCellCount())
+        && (sum[2] ==  3 * mesh.getCellCount())
+        && (sum[3] ==  4 * mesh.getCellCount())
+        && (sum[4] ==  5 * mesh.getCellCount())
+    ) {
+        std::cout << "\nTEST #5: SUCCESSFULL" << std::endl;
+    } else {
+        std::cout << "\nTEST #5: UNSUCCESSFULL" << std::endl;
+    }
+
+    log_memory_status();
+
+    // Clean-up
+#if ENABLE_CUDA
+    cellFoo.cuda_freeDevice();
+    cellFoo2.cuda_freeDevice();
+    computationInfo.cuda_finalize();
+#endif
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -613,11 +1182,13 @@ int main(int argc, char *argv[])
         MPI_Init(&argc, &argv);
 #endif
 
-        bool runTest0 = false;
+        bool runTest0 = true;
         bool runTest1A = true;
-        bool runTest1B = false;
-        bool runTest2 = false;
-        bool runTest3 = false;
+        bool runTest1B = true;
+        bool runTest2 = true;
+        bool runTest3 = true;
+        bool runTest4 = true;
+        bool runTest5 = true;
 
         // test0
         if (runTest0) {
@@ -685,6 +1256,32 @@ int main(int argc, char *argv[])
             }
         }
 
+        // test4
+        if (runTest4) {
+            try{
+                std::cout << "EXECUTING TEST #4" << std::endl;
+                test4(argc, argv);
+                std::cout << "\n" << std::endl;
+            }
+            catch(std::exception & e){
+                std::cout << "TEST #4 exited with an error of type : " << e.what() << std::endl;
+                return 1;
+            }
+        }
+
+
+        // test5
+        if (runTest5) {
+            try{
+                std::cout << "EXECUTING TEST #5" << std::endl;
+                test5(argc, argv);
+                std::cout << "\n" << std::endl;
+            }
+            catch(std::exception & e){
+                std::cout << "TEST #5 exited with an error of type : " << e.what() << std::endl;
+                return 1;
+            }
+        }
         //
         // Finalization
         //
