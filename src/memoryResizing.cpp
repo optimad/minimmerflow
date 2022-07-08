@@ -22,9 +22,13 @@
  *
 \*---------------------------------------------------------------------------*/
 
+//uncomment to show VERBOSE information at runtime
+#define _WITH_DEBUG_VERBOSE
+
 #include "memoryResizing.hpp"
 
 #include "context.hpp"
+#include <cassert>
 #include <cuda.h>
 
 /*!
@@ -161,6 +165,10 @@ CUresult MemoryResizing::cuda_reserve(size_t new_sz)
         }
         m_reservedSize = aligned_sz;
     }
+#ifdef _WITH_DEBUG_VERBOSE
+    if (status == CUDA_SUCCESS)
+        std::cerr << "# cuda_reserve extended previous pointer successfully"  << std::endl;
+#endif // _WITH_DEBUG_VERBOSE
 
     return status;
 }
@@ -171,9 +179,18 @@ CUresult MemoryResizing::cuda_reserve(size_t new_sz)
  */
 CUresult MemoryResizing::cuda_grow(std::size_t new_sz)
 {
+    std::cout << "\n\n BEGIN OF GROW" << std::endl;
+    m_ready2Grow = false;
+    m_memCreate  = false;
+    m_memMap     = false;
+    m_memAccess  = false;
+
     CUresult status = CUDA_SUCCESS;
     CUmemGenericAllocationHandle handle;
     if (new_sz <= m_allocSize) {
+#ifdef _WITH_DEBUG_VERBOSE
+        std::cerr << "# cuda_grow ( requested = " << new_sz << ", reserved = " << m_allocSize << ") => no grow required\n";
+#endif // _WITH_DEBUG_VERBOSE
         return CUDA_SUCCESS;
     }
 
@@ -185,12 +202,16 @@ CUresult MemoryResizing::cuda_grow(std::size_t new_sz)
         return status;
     }
 
+    m_ready2Grow = true;
     status = cuMemCreate(&handle, sz, &m_prop, 0);
     if (status == CUDA_SUCCESS) {
+        m_memCreate = true;
         status = cuMemMap(m_dp + m_allocSize, sz, 0ULL, handle, 0ULL);
         if (status == CUDA_SUCCESS) {
+            m_memMap = true;
             status = cuMemSetAccess(m_dp + m_allocSize, sz, &m_accessDesc, 1ULL);
             if (status == CUDA_SUCCESS) {
+                m_memAccess = true;
                 cuda_addHandleInfo(handle, sz);
             }
             if (status != CUDA_SUCCESS) {
@@ -198,9 +219,16 @@ CUresult MemoryResizing::cuda_grow(std::size_t new_sz)
             }
         }
         if (status != CUDA_SUCCESS) {
+#ifdef _WITH_DEBUG_VERBOSE
+            std::cerr << "# cuda_grow, cuMemRelease in progress...\n";
+#endif // _WITH_DEBUG_VERBOSE
             (void)cuMemRelease(handle);
         }
     }
+#ifdef _WITH_DEBUG_VERBOSE
+    cuda_debugInfo();
+#endif // _WITH_DEBUG_VERBOSE
+    std::cout << "\n\n END OF GROW" << std::endl;
     return status;
 }
 
@@ -246,4 +274,93 @@ void MemoryResizing::cuda_addHandleInfo(CUmemGenericAllocationHandle &handle, si
     m_handles.push_back(handle);
     m_handleSizes.push_back(sz);
     m_allocSize += sz;
+}
+
+size_t MemoryResizing::totalMemSize() const
+{
+  size_t m;
+  CUdevice device;
+  cuCtxGetDevice(&device);
+  cuDeviceTotalMem(&m, device);
+  return m;
+}
+
+/*!
+ * Write class status to ostream
+ * \param[in] handle the MemoryResizing
+ */
+std::ostream& operator<< (std::ostream& out, const MemoryResizing& mr)
+{
+  out << "[MemoryResizing : "
+      << " address: " << mr.getCUdeviceptr()
+      << " allocated: " << mr.allocSize()
+      << " reserved: " << mr.reservedSize()
+      << " chunk size: " << mr.chunkSize()
+  ;
+
+  out << " Range [ ";
+  for (auto& r: mr.m_vaRanges) {
+    out << "(" << r.start << ", " << r.sz << ") ";
+  }
+  out << "]";
+
+  out << " Handles [ ";
+  for (auto& r: mr.m_handleSizes) {
+    out << r << " ";
+  }
+  out << "]";
+
+  return out;
+}
+
+void MemoryResizing::cuda_debugInfo() {
+
+    std::cerr << "\n\n# cuda_grow, BEGIN OF DEBUGINFO \n"<< std::endl;
+
+    if (m_ready2Grow)
+        std::cerr << "# cuda_grow, reserved successfully and ready to grow \n";
+
+    if (m_memCreate) {
+        std::cerr << "# cuda_grow, cuMemCreate was successful \n";
+    } else {
+        std::cerr << "# WARNING in cuda_grow, cuMemCreate was unsuccessful \n";
+    }
+
+    if (m_memMap) {
+        std::cerr << "# cuda_grow, cuMemMap was successful \n";
+    } else {
+        std::cerr << "# WARNING in cuda_grow, cuMemMap was unsuccessful \n";
+    }
+
+    if (m_memAccess) {
+        std::cerr << "# cuda_grow, cuMemSetAccess was successful \n";
+    } else {
+        std::cerr << "# WARNING in cuda_grow, cuMemSetAccess was unsuccessful \n";
+    }
+
+//  cuda_debugStats();
+    std::cerr << "\n# cuda_grow, END OF DEBUGINFO \n\n"<< std::endl;
+}
+
+
+void MemoryResizing::cuda_debugStats() {
+
+    std::cerr << "[MemoryResizing : "
+        << " address: " << this->getCUdeviceptr()
+        << " allocated: " << this->allocSize()
+        << " reserved: " << this->reservedSize()
+        << " chunk size: " << this->chunkSize();
+
+    std::cerr << " Range [ ";
+    for (auto& r: m_vaRanges) {
+        std::cout << "(" << r.start << ", " << r.sz << ") ";
+    }
+    std::cerr << "]";
+
+    std::cerr << " Handles [ ";
+    for (auto& r: m_handleSizes) {
+        std::cerr << r << " ";
+    }
+    std::cerr << "]";
+
 }
