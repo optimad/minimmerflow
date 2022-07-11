@@ -58,15 +58,12 @@ void adaptMeshAndFields(double &minCellSize, ComputationInfo &computationInfo,
                         ScalarStorage<int> &solvedBoundaryInterfaceBCs,
                         const problem::ProblemType problemType)
 {
-    std::cout <<  "Beginning mesh adaptation." << std::endl;
     // Adaption (CPU-side)
     ScalarStorage<std::size_t> parentIDs;
     ScalarStorage<std::size_t> currentIDs;
 
     ScalarStorageCollection<double> parentCellRHS(N_FIELDS);
     ScalarStorageCollection<double> parentCellConservatives(N_FIELDS);
-//  parentCellRHS.cuda_allocateDevice();
-//  parentCellConservatives.cuda_allocateDevice();
 
     adaptation::meshAdaptation(mesh, parentIDs, currentIDs, parentCellRHS,
                                parentCellConservatives, cellRHS,
@@ -134,6 +131,8 @@ void adaptMeshAndFields(double &minCellSize, ComputationInfo &computationInfo,
 
     parentCellRHS.cuda_freeDevice();
     parentCellConservatives.cuda_freeDevice();
+    parentIDs.cuda_freeDevice();
+    currentIDs.cuda_freeDevice();
 
     log_memory_status();
 }
@@ -181,7 +180,6 @@ void computation(int argc, char *argv[])
     const double tMax = problem::getEndTime(problemType, dimensions);
 
     log::cout() << std::endl;
-    log::cout() << "Domain info: "  << std::endl;
     log::cout() << "  Origin .... " << origin << std::endl;
     log::cout() << "  Length .... " << length << std::endl;
 
@@ -502,7 +500,7 @@ void computation(int argc, char *argv[])
     double t = tMin;
     double nextSave = tMin;
 //  while (t < tMax) {
-    while (t < tMax && step < 50) {
+    while (t < tMax && step < 4) {
         log::cout() << std::endl;
         log::cout() << "Step n. " << step << std::endl;
 
@@ -670,11 +668,13 @@ void computation(int argc, char *argv[])
             nextSave += (tMax - tMin) / nSaves;
         }
         if (step == 2)
-        adaptMeshAndFields(minCellSize, computationInfo, mesh, cellRHS,
-                           cellConservatives, cellPrimitives,
-                           cellConservativesWork, solvedCellRawIds,
-                           solvedBoundaryInterfaceRawIds,
-                           solvedBoundaryInterfaceBCs, problemType);
+        {
+            adaptMeshAndFields(minCellSize, computationInfo, mesh, cellRHS,
+                               cellConservatives, cellPrimitives,
+                               cellConservativesWork, solvedCellRawIds,
+                               solvedBoundaryInterfaceRawIds,
+                               solvedBoundaryInterfaceBCs, problemType);
+        }
     }
     clock_t computeEnd = clock();
 
@@ -740,6 +740,10 @@ void computation(int argc, char *argv[])
     // Clean-up
 #if ENABLE_CUDA
     cellRHS.cuda_freeDevice();
+    cellPrimitives.cuda_freeDevice();
+    cellConservatives.cuda_freeDevice();
+    cellConservativesWork.cuda_freeDevice();
+    solvedBoundaryInterfaceBCs.cuda_freeDevice();
     computationInfo.cuda_finalize();
     euler::cuda_finalize();
 #endif
@@ -779,4 +783,5 @@ int main(int argc, char *argv[])
     // MPI finalization
     MPI_Finalize();
 #endif
+    CUDA_DRIVER_ERROR_CHECK(cuDevicePrimaryCtxRelease(0));
 }
