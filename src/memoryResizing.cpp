@@ -75,6 +75,13 @@ MemoryResizing::MemoryResizing()
  */
 MemoryResizing::~MemoryResizing()
 {
+//  CUDA_DRIVER_ERROR_CHECK(MemoryResizing::cuda_free());
+}
+
+/*!
+ * Free mechanism
+ */
+CUresult MemoryResizing::cuda_free() {
     CUresult status = CUDA_SUCCESS;
     (void)status;
     if (m_dp != 0ULL) {
@@ -92,8 +99,8 @@ MemoryResizing::~MemoryResizing()
             assert(status == CUDA_SUCCESS);
         }
     }
+    return status;
 }
-
 
 
 /*!

@@ -48,6 +48,8 @@ public:
     MemoryResizing();
    ~MemoryResizing();
 
+    CUresult cuda_free();
+
     CUdeviceptr getCUdeviceptr();
 
     CUresult cuda_grow(std::size_t new_sz);
