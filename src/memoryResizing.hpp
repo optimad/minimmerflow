@@ -36,20 +36,26 @@
 
 class MemoryResizing
 {
+private:
+    CUdeviceptr m_dp;
+
 public:
 
-    CUdeviceptr m_dp;
     bool m_ready2Grow {false};
     bool m_memCreate {false};
     bool m_memMap {false};
     bool m_memAccess {false};
+
+
+protected:
+    CUdeviceptr getCUdeviceptr() const;
+
 
 public:
 
     MemoryResizing();
    ~MemoryResizing();
 
-    CUdeviceptr getCUdeviceptr();
 
     CUresult cuda_grow(std::size_t new_sz);
 
@@ -62,7 +68,6 @@ public:
     size_t allocSize() const { return m_allocSize; }
     size_t reservedSize() const { return m_reservedSize; }
     size_t chunkSize() const { return m_chunkSize; }
-    CUdeviceptr getCUdeviceptr() const { return m_dp; }
     size_t totalMemSize() const;
 
     friend std::ostream& operator<<(std::ostream&, const MemoryResizing&);

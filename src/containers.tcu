@@ -95,7 +95,7 @@ void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_resize(size_t new
 template<typename container_t, typename value_t, typename dev_value_t>
 void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_updateHost()
 {
-    CUDA_ERROR_CHECK(cudaMemcpy(this->data(), (dev_value_t*)(m_dp), this->cuda_deviceDataSize() * sizeof(dev_value_t), cudaMemcpyDeviceToHost));
+    CUDA_ERROR_CHECK(cudaMemcpy(this->data(), (dev_value_t*)(this->getCUdeviceptr()), this->cuda_deviceDataSize() * sizeof(dev_value_t), cudaMemcpyDeviceToHost));
 }
 
 /*!
@@ -115,7 +115,7 @@ void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_updateDevice()
 template<typename container_t, typename value_t, typename dev_value_t>
 dev_value_t * ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_deviceData()
 {
-    return (dev_value_t*)(m_dp);
+    return (dev_value_t*)(this->getCUdeviceptr());
 }
 
 /*!
@@ -126,7 +126,7 @@ dev_value_t * ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_deviceDa
 template<typename container_t, typename value_t, typename dev_value_t>
 const dev_value_t * ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_deviceData() const
 {
-    return (dev_value_t*)(m_dp);
+    return (dev_value_t*)(this->getCUdeviceptr());
 }
 
 /*!
@@ -138,11 +138,11 @@ template<typename container_t, typename value_t, typename dev_value_t>
 void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_fillDevice(const dev_value_t &value)
 {
     if (value == 0) {
-        CUDA_ERROR_CHECK(cudaMemset((dev_value_t*)(m_dp), value, this->cuda_deviceDataSize() * sizeof(dev_value_t)));
+        CUDA_ERROR_CHECK(cudaMemset((dev_value_t*)(this->getCUdeviceptr()), value, this->cuda_deviceDataSize() * sizeof(dev_value_t)));
     } else {
         const int BLOCK_SIZE = 512;
         const int N_BLOCKS   = 8;
-        containers::dev_setValue<<<BLOCK_SIZE, N_BLOCKS>>>(this->cuda_deviceDataSize(), value, (dev_value_t*)(m_dp));
+        containers::dev_setValue<<<BLOCK_SIZE, N_BLOCKS>>>(this->cuda_deviceDataSize(), value, (dev_value_t*)(this->getCUdeviceptr()));
     }
 }
 

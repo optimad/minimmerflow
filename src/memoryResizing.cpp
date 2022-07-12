@@ -232,10 +232,11 @@ CUresult MemoryResizing::cuda_grow(std::size_t new_sz)
     return status;
 }
 
+
 /*!
  * Get the CUdeviceptr
  */
-CUdeviceptr MemoryResizing::getCUdeviceptr()
+CUdeviceptr MemoryResizing::getCUdeviceptr() const
 {
     return m_dp;
 }
