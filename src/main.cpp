@@ -97,6 +97,12 @@ void test0RT() {
 // and copies it back to CPU to validate the sum of its elements
 void test1A()
 {
+
+    std::cout << "------------------------------------------------------------------------" << std::endl;
+    std::cout << " This test takes a ScalarStorage, resizes it, increments on GPU its\n"
+              << " elements and copies it back to CPU to validate the sum of its  elements" << std::endl;
+    std::cout << "------------------------------------------------------------------------" << std::endl;
+
     ScalarStorage<std::size_t> simpleContainer;
     std::size_t initSize = 1024;
     for (std::size_t iter = 0; iter < initSize*initSize; iter++) {
@@ -170,6 +176,12 @@ void test1A()
 // and copies it back to CPU to validate the sum of its elements
 void test1B()
 {
+
+    std::cout << "------------------------------------------------------------------------" << std::endl;
+    std::cout << " This test takes two ScalarStorages, resizes one of them, increments on GPU\n"
+              << " its elementsand copies it back to CPU to validate the sum of its elements " << std::endl;
+    std::cout << "------------------------------------------------------------------------" << std::endl;
+
     std::size_t initSize = 1000000000;
 //  std::vector<std::size_t> v1(initSize);
     ScalarStorage<std::size_t> simpleContainer1(initSize);
@@ -238,6 +250,11 @@ void test1B()
 // elements and copies it back to CPU to validate the sum of its elements
 void test2()
 {
+    std::cout << "------------------------------------------------------------------------" << std::endl;
+    std::cout << " This test takes a ScalarStorageCollection, resizes it, increments on GPU its\n"
+              << " elements and copies it back to CPU to validate the sum of its elements      " << std::endl;
+    std::cout << "------------------------------------------------------------------------" << std::endl;
+
     ScalarStorageCollection<std::size_t> collectionContainer(N_FIELDS);
     std::size_t initSize = 1024;
     for (std::size_t iter = 0; iter < initSize*initSize; iter++) {
@@ -326,7 +343,6 @@ void adaptMeshAndFields(ComputationInfo &computationInfo, VolOctree &mesh,
                         ScalarPiercedStorage<std::size_t> &cellFoo,
                         const problem::ProblemType problemType)
 {
-
     std::cout << "TOTAL DEVICE MEMORY: " << cellFoo.totalMemSize() << std::endl;
 
     adaptation::meshAdaptation(mesh);
@@ -425,6 +441,12 @@ void adaptMeshAndFieldCollection2(ComputationInfo &computationInfo, VolOctree &m
 // elements and copies it back to CPU to validate the sum of its elements.
 void test3(int argc, char *argv[])
 {
+    std::cout << "------------------------------------------------------------------------" << std::endl;
+    std::cout << " This test takes a ScalarPiercedStorage, resizes it, increments on GPU its\n"
+              << " elements and copies it back to CPU to validate the sum of its elements.  " << std::endl;
+    std::cout << "------------------------------------------------------------------------" << std::endl;
+
+
     // Initialize process information
     int nProcessors;
     int rank;
@@ -651,6 +673,11 @@ void test3(int argc, char *argv[])
 // elements and copies it back to CPU to validate the sum of its elements.
 void test4(int argc, char *argv[])
 {
+    std::cout << "------------------------------------------------------------------------" << std::endl;
+    std::cout << " This test takes a ScalarPiercedStorageCollection, resizes it, increments on GPU its\n"
+              << " elements and copies it back to CPU to validate the sum of its elements.            " << std::endl;
+    std::cout << "------------------------------------------------------------------------" << std::endl;
+
     // Initialize process information
     int nProcessors;
     int rank;
@@ -901,6 +928,11 @@ void test4(int argc, char *argv[])
 // elements and copies it back to CPU to validate the sum of its elements.
 void test5(int argc, char *argv[])
 {
+    std::cout << "------------------------------------------------------------------------" << std::endl;
+    std::cout << " This test takes two ScalarPiercedStorageCollection containers, resizes the first, increments\n"
+              << " on GPU itselements and copies it back to CPU to validate the sum of its elements.  " << std::endl;
+    std::cout << "------------------------------------------------------------------------" << std::endl;
+
     // Initialize process information
     int nProcessors;
     int rank;
