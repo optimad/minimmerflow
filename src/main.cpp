@@ -183,10 +183,8 @@ void test1B()
     std::cout << "------------------------------------------------------------------------" << std::endl;
 
     std::size_t initSize = 1000000000;
-//  std::vector<std::size_t> v1(initSize);
     ScalarStorage<std::size_t> simpleContainer1(initSize);
     std::cout << "TOTAL DEVICE MEMORY: " << simpleContainer1.totalMemSize() << std::endl;
-//  std::vector<std::size_t> v2(initSize);
     ScalarStorage<std::size_t> simpleContainer2(initSize);
 
     simpleContainer1.cuda_allocateDevice();
