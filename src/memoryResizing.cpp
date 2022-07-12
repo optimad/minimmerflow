@@ -81,23 +81,36 @@ MemoryResizing::~MemoryResizing()
 /*!
  * Free mechanism
  */
-CUresult MemoryResizing::cuda_free() {
+CUresult MemoryResizing::cuda_free()
+{
     CUresult status = CUDA_SUCCESS;
-    (void)status;
     if (m_dp != 0ULL) {
-        status = cuMemUnmap(m_dp, m_allocSize);
-        CUDA_DRIVER_ERROR_CHECK(status);
-        assert(status == CUDA_SUCCESS);
-        for (size_t i = 0; i < m_vaRanges.size(); i++) {
-            status = cuMemAddressFree(m_vaRanges[i].start, m_vaRanges[i].sz);
-            CUDA_DRIVER_ERROR_CHECK(status);
-            assert(status == CUDA_SUCCESS);
+        CUdeviceptr ptr = m_dp;
+        for (size_t i = 0ULL; i < m_handles.size(); i++) {
+          const size_t hdl_sz = m_handleSizes[i];
+          // And remap them, enabling their access
+          status = cuMemUnmap(ptr, hdl_sz);
+          CUDA_DRIVER_ERROR_CHECK(status);
+          ptr += hdl_sz;
         }
         for (size_t i = 0ULL; i < m_handles.size(); i++) {
             status = cuMemRelease(m_handles[i]);
             CUDA_DRIVER_ERROR_CHECK(status);
             assert(status == CUDA_SUCCESS);
         }
+        assert(status == CUDA_SUCCESS);
+        for (size_t i = 0; i < m_vaRanges.size(); i++) {
+            status = cuMemAddressFree(m_vaRanges[i].start, m_vaRanges[i].sz);
+            CUDA_DRIVER_ERROR_CHECK(status);
+            assert(status == CUDA_SUCCESS);
+        }
+
+        m_allocSize = 0;
+        m_reservedSize = 0;
+        m_vaRanges.clear();
+        m_handles.clear();
+        m_handleSizes.clear();
+        m_dp = 0ULL;
     }
     return status;
 }
