@@ -35,13 +35,19 @@
 
 class MemoryResizing
 {
+private:
+    CUdeviceptr m_dp;
+
 public:
 
-    CUdeviceptr m_dp;
     bool m_ready2Grow {false};
     bool m_memCreate {false};
     bool m_memMap {false};
     bool m_memAccess {false};
+
+
+protected:
+    CUdeviceptr getCUdeviceptr() const;
 
 public:
 
@@ -49,21 +55,14 @@ public:
    ~MemoryResizing();
 
     CUresult cuda_free();
-
-    CUdeviceptr getCUdeviceptr();
-
     CUresult cuda_grow(std::size_t new_sz);
-
-
 
     void cuda_debugInfo();
     void cuda_debugStats();
 
-
     size_t allocSize() const { return m_allocSize; }
     size_t reservedSize() const { return m_reservedSize; }
     size_t chunkSize() const { return m_chunkSize; }
-    CUdeviceptr getCUdeviceptr() const { return m_dp; }
     size_t totalMemSize() const;
 
     friend std::ostream& operator<<(std::ostream&, const MemoryResizing&);
@@ -90,7 +89,6 @@ private:
     CUresult cuda_reserve(size_t new_sz);
     void cuda_addVARange(CUdeviceptr new_ptr, size_t new_range);
     void cuda_addHandleInfo(CUmemGenericAllocationHandle &handle, size_t sz);
-
 };
 
 #endif
