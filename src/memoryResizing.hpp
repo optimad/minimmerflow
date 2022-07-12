@@ -30,7 +30,6 @@
 #include <bitpit_containers.hpp>
 
 #include <vector>
-#include <iostream>
 #include <array>
 #include <cuda.h>
 
@@ -50,20 +49,16 @@ public:
 protected:
     CUdeviceptr getCUdeviceptr() const;
 
-
 public:
 
     MemoryResizing();
    ~MemoryResizing();
 
-
+    CUresult cuda_free();
     CUresult cuda_grow(std::size_t new_sz);
-
-
 
     void cuda_debugInfo();
     void cuda_debugStats();
-
 
     size_t allocSize() const { return m_allocSize; }
     size_t reservedSize() const { return m_reservedSize; }
@@ -94,7 +89,6 @@ private:
     CUresult cuda_reserve(size_t new_sz);
     void cuda_addVARange(CUdeviceptr new_ptr, size_t new_range);
     void cuda_addHandleInfo(CUmemGenericAllocationHandle &handle, size_t sz);
-
 };
 
 #endif
