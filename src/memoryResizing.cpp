@@ -75,7 +75,7 @@ MemoryResizing::MemoryResizing()
  */
 MemoryResizing::~MemoryResizing()
 {
-//  CUDA_DRIVER_ERROR_CHECK(MemoryResizing::cuda_free());
+    CUDA_DRIVER_ERROR_CHECK(MemoryResizing::cuda_free());
 }
 
 /*!
