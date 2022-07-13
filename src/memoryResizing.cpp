@@ -132,8 +132,8 @@ CUresult MemoryResizing::cuda_reserve(size_t new_sz)
     const size_t aligned_sz = ((new_sz + m_chunkSize - 1) / m_chunkSize) * m_chunkSize;
 
     status = cuMemAddressReserve(&new_ptr, (aligned_sz - m_reservedSize), 0ULL, m_dp + m_reservedSize, 0ULL);
-#ifdef _WITH_DEBUG_VERBOSE
     if (status == CUDA_SUCCESS) m_fastPath = true;
+#ifdef _WITH_DEBUG_VERBOSE
     std::cout << "m_fastPath " << m_fastPath
               << ", new_ptr " << new_ptr
               << ", m_dp " << m_dp
@@ -194,10 +194,9 @@ CUresult MemoryResizing::cuda_reserve(size_t new_sz)
         }
         m_reservedSize = aligned_sz;
     }
-#ifdef _WITH_DEBUG_VERBOSE
-    if (status == CUDA_SUCCESS)
-        std::cerr << "# cuda_reserve extended previous pointer successfully"  << std::endl;
-#endif // _WITH_DEBUG_VERBOSE
+    if (status == CUDA_SUCCESS) {
+        m_extendedReservation = true;
+    }
 
     return status;
 }
@@ -209,12 +208,13 @@ CUresult MemoryResizing::cuda_reserve(size_t new_sz)
 CUresult MemoryResizing::cuda_grow(std::size_t new_sz)
 {
     std::cout << "\n\n BEGIN OF GROW" << std::endl;
-    m_ready2Grow = false;
-    m_fastPath   = false;
-    m_slowPath   = false;
-    m_memCreate  = false;
-    m_memMap     = false;
-    m_memAccess  = false;
+    m_ready2Grow          = false;
+    m_fastPath            = false;
+    m_slowPath            = false;
+    m_memCreate           = false;
+    m_memMap              = false;
+    m_memAccess           = false;
+    m_extendedReservation = false;
 
     CUresult status = CUDA_SUCCESS;
     CUmemGenericAllocationHandle handle;
@@ -384,6 +384,13 @@ void MemoryResizing::cuda_debugInfo() {
     } else {
         std::cerr << "# WARNING in cuda_grow, cuMemSetAccess was unsuccessful \n";
     }
+
+    if (m_extendedReservation) {
+        std::cerr << "# cuda_reserve extended previous pointer successfully"  << std::endl;
+    } else {
+        std::cerr << "# WARNING cuda_reserve extension of previous pointer unsuccessful"  << std::endl;
+    }
+
 
 //  cuda_debugStats();
     std::cerr << "\n# cuda_grow, END OF DEBUGINFO \n\n"<< std::endl;

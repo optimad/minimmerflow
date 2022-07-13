@@ -46,6 +46,7 @@ public:
     bool m_memCreate {false};
     bool m_memMap {false};
     bool m_memAccess {false};
+    bool m_extendedReservation {false};
 
 
 protected:
