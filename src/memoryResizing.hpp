@@ -41,6 +41,8 @@ private:
 public:
 
     bool m_ready2Grow {false};
+    bool m_fastPath {false};
+    bool m_slowPath {false};
     bool m_memCreate {false};
     bool m_memMap {false};
     bool m_memAccess {false};

@@ -132,6 +132,14 @@ CUresult MemoryResizing::cuda_reserve(size_t new_sz)
     const size_t aligned_sz = ((new_sz + m_chunkSize - 1) / m_chunkSize) * m_chunkSize;
 
     status = cuMemAddressReserve(&new_ptr, (aligned_sz - m_reservedSize), 0ULL, m_dp + m_reservedSize, 0ULL);
+#ifdef _WITH_DEBUG_VERBOSE
+    if (status == CUDA_SUCCESS) m_fastPath = true;
+    std::cout << "m_fastPath " << m_fastPath
+              << ", new_ptr " << new_ptr
+              << ", m_dp " << m_dp
+              << ", aligned_sz " << aligned_sz
+              << ", m_reservedSize " << m_reservedSize << std::endl;
+#endif
 
     // Try to reserve an address just after what we already have reserved
     if (status != CUDA_SUCCESS || (new_ptr != m_dp + m_reservedSize)) {
@@ -140,6 +148,7 @@ CUresult MemoryResizing::cuda_reserve(size_t new_sz)
         }
         // Slow path - try to find a new address reservation big enough for us
         status = cuMemAddressReserve(&new_ptr, aligned_sz, 0ULL, 0U, 0);
+        if (status == CUDA_SUCCESS) m_slowPath = true;
         if (status == CUDA_SUCCESS && m_dp != 0ULL) {
             CUdeviceptr ptr = new_ptr;
             // Found one, now unmap our previous allocations
@@ -201,6 +210,8 @@ CUresult MemoryResizing::cuda_grow(std::size_t new_sz)
 {
     std::cout << "\n\n BEGIN OF GROW" << std::endl;
     m_ready2Grow = false;
+    m_fastPath   = false;
+    m_slowPath   = false;
     m_memCreate  = false;
     m_memMap     = false;
     m_memAccess  = false;
@@ -338,8 +349,23 @@ void MemoryResizing::cuda_debugInfo() {
 
     std::cerr << "\n\n# cuda_grow, BEGIN OF DEBUGINFO \n"<< std::endl;
 
-    if (m_ready2Grow)
+    if (m_ready2Grow) {
         std::cerr << "# cuda_grow, reserved successfully and ready to grow \n";
+    } else {
+        std::cerr << "# WARNING in cuda_grow, reserved was unsuccessful \n";
+    }
+
+    if (m_fastPath) {
+        std::cerr << "# cuda_reserve, fast path followed\n";
+    }
+
+    if (m_slowPath) {
+        std::cerr << "# cuda_reserve, start to follow the slow path\n";
+    }
+
+    if ((m_fastPath == false) && (m_slowPath == false)) {
+        std::cerr << "# WARNING in cuda_reserve, neither fast or slow path\n";
+    }
 
     if (m_memCreate) {
         std::cerr << "# cuda_grow, cuMemCreate was successful \n";
