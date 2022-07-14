@@ -137,8 +137,11 @@ CUresult MemoryResizing::cuda_reserve(size_t new_sz)
     std::cout << "m_fastPath " << m_fastPath
               << ", new_ptr " << new_ptr
               << ", m_dp " << m_dp
+              << ", aligned_sz - m_reservedSize " << aligned_sz - m_reservedSize
+              << ", m_dp + m_reservedSize " << m_dp + m_reservedSize
               << ", aligned_sz " << aligned_sz
-              << ", m_reservedSize " << m_reservedSize << std::endl;
+              << ", m_reservedSize " << m_reservedSize
+              << ", m_allocSize " << m_allocSize << std::endl;
 #endif
 
     // Try to reserve an address just after what we already have reserved
