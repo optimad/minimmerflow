@@ -54,4 +54,32 @@ void plotPiercedStorageCollection(ScalarPiercedStorageCollection<std::size_t> &c
 #endif
 }
 
+void plotContainer(ScalarStorage<int> &container, std::size_t size)
+{
+#if ENABLE_CUDA
+    cuda_plotContainer(container, size);
+#endif
+}
+
+void plotContainerCollection(ScalarStorageCollection<int> &container, std::size_t size)
+{
+#if ENABLE_CUDA
+    cuda_plotContainerCollection(container, size);
+#endif
+}
+
+void plotPiercedStorage(ScalarPiercedStorage<int> &container, std::size_t size)
+{
+#if ENABLE_CUDA
+    cuda_plotPiercedStorage(container, size);
+#endif
+}
+
+void plotPiercedStorageCollection(ScalarPiercedStorageCollection<int> &container, std::size_t size)
+{
+#if ENABLE_CUDA
+    cuda_plotPiercedStorageCollection(container, size);
+#endif
+}
+
 }
