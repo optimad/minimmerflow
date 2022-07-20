@@ -928,10 +928,11 @@ void test4(int argc, char *argv[])
 
 // This test takes two ScalarPiercedStorageCollection containers, resizes the first, increments on GPU its
 // elements and copies it back to CPU to validate the sum of its elements.
+template<typename T>
 void test5(int argc, char *argv[])
 {
     std::cout << "------------------------------------------------------------------------" << std::endl;
-    std::cout << " This test takes two ScalarPiercedStorageCollection containers, resizes the first, increments\n"
+    std::cout << " This test takes two ScalarPiercedStorageCollection<T> containers, resizes the first, increments\n"
               << " on GPU itselements and copies it back to CPU to validate the sum of its elements.  " << std::endl;
     std::cout << "------------------------------------------------------------------------" << std::endl;
 
@@ -1072,7 +1073,7 @@ void test5(int argc, char *argv[])
 #endif
 
     // Allocate 1st container
-    ScalarPiercedStorageCollection<std::size_t> cellFoo(N_FIELDS);
+    ScalarPiercedStorageCollection<T> cellFoo(N_FIELDS);
     cellFoo[0].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
     cellFoo[1].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
     cellFoo[2].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
@@ -1089,7 +1090,7 @@ void test5(int argc, char *argv[])
 
 
     // Allocate 2nd container
-    ScalarPiercedStorageCollection<std::size_t> cellFoo2(N_FIELDS);
+    ScalarPiercedStorageCollection<T> cellFoo2(N_FIELDS);
     cellFoo2[0].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
     cellFoo2[1].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
     cellFoo2[2].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
@@ -1104,7 +1105,7 @@ void test5(int argc, char *argv[])
     cellFoo2[4].cuda_fillDevice(4);
     cellFoo2.cuda_updateHost();
 
-    std::vector<std::size_t> sum(N_FIELDS, 0);
+    std::vector<T> sum(N_FIELDS, 0);
     for (int iter = 0; iter < mesh.getCellCount(); iter++) {
         sum[0] += cellFoo[0][iter];
         sum[1] += cellFoo[1][iter];
@@ -1143,7 +1144,7 @@ void test5(int argc, char *argv[])
 
     cellFoo.cuda_updateHost();
 
-    sum = std::vector<std::size_t>(N_FIELDS, 0);
+    sum = std::vector<T>(N_FIELDS, 0);
     for (int iter = 0; iter < mesh.getCellCount(); iter++) {
         sum[0] += cellFoo[0][iter];
         sum[1] += cellFoo[1][iter];
@@ -1224,6 +1225,7 @@ int main(int argc, char *argv[])
         bool runTest4 = true;
         bool runTest5 = true;
         bool runTest6 = true;
+        bool runTest7 = true;
 
         // test0
         if (runTest0) {
@@ -1309,7 +1311,7 @@ int main(int argc, char *argv[])
         if (runTest5) {
             try{
                 std::cout << "EXECUTING TEST #5" << std::endl;
-                test5(argc, argv);
+                test5<std::size_t>(argc, argv);
                 std::cout << "\n" << std::endl;
             }
             catch(std::exception & e){
@@ -1330,6 +1332,20 @@ int main(int argc, char *argv[])
                 return 1;
             }
         }
+
+        // test7
+        if (runTest7) {
+            try{
+                std::cout << "EXECUTING TEST #7" << std::endl;
+                test5<int>(argc, argv);
+                std::cout << "\n" << std::endl;
+            }
+            catch(std::exception & e){
+                std::cout << "TEST #7 exited with an error of type : " << e.what() << std::endl;
+                return 1;
+            }
+        }
+
         //
         // Finalization
         //
