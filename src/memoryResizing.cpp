@@ -351,6 +351,7 @@ std::ostream& operator<< (std::ostream& out, const MemoryResizing& mr)
 void MemoryResizing::cuda_debugInfo() {
 
     std::cerr << "\n\n# cuda_grow, BEGIN OF DEBUGINFO \n"<< std::endl;
+    std::cerr << " SIZE OF CUdeviceptr = " << sizeof(CUdeviceptr) << "\n";
 
     if (m_ready2Grow) {
         std::cerr << "# cuda_grow, reserved successfully and ready to grow \n";
