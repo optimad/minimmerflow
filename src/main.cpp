@@ -368,8 +368,9 @@ void adaptMeshAndFields(ComputationInfo &computationInfo, VolOctree &mesh,
 }
 
 // Resizes the CFD mesh, as needed for test3
+template<typename T>
 void adaptMeshAndFieldCollection(ComputationInfo &computationInfo, VolOctree &mesh,
-                        ScalarPiercedStorageCollection<std::size_t> &cellFoo,
+                        ScalarPiercedStorageCollection<T> &cellFoo,
                         const problem::ProblemType problemType)
 {
 
@@ -398,6 +399,7 @@ void adaptMeshAndFieldCollection(ComputationInfo &computationInfo, VolOctree &me
 
     log_memory_status();
 }
+
 // Resizes the CFD mesh, as needed for test3
 void adaptMeshAndFieldCollection2(ComputationInfo &computationInfo, VolOctree &mesh,
                         ScalarPiercedStorageCollection<std::size_t> &cellFoo,
@@ -669,13 +671,15 @@ void test3(int argc, char *argv[])
 
 // This test takes a ScalarPiercedStorageCollection, resizes it, increments on GPU its
 // elements and copies it back to CPU to validate the sum of its elements.
+template<typename T>
 void test4(int argc, char *argv[])
 {
     std::cout << "------------------------------------------------------------------------" << std::endl;
-    std::cout << " This test takes a ScalarPiercedStorageCollection, resizes it, increments on GPU its\n"
+    std::cout << " This test takes a ScalarPiercedStorageCollection<T>>, resizes it, increments on GPU its\n"
               << " elements and copies it back to CPU to validate the sum of its elements.            " << std::endl;
     std::cout << "------------------------------------------------------------------------" << std::endl;
 
+    std::cout << "SIZE OF T " << sizeof(T) << std::endl;
     // Initialize process information
     int nProcessors;
     int rank;
@@ -831,7 +835,7 @@ void test4(int argc, char *argv[])
     computationInfo.cuda_initialize();
 #endif
 
-    ScalarPiercedStorageCollection<std::size_t> cellFoo(N_FIELDS);
+    ScalarPiercedStorageCollection<T> cellFoo(N_FIELDS);
     cellFoo[0].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
     cellFoo[1].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
     cellFoo[2].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
@@ -847,7 +851,7 @@ void test4(int argc, char *argv[])
 
     cellFoo.cuda_updateHost();
 
-    std::vector<std::size_t> sum(N_FIELDS, 0);
+    std::vector<T> sum(N_FIELDS, 0);
     for (int iter = 0; iter < mesh.getCellCount(); iter++) {
         sum[0] += cellFoo[0][iter];
         sum[1] += cellFoo[1][iter];
@@ -875,7 +879,7 @@ void test4(int argc, char *argv[])
 
     log_memory_status();
 
-    adaptMeshAndFieldCollection(computationInfo, mesh, cellFoo, problemType);
+    adaptMeshAndFieldCollection<T>(computationInfo, mesh, cellFoo, problemType);
     cellFoo[0].cuda_fillDevice(0);
     cellFoo[1].cuda_fillDevice(1);
     cellFoo[2].cuda_fillDevice(2);
@@ -886,7 +890,7 @@ void test4(int argc, char *argv[])
 
     cellFoo.cuda_updateHost();
 
-    sum = std::vector<std::size_t>(N_FIELDS, 0);
+    sum = std::vector<T>(N_FIELDS, 0);
     for (int iter = 0; iter < mesh.getCellCount(); iter++) {
         sum[0] += cellFoo[0][iter];
         sum[1] += cellFoo[1][iter];
@@ -1219,6 +1223,7 @@ int main(int argc, char *argv[])
         bool runTest3 = true;
         bool runTest4 = true;
         bool runTest5 = true;
+        bool runTest6 = true;
 
         // test0
         if (runTest0) {
@@ -1290,7 +1295,7 @@ int main(int argc, char *argv[])
         if (runTest4) {
             try{
                 std::cout << "EXECUTING TEST #4" << std::endl;
-                test4(argc, argv);
+                test4<std::size_t>(argc, argv);
                 std::cout << "\n" << std::endl;
             }
             catch(std::exception & e){
@@ -1309,6 +1314,19 @@ int main(int argc, char *argv[])
             }
             catch(std::exception & e){
                 std::cout << "TEST #5 exited with an error of type : " << e.what() << std::endl;
+                return 1;
+            }
+        }
+
+        // test6
+        if (runTest6) {
+            try{
+                std::cout << "EXECUTING TEST #6" << std::endl;
+                test4<int>(argc, argv);
+                std::cout << "\n" << std::endl;
+            }
+            catch(std::exception & e){
+                std::cout << "TEST #6 exited with an error of type : " << e.what() << std::endl;
                 return 1;
             }
         }
