@@ -818,30 +818,31 @@ void computation(int argc, char *argv[])
         step++;
 
         // Write the solution
-        // if (t > nextSave){
-        //     clock_t diskStart = clock();
-        //
-        //     std::array<double, N_FIELDS> conservatives;
-        //     std::array<double, N_FIELDS> primitives;
-        //
-        //     for (std::size_t i = 0; i < nSolvedCells; ++i) {
-        //         const std::size_t cellRawId = solvedCellRawIds[i];
-        //
-        //         for (int k = 0; k < N_FIELDS; ++k) {
-        //             conservatives[k] = cellConservatives[k].rawAt(cellRawId);
-        //         }
-        //
-        //         ::utils::conservative2primitive(conservatives.data(), primitives.data());
-        //
-        //         for (int k = 0; k < N_FIELDS; ++k) {
-        //             cellPrimitives[k].rawAt(cellRawId) = primitives[k];
-        //         }
-        //     }
-        //     mesh.write();
-        //
-        //     diskTime += clock() - diskStart;
-        //     nextSave += (tMax - tMin) / nSaves;
-        // }
+        bool write = false;
+        if (t > nextSave && write){
+            clock_t diskStart = clock();
+
+            std::array<double, N_FIELDS> conservatives;
+            std::array<double, N_FIELDS> primitives;
+
+            for (std::size_t i = 0; i < nSolvedCells; ++i) {
+                const std::size_t cellRawId = solvedCellRawIds[i];
+
+                for (int k = 0; k < N_FIELDS; ++k) {
+                    conservatives[k] = cellConservatives[k].rawAt(cellRawId);
+                }
+
+                ::utils::conservative2primitive(conservatives.data(), primitives.data());
+
+                for (int k = 0; k < N_FIELDS; ++k) {
+                    cellPrimitives[k].rawAt(cellRawId) = primitives[k];
+                }
+            }
+            mesh.write();
+
+            diskTime += clock() - diskStart;
+            nextSave += (tMax - tMin) / nSaves;
+        }
         nvtxRangePop(); // pop TimeStep range
     }
     clock_t computeEnd = clock();
