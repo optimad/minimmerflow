@@ -587,7 +587,7 @@ void computation(int argc, char *argv[])
     int step = 0;
     double t = tMin;
     double nextSave = tMin;
-    while (t < tMax && step < 1) { // && step < 3
+    while (t < tMax) { // && step < 3
         log::cout() << std::endl;
         log::cout() << "Step n. " << step << std::endl;
 
