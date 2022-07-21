@@ -126,6 +126,10 @@ protected:
     std::unordered_map<int, size_t> m_rankOffsets;
 };
 
+namespace cuda_streamer {
+void scatter(double * buffer, double ** container, std::size_t listSize, std::size_t * list);
+}
+
 template<typename container_t>
 class CudaStorageCollectionBufferStreamer : public BaseListBufferStreamer<container_t>
 {
