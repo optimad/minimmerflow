@@ -173,61 +173,6 @@ void CudaStorageCollectionBufferStreamer<container_t>::read(int const &rank, bit
             cudaMemcpyHostToDevice, m_cudaStreams[rank]);
     nvtxRangePop();
 
-    double temp;
-    std::cout << "---------------------------------------------------------------------------------------------" << std::endl;
-    if(rank == 1) {
-        for (std::size_t i = 0; i < N_FIELDS; ++i) {
-            std::cout << "=====================================================================================" << std::endl;
-            for (const long k : list) {
-                CPUbuffer >> temp;
-                std::cout << temp << " ";
-            }
-            std::cout << "=====================================================================================" << std::endl;
-        }
-    }
-    std::cout << std::endl;
-    std::cout << "---------------------------------------------------------------------------------------------" << std::endl;
-
-
-}
-
-/*!
-    Read the dataset from the buffer.
-
-    \param rank is the rank of the process who sent the data
-    \param buffer is the buffer where the data will be read from
-    \param list is the list of ids that will be read
-*/
-template<typename container_t>
-void CudaStorageCollectionBufferStreamer<container_t>::finalizeRead(int const &rank, bitpit::RecvBuffer &CPUbuffer,
-                                           const std::vector<long> &list)
-{
-    //Do nothing
-//    BITPIT_UNUSED(rank);
-//    BITPIT_UNUSED(CPUbuffer);
-//    BITPIT_UNUSED(list);
-
-    container_t &container = this->getContainer();
-    auto & rankContainer = container[rank];
-    std::size_t rankContainerSize = rankContainer.size();
-
-//  Call scatter loop (OpenACC loop or CUDA kernel to copy from buffer to Device storage)
-
-    double ** dataDeviceStoragePtr = m_deviceStorage->collectionData();
-    std::size_t listSize = (*m_targetLists)[rank].size();
-    std::size_t *rankList = (*m_targetLists)[rank].data();
-    double * rankContainerData = rankContainer.data();
-
-#pragma acc parallel loop collapse(2) present(dataDeviceStoragePtr, rankList, rankContainerData)
-        for (int k = 0; k < N_FIELDS; ++k) {
-            for (std::size_t i = 0; i < listSize; ++i) {
-                const std::size_t cellRawId = rankList[i];
-                double *rankValue = &(rankContainerData[i + k * listSize]);
-                double *storageValue = &(dataDeviceStoragePtr[k][cellRawId]);
-                *storageValue = *rankValue;
-            }
-        }
-
 
 }
 

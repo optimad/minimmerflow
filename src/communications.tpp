@@ -276,6 +276,30 @@ void PiercedStorageCollectionBufferStreamer<value_t>::write(const int &rank, bit
         }
     }
 }
+/*!
+    Read the dataset from the buffer.
+
+    \param rank is the rank of the process who sent the data
+    \param buffer is the buffer where the data will be read from
+    \param list is the list of ids that will be read
+*/
+template<typename container_t>
+void CudaStorageCollectionBufferStreamer<container_t>::finalizeRead(int const &rank, bitpit::RecvBuffer &CPUbuffer,
+                                           const std::vector<long> &list)
+{
+    BITPIT_UNUSED(CPUbuffer);
+    BITPIT_UNUSED(list);
+
+    container_t &container = this->getContainer();
+    auto & rankContainer = container[rank];
+    double ** dataDeviceStoragePtr = m_deviceStorage->collectionData();
+    std::size_t listSize = (*m_targetLists)[rank].size();
+    std::size_t *rankList = (*m_targetLists)[rank].data();
+    double * rankContainerData = rankContainer.data();
+
+    cuda_streamer::scatter(rankContainerData, dataDeviceStoragePtr, listSize, rankList);
+
+}
 
 #endif
 
