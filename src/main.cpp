@@ -554,8 +554,6 @@ void computation(int argc, char *argv[])
     }
 #endif
 
-    exit(1);
-
     mesh.write();
 
     log_memory_status();
