@@ -327,7 +327,6 @@ void computation(int argc, char *argv[])
 
     std::unique_ptr<GhostCommunicator> primitiveCommunicator;
     std::unique_ptr<GhostCommunicator> conservativeCommunicator;
-    std::unique_ptr<GhostCommunicator> init_conservativeCommunicator;
     std::unique_ptr<GhostCommunicator> conservativeWorkCommunicator;
 
 #if ENABLE_CUDA==1
@@ -370,8 +369,6 @@ void computation(int argc, char *argv[])
 
 
 #if ENABLE_CUDA==1
-//            primitiveGhostReadStreamer = std::unique_ptr<ValuePiercedStorageCollectionBufferStreamer<double>>(new ValuePiercedStorageCollectionBufferStreamer<double>(&(cellPrimitives),
-//                    N_FIELDS * sizeof(ValuePiercedStorageCollectionBufferStreamer<double>::value_type)));
         primitiveGhostReadStreamer = std::unique_ptr<CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>(
             new CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&primitiveTargetValuesMap_unique, 0, 0, N_FIELDS * sizeof(ScalarStorage<double>::value_type)));
         primitiveGhostWriteStreamer = std::unique_ptr<CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>(
@@ -386,24 +383,13 @@ void computation(int argc, char *argv[])
         conservativeCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh, "conservative"));
         conservativeCommunicator->resetExchangeLists();
         conservativeCommunicator->setRecvsContinuous(false);
-        init_conservativeCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh, "init_conservative"));
-        init_conservativeCommunicator->resetExchangeLists();
-        init_conservativeCommunicator->setRecvsContinuous(false);
-
-
 
 #if ENABLE_CUDA==1
-//            conservativeGhostReadStreamer = std::unique_ptr<ValuePiercedStorageCollectionBufferStreamer<double>>(new ValuePiercedStorageCollectionBufferStreamer<double>(&(cellConservatives),
-//                    N_FIELDS * sizeof(ValuePiercedStorageCollectionBufferStreamer<double>::value_type)));
         conservativeGhostReadStreamer = std::unique_ptr<CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>(
             new CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&conservativeTargetValuesMap_unique, 0, 0, N_FIELDS * sizeof(ScalarStorage<double>::value_type)));
         conservativeGhostWriteStreamer = std::unique_ptr<CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>(
             new CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&conservativeSourceValuesMap_unique, 0, 0, N_FIELDS * sizeof(ScalarStorage<double>::value_type)));
         conservativeCommunicator->addData(conservativeGhostWriteStreamer.get(), conservativeGhostReadStreamer.get());
-        for (int k = 0; k < N_FIELDS; ++k) {
-            init_conservativeGhostStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellConservatives[k])));
-            init_conservativeCommunicator->addData(init_conservativeGhostStreamers[k].get());
-        }
 #else
         conservativeGhostStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellConservatives[k])));
         conservativeCommunicator->addData(conservativeGhostStreamers[k].get());
@@ -415,8 +401,6 @@ void computation(int argc, char *argv[])
         conservativeWorkCommunicator->setRecvsContinuous(false);
 
 #if ENABLE_CUDA==1
-//            conservativeWorkGhostReadStreamer = std::unique_ptr<ValuePiercedStorageCollectionBufferStreamer<double>>(new ValuePiercedStorageCollectionBufferStreamer<double>(&(cellConservativesWork),
-//                    N_FIELDS * sizeof(ValuePiercedStorageCollectionBufferStreamer<double>::value_type)));
         conservativeWorkGhostReadStreamer = std::unique_ptr<CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>(
                 new CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&conservativeWorkTargetValuesMap_unique, 0, 0, N_FIELDS * sizeof(ScalarStorage<double>::value_type)));
         conservativeWorkGhostWriteStreamer = std::unique_ptr<CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>(
@@ -618,18 +602,6 @@ void computation(int argc, char *argv[])
         nvtxRangePushA("RK1");
 
         // Compute the residuals
-//#if ENABLE_CUDA && ENABLE_MPI
-//        if (nProcessors > 1) {
-//            nvtxRangePushA("RK1_MPI_DU");
-//            long firstGhostId = mesh.getFirstGhostCell().getId();
-//            long firstGhostRawId = mesh.getCellIterator(firstGhostId).getRawIndex();
-//            for (int i = 0; i < N_FIELDS; ++i) {
-//                cellConservatives[i].cuda_updateDevice(cellConservatives[i].rawFind(firstGhostRawId), cellConservatives[i].end());
-//            }
-//            nvtxRangePop();
-//        }
-//#endif
-
         nvtxRangePushA("computePolynomials");
         reconstruction::computePolynomials(problemType, computationInfo, cellConservatives, solvedBoundaryInterfaceBCs);
         nvtxRangePop();
@@ -674,13 +646,6 @@ void computation(int argc, char *argv[])
         }
         nvtxRangePop();
 
-
-
-
-
-
-
-
 #if ENABLE_CUDA && ENABLE_MPI
         if (nProcessors > 1) {
             nvtxRangePushA("RK2_MPI_UPDATE_BUFFER_ON_GPU");
@@ -713,18 +678,6 @@ void computation(int argc, char *argv[])
         }
         nvtxRangePop();
 #endif
-
-//#if ENABLE_CUDA && ENABLE_MPI
-//        if (nProcessors > 1) {
-//            nvtxRangePushA("RK2_MPI_DU");
-//            long firstGhostId = mesh.getFirstGhostCell().getId();
-//            long firstGhostRawId = mesh.getCellIterator(firstGhostId).getRawIndex();
-//            for (int i = 0; i < N_FIELDS; ++i) {
-//                cellConservativesWork[i].cuda_updateDevice(cellConservativesWork[i].rawFind(firstGhostRawId), cellConservativesWork[i].end());
-//            }
-//            nvtxRangePop();
-//        }
-//#endif
 
         nvtxRangePushA("ComputePolynomials");
         reconstruction::computePolynomials(problemType, computationInfo, cellConservativesWork, solvedBoundaryInterfaceBCs);
@@ -790,18 +743,6 @@ void computation(int argc, char *argv[])
             conservativeWorkCommunicator->completeAllExchanges();
         }
 #endif
-
-//#if ENABLE_CUDA
-//        if (nProcessors > 1) {
-//            nvtxRangePushA("RK3_MPI_DU");
-//            long firstGhostId = mesh.getFirstGhostCell().getId();
-//            long firstGhostRawId = mesh.getCellIterator(firstGhostId).getRawIndex();
-//            for (int i = 0; i < N_FIELDS; ++i) {
-//                cellConservativesWork[i].cuda_updateDevice(cellConservativesWork[i].rawFind(firstGhostRawId), cellConservativesWork[i].end());
-//            }
-//            nvtxRangePop();
-//        }
-//#endif
 
         nvtxRangePushA("ComputePolynomials");
         reconstruction::computePolynomials(problemType, computationInfo, cellConservativesWork, solvedBoundaryInterfaceBCs);
@@ -905,14 +846,8 @@ void computation(int argc, char *argv[])
     }
     clock_t computeEnd = clock();
 
-//    if (nProcessors > 1) {
-//        long firstGhostId = mesh.getFirstGhostCell().getId();
-//        long firstGhostRawId = mesh.getCellIterator(firstGhostId).getRawIndex();
-//        for (int i = 0; i < N_FIELDS; ++i) {
-//            cellConservatives[i].cuda_updateDevice(cellConservatives[i].rawFind(firstGhostRawId), cellConservatives[i].end());
-//        }
-        cellConservatives.cuda_updateHost();
-//    }
+    cellConservatives.cuda_updateHost();
+
     // Save final data
     {
         std::array<double, N_FIELDS> conservatives;
