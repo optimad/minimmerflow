@@ -499,7 +499,7 @@ void computation(int argc, char *argv[])
     cellConservatives.cuda_updateDevice();
 #endif
 
-#pragma acc parallel loop present(cellPrimitivesHostStorageCollection, cellConservativesHostStorageCollection, solvedCellRawIdsHostStorage)
+#pragma acc parallel loop present(cellPrimitivesHostStorageCollection[0:N_FIELDS], cellConservativesHostStorageCollection[0:N_FIELDS], solvedCellRawIdsHostStorage)
     for (long i = 0; i < nSolvedCells; ++i) {
       const std::size_t cellRawId = solvedCellRawIdsHostStorage[i];
       double conservatives[N_FIELDS];
@@ -528,7 +528,7 @@ void computation(int argc, char *argv[])
         std::size_t *rankList = sourcesListsMap[r].data();
         double *primitiveRankValues = primitiveSourceValuesMap_unique[r].data();
         double *conservativeRankValues = conservativeSourceValuesMap_unique[r].data();
-#pragma acc parallel loop collapse(2) present(cellPrimitivesHostStorageCollection, cellConservativesHostStorageCollection, rankList, primitiveRankValues, conservativeRankValues)
+#pragma acc parallel loop collapse(2) present(cellPrimitivesHostStorageCollection[0:N_FIELDS], cellConservativesHostStorageCollection[0:N_FIELDS], rankList, primitiveRankValues, conservativeRankValues)
         //#pragma acc parallel loop present(cellConservativesHostStorageCollection, rankList, conservativeRankValues)
         for (int k = 0; k < N_FIELDS; ++k) {
             for (std::size_t i = 0; i < listSize; ++i) {
@@ -661,7 +661,7 @@ void computation(int argc, char *argv[])
         nvtxRangePushA("RK2");
 
         nvtxRangePushA("OpenACC_RK2_updateSolution");
-#pragma acc parallel loop collapse(2) present(cellVolumeHostStorage, solvedCellRawIdsHostStorage, cellConservativesHostStorageCollection, cellConservativesWorkHostStorageCollection, cellRHSHostStorageCollection)
+#pragma acc parallel loop collapse(2) present(cellVolumeHostStorage, solvedCellRawIdsHostStorage, cellConservativesHostStorageCollection[0:N_FIELDS], cellConservativesWorkHostStorageCollection[0:N_FIELDS], cellRHSHostStorageCollection[0:N_FIELDS])
         for (std::size_t i = 0; i < nSolvedCells; ++i) {
             for (int k = 0; k < N_FIELDS; ++k) {
                 const std::size_t cellRawId = solvedCellRawIdsHostStorage[i];
@@ -749,7 +749,7 @@ void computation(int argc, char *argv[])
         nvtxRangePushA("RK3");
 
         nvtxRangePushA("OpenACC_RK3_updateSolution");
-#pragma acc parallel loop collapse(2) present(cellVolumeHostStorage, solvedCellRawIdsHostStorage, cellConservativesHostStorageCollection, cellConservativesWorkHostStorageCollection, cellRHSHostStorageCollection)
+#pragma acc parallel loop collapse(2) present(cellVolumeHostStorage, solvedCellRawIdsHostStorage, cellConservativesHostStorageCollection[0:N_FIELDS], cellConservativesWorkHostStorageCollection[0:N_FIELDS], cellRHSHostStorageCollection[0:N_FIELDS])
         for (std::size_t i = 0; i < nSolvedCells; ++i) {
             for (int k = 0; k < N_FIELDS; ++k) {
                 const std::size_t cellRawId = solvedCellRawIdsHostStorage[i];
@@ -825,7 +825,7 @@ void computation(int argc, char *argv[])
         //
         nvtxRangePushA("RKFinal");
         nvtxRangePushA("OpenACC_RKFinal_updateSolution");
-#pragma acc parallel loop collapse(2) present(cellVolumeHostStorage, solvedCellRawIdsHostStorage, cellConservativesHostStorageCollection, cellConservativesWorkHostStorageCollection, cellRHSHostStorageCollection)
+#pragma acc parallel loop collapse(2) present(cellVolumeHostStorage, solvedCellRawIdsHostStorage, cellConservativesHostStorageCollection[0:N_FIELDS], cellConservativesWorkHostStorageCollection[0:N_FIELDS], cellRHSHostStorageCollection[0:N_FIELDS])
         for (std::size_t i = 0; i < nSolvedCells; ++i) {
             for (int k = 0; k < N_FIELDS; ++k) {
                 const std::size_t cellRawId = solvedCellRawIdsHostStorage[i];
@@ -847,7 +847,7 @@ void computation(int argc, char *argv[])
                 std::size_t listSize = sourcesListsMap[r].size();
                 std::size_t *rankList = sourcesListsMap[r].data();
                 double *rankValues = conservativeSourceValuesMap_unique[r].data();
-#pragma acc parallel loop collapse(2) present(cellConservativesHostStorageCollection, rankList, rankValues)
+#pragma acc parallel loop collapse(2) present(cellConservativesHostStorageCollection[0:N_FIELDS], rankList, rankValues)
                 for (int k = 0; k < N_FIELDS; ++k) {
                     for (std::size_t i = 0; i < listSize; ++i) {
                         const std::size_t cellRawId = rankList[i];
