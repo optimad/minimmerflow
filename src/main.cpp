@@ -502,13 +502,13 @@ void computation(int argc, char *argv[])
 #pragma acc parallel loop present(cellPrimitivesHostStorageCollection, cellConservativesHostStorageCollection, solvedCellRawIdsHostStorage)
     for (long i = 0; i < nSolvedCells; ++i) {
       const std::size_t cellRawId = solvedCellRawIdsHostStorage[i];
-      std::array<double, N_FIELDS> conservatives;
-      std::array<double, N_FIELDS> primitives;
+      double conservatives[N_FIELDS];
+      double primitives[N_FIELDS];
 #pragma acc loop seq
       for (int k = 0; k < N_FIELDS; ++k) {
           conservatives[k] = cellConservativesHostStorageCollection[k][cellRawId];
       }
-      ::utils::conservative2primitive(conservatives.data(), primitives.data());
+      ::utils::conservative2primitive(conservatives, primitives);
 #pragma acc loop seq
       for (int k = 0; k < N_FIELDS; ++k) {
           cellPrimitivesHostStorageCollection[k][cellRawId] = primitives[k];
