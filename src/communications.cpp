@@ -24,6 +24,8 @@
 
 #if ENABLE_MPI
 
+#include <nvtx3/nvToolsExt.h>
+
 #include "communications.hpp"
 
 using namespace bitpit;
@@ -424,10 +426,12 @@ int ListCommunicator::completeAnyRecv(const std::vector<int> &blacklist)
     RecvBuffer &buffer = getRecvBuffer(rank);
 
     // Read the buffer
+    nvtxRangePushA("MPIBuffer_HtoD");
     for (ExchangeBufferStreamer *streamer : m_readers) {
         streamer->read(rank, buffer, getStreamableRecvList(rank, streamer));
         streamer->finalizeRead(rank, buffer, getStreamableRecvList(rank, streamer));
     }
+    nvtxRangePop();
 
     return rank;
 }
