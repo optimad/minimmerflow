@@ -530,22 +530,23 @@ void computation(int argc, char *argv[])
 
 #if ENABLE_MPI
     log::cout() << "Initial communication..."  << std::endl;
-    primitiveGhostWriteStreamer.get()->initializeCUDAObjects();
-    conservativeGhostWriteStreamer.get()->initializeCUDAObjects();
-    conservativeWorkGhostWriteStreamer.get()->initializeCUDAObjects();
-
-    primitiveGhostReadStreamer.get()->initializePointers(&cellPrimitives, &targetsListsMap);
-    conservativeGhostReadStreamer.get()->initializePointers(&cellConservatives, &targetsListsMap);
-    conservativeWorkGhostReadStreamer.get()->initializePointers(&cellConservativesWork, &targetsListsMap);
-
-
     if (mesh.isPartitioned()) {
+#if ENABLE_CUDA
+        primitiveGhostWriteStreamer.get()->initializeCUDAObjects();
+        conservativeGhostWriteStreamer.get()->initializeCUDAObjects();
+        conservativeWorkGhostWriteStreamer.get()->initializeCUDAObjects();
+
+        primitiveGhostReadStreamer.get()->initializePointers(&cellPrimitives, &targetsListsMap);
+        conservativeGhostReadStreamer.get()->initializePointers(&cellConservatives, &targetsListsMap);
+        conservativeWorkGhostReadStreamer.get()->initializePointers(&cellConservativesWork, &targetsListsMap);
+
         log::cout() << "Conservative cuda objects initialization" << std::endl;
         conservativeCommunicator->initializeCudaObjects();
         log::cout() << "Conservative WORK cuda objects initialization" << std::endl;
         conservativeWorkCommunicator->initializeCudaObjects();
         log::cout() << "Primitive cuda objects initialization" << std::endl;
         primitiveCommunicator->initializeCudaObjects();
+#endif
 
         conservativeCommunicator->startAllExchanges();
         primitiveCommunicator->startAllExchanges();
