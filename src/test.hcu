@@ -34,11 +34,15 @@ __global__ void dev_plotContainerCollection(std::size_t **deviceData, std::size_
 __global__ void dev_plotScalarStorage(std::size_t *deviceData, std::size_t size);
 __global__ void dev_plotScalarStorageCollection(std::size_t *deviceData, std::size_t size);
 
-
 __global__ void dev_plotContainer(int *deviceData, std::size_t size);
 __global__ void dev_plotContainerCollection(int **deviceData, std::size_t size);
 __global__ void dev_plotScalarStorage(int *deviceData, std::size_t size);
 __global__ void dev_plotScalarStorageCollection(int *deviceData, std::size_t size);
+
+__global__ void dev_plotContainer(double *deviceData, std::size_t size);
+__global__ void dev_plotContainerCollection(double **deviceData, std::size_t size);
+__global__ void dev_plotScalarStorage(double *deviceData, std::size_t size);
+__global__ void dev_plotScalarStorageCollection(double *deviceData, std::size_t size);
 
 }
 

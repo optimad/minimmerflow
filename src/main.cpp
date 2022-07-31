@@ -835,35 +835,38 @@ void test4(int argc, char *argv[])
     computationInfo.cuda_initialize();
 #endif
 
-    ScalarPiercedStorageCollection<T> cellFoo(N_FIELDS);
+ // ScalarPiercedStorageCollection<T> cellFoo(N_FIELDS);
+    ScalarPiercedStorageCollection<T> cellFoo(3);
     cellFoo[0].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
     cellFoo[1].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
     cellFoo[2].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
-    cellFoo[3].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
-    cellFoo[4].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+//  cellFoo[3].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+//  cellFoo[4].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
     cellFoo.cuda_allocateDevice();
 
     cellFoo[0].cuda_fillDevice(0);
     cellFoo[1].cuda_fillDevice(1);
     cellFoo[2].cuda_fillDevice(2);
-    cellFoo[3].cuda_fillDevice(3);
-    cellFoo[4].cuda_fillDevice(4);
+//  cellFoo[3].cuda_fillDevice(3);
+//  cellFoo[4].cuda_fillDevice(4);
 
+    std::cout << "cellFoo cuda_updateHost" << std::endl;
     cellFoo.cuda_updateHost();
 
-    std::vector<T> sum(N_FIELDS, 0);
+    std::vector<T> sum(3, 0);
+//  std::vector<T> sum(N_FIELDS, 0);
     for (int iter = 0; iter < mesh.getCellCount(); iter++) {
         sum[0] += cellFoo[0][iter];
         sum[1] += cellFoo[1][iter];
         sum[2] += cellFoo[2][iter];
-        sum[3] += cellFoo[3][iter];
-        sum[4] += cellFoo[4][iter];
+//      sum[3] += cellFoo[3][iter];
+//      sum[4] += cellFoo[4][iter];
     }
-    std::cout << "validated 1st sum[0] = " << mesh.getCellCount() * 0  << " and sum[0] = " << sum[0] << std::endl;
-    std::cout << "validated 1st sum[1] = " << mesh.getCellCount() * 1  << " and sum[1] = " << sum[1] << std::endl;
-    std::cout << "validated 1st sum[2] = " << mesh.getCellCount() * 2  << " and sum[2] = " << sum[2] << std::endl;
-    std::cout << "validated 1st sum[3] = " << mesh.getCellCount() * 3  << " and sum[3] = " << sum[3] << std::endl;
-    std::cout << "validated 1st sum[4] = " << mesh.getCellCount() * 4  << " and sum[4] = " << sum[4] << std::endl;
+    std::cout << "validated 1st sum[0] = " << T(mesh.getCellCount() * 0) << " and sum[0] = " << sum[0] << std::endl;
+    std::cout << "validated 1st sum[1] = " << T(mesh.getCellCount() * 1) << " and sum[1] = " << sum[1] << std::endl;
+    std::cout << "validated 1st sum[2] = " << T(mesh.getCellCount() * 2) << " and sum[2] = " << sum[2] << std::endl;
+//  std::cout << "validated 1st sum[3] = " << T(mesh.getCellCount() * 3) << " and sum[3] = " << sum[3] << std::endl;
+//  std::cout << "validated 1st sum[4] = " << T(mesh.getCellCount() * 4) << " and sum[4] = " << sum[4] << std::endl;
 
     log_memory_status();
 
@@ -883,33 +886,35 @@ void test4(int argc, char *argv[])
     cellFoo[0].cuda_fillDevice(0);
     cellFoo[1].cuda_fillDevice(1);
     cellFoo[2].cuda_fillDevice(2);
-    cellFoo[3].cuda_fillDevice(3);
-    cellFoo[4].cuda_fillDevice(4);
+//  cellFoo[3].cuda_fillDevice(3);
+//  cellFoo[4].cuda_fillDevice(4);
 
     test::plotPiercedStorageCollection(cellFoo, mesh.getCellCount());
 
+    std::cout << "cellFoo cuda_updateHost 2" << std::endl;
     cellFoo.cuda_updateHost();
 
-    sum = std::vector<T>(N_FIELDS, 0);
+//. sum = std::vector<T>(N_FIELDS, 0);
+    sum = std::vector<T>(3, 0);
     for (int iter = 0; iter < mesh.getCellCount(); iter++) {
         sum[0] += cellFoo[0][iter];
         sum[1] += cellFoo[1][iter];
         sum[2] += cellFoo[2][iter];
-        sum[3] += cellFoo[3][iter];
-        sum[4] += cellFoo[4][iter];
+ //     sum[3] += cellFoo[3][iter];
+ //     sum[4] += cellFoo[4][iter];
     }
     std::cout << "validated 2nd sum[0] = " << mesh.getCellCount() * 1  << " and sum[0] = " << sum[0] << std::endl;
     std::cout << "validated 2nd sum[1] = " << mesh.getCellCount() * 2  << " and sum[1] = " << sum[1] << std::endl;
     std::cout << "validated 2nd sum[2] = " << mesh.getCellCount() * 3  << " and sum[2] = " << sum[2] << std::endl;
-    std::cout << "validated 2nd sum[3] = " << mesh.getCellCount() * 4  << " and sum[3] = " << sum[3] << std::endl;
-    std::cout << "validated 2nd sum[4] = " << mesh.getCellCount() * 5  << " and sum[4] = " << sum[4] << std::endl;
+//  std::cout << "validated 2nd sum[3] = " << mesh.getCellCount() * 4  << " and sum[3] = " << sum[3] << std::endl;
+//  std::cout << "validated 2nd sum[4] = " << mesh.getCellCount() * 5  << " and sum[4] = " << sum[4] << std::endl;
 
     if (
-           (sum[0] ==      mesh.getCellCount())
-        && (sum[1] ==  2 * mesh.getCellCount())
-        && (sum[2] ==  3 * mesh.getCellCount())
-        && (sum[3] ==  4 * mesh.getCellCount())
-        && (sum[4] ==  5 * mesh.getCellCount())
+           (sum[0] == T(    mesh.getCellCount()))
+        && (sum[1] == T(2 * mesh.getCellCount()))
+        && (sum[2] == T(3 * mesh.getCellCount()))
+//      && (sum[3] == T(4 * mesh.getCellCount()))
+//      && (sum[4] == T(5 * mesh.getCellCount()))
     ) {
         std::cout << "\nTEST #4: SUCCESSFULL" << std::endl;
     } else {
@@ -1216,16 +1221,15 @@ int main(int argc, char *argv[])
         // MPI Initialization
         MPI_Init(&argc, &argv);
 #endif
-
-        bool runTest0 = true;
-        bool runTest1A = true;
-        bool runTest1B = true;
-        bool runTest2 = true;
-        bool runTest3 = true;
-        bool runTest4 = true;
-        bool runTest5 = true;
-        bool runTest6 = true;
-        bool runTest7 = true;
+        bool runTest0 = false;
+        bool runTest1A = false;
+        bool runTest1B = false;
+        bool runTest2 = false;
+        bool runTest3 = false;
+        bool runTest4 = false;
+        bool runTest5 = false;
+        bool runTestInts = false;
+        bool runTestDoubles = true;
 
         // test0
         if (runTest0) {
@@ -1320,8 +1324,8 @@ int main(int argc, char *argv[])
             }
         }
 
-        // test6
-        if (runTest6) {
+        // testInts (tests 6 and 7)
+        if (runTestInts) {
             try{
                 std::cout << "EXECUTING TEST #6" << std::endl;
                 test4<int>(argc, argv);
@@ -1331,10 +1335,7 @@ int main(int argc, char *argv[])
                 std::cout << "TEST #6 exited with an error of type : " << e.what() << std::endl;
                 return 1;
             }
-        }
 
-        // test7
-        if (runTest7) {
             try{
                 std::cout << "EXECUTING TEST #7" << std::endl;
                 test5<int>(argc, argv);
@@ -1344,6 +1345,29 @@ int main(int argc, char *argv[])
                 std::cout << "TEST #7 exited with an error of type : " << e.what() << std::endl;
                 return 1;
             }
+        }
+
+        // testDoubles (tests 8 and 9)
+        if (runTestDoubles) {
+            try{
+                std::cout << "EXECUTING TEST #8" << std::endl;
+                test4<double>(argc, argv);
+                std::cout << "\n" << std::endl;
+            }
+            catch(std::exception & e){
+                std::cout << "TEST #6 exited with an error of type : " << e.what() << std::endl;
+                return 1;
+            }
+
+         // try{
+         //     std::cout << "EXECUTING TEST #9" << std::endl;
+         //     test5<double>(argc, argv);
+         //     std::cout << "\n" << std::endl;
+         // }
+         // catch(std::exception & e){
+         //     std::cout << "TEST #7 exited with an error of type : " << e.what() << std::endl;
+         //     return 1;
+         // }
         }
 
         //
