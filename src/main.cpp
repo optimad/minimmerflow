@@ -406,7 +406,7 @@ void computation(int argc, char *argv[])
 
         // Compute the residuals
 #if ENABLE_CUDA
-	cellConservatives.cuda_updateDevice();
+        cellConservatives.cuda_updateDevice();
 #endif
 
         reconstruction::computePolynomials(problemType, computationInfo, cellConservatives, solvedBoundaryInterfaceBCs);
@@ -453,7 +453,7 @@ void computation(int argc, char *argv[])
 #endif
 
 #if ENABLE_CUDA
-	cellConservativesWork.cuda_updateDevice();
+        cellConservativesWork.cuda_updateDevice();
 #endif
 
         reconstruction::computePolynomials(problemType, computationInfo, cellConservativesWork, solvedBoundaryInterfaceBCs);
@@ -490,9 +490,9 @@ void computation(int argc, char *argv[])
             conservativeWorkCommunicator->completeAllExchanges();
         }
 #endif
-	
+
 #if ENABLE_CUDA
-	cellConservativesWork.cuda_updateDevice();
+        cellConservativesWork.cuda_updateDevice();
 #endif
 
         reconstruction::computePolynomials(problemType, computationInfo, cellConservativesWork, solvedBoundaryInterfaceBCs);
