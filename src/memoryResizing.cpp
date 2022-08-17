@@ -129,7 +129,8 @@ CUresult MemoryResizing::cuda_reserve(size_t new_sz)
         return CUDA_SUCCESS;
     }
 
-    const size_t aligned_sz = ((new_sz + m_chunkSize - 1) / m_chunkSize) * m_chunkSize;
+    //const size_t aligned_sz = ((new_sz + m_chunkSize - 1) / m_chunkSize) * m_chunkSize;
+    const size_t aligned_sz = roundToChunk(new_sz);
 
     status = cuMemAddressReserve(&new_ptr, (aligned_sz - m_reservedSize), 0ULL, m_dp + m_reservedSize, 0ULL);
     if (status == CUDA_SUCCESS) m_fastPath = true;
@@ -230,7 +231,8 @@ CUresult MemoryResizing::cuda_grow(std::size_t new_sz)
 
     const size_t size_diff = new_sz - m_allocSize;
     // Round up to the next chunk size
-    const size_t sz = ((size_diff + m_chunkSize - 1) / m_chunkSize) * m_chunkSize;
+    //const size_t sz = ((size_diff + m_chunkSize - 1) / m_chunkSize) * m_chunkSize;
+    size_t sz = roundToChunk(size_diff);
     status = cuda_reserve(m_allocSize + sz);
     if (status != CUDA_SUCCESS) {
         return status;

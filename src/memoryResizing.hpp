@@ -66,6 +66,8 @@ public:
     size_t allocSize() const { return m_allocSize; }
     size_t reservedSize() const { return m_reservedSize; }
     size_t chunkSize() const { return m_chunkSize; }
+    CUdeviceptr getCUdeviceptrDeb() const { return m_dp; }
+    size_t roundToChunk(size_t new_sz) const { return ((new_sz + m_chunkSize - 1) / m_chunkSize) * m_chunkSize; }
     size_t totalMemSize() const;
 
     friend std::ostream& operator<<(std::ostream&, const MemoryResizing&);
