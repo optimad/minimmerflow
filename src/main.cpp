@@ -51,6 +51,14 @@
 
 using namespace bitpit;
 
+void printCheck(const bool check, const int id) {
+    if (check) {
+        std::cout << "TEST #"<< id << ": SUCCESSFUL\n\n" << std::endl;
+    } else {
+        std::cout << "TEST #"<< id << ": UNSUCCESSFUL\n\n" << std::endl;
+    }
+}
+
 static inline void
 checkDrvError(CUresult res, const char *tok, const char *file, unsigned line)
 {
@@ -64,44 +72,91 @@ checkDrvError(CUresult res, const char *tok, const char *file, unsigned line)
 
 #define CHECK_DRV(x) checkDrvError(x, #x, __FILE__, __LINE__);
 
+template<typename T>
+void test_h2d(size_t offset, T *host_buffer, T *device_buffer, int count) {
+  // fill host pointer with window elements at offset
+  T * hptr = host_buffer + offset;
+  for (int i = 0; i < count; i++) {
+    *hptr = (T) i;
+    hptr++;
+  }
+  // copy values on device
+  cudaMemcpy(device_buffer + offset, host_buffer + offset, count * sizeof(T), cudaMemcpyHostToDevice);
+}
+
+template<typename T>
+void test_d2h(size_t  offset, T *host_buffer, T *device_buffer, int count) {
+  // copy values from device to host at offset minus count (so preserving previous values at offset)
+  cudaMemcpy(host_buffer + offset - count, device_buffer + offset, count * sizeof(T), cudaMemcpyDeviceToHost);
+  // check host pointer against previous sent elements at offset
+  const size_t window = 32;
+  T * hptr = host_buffer + offset - count;
+  int errors = 0;
+  for (size_t i = 0; i < count ; i++) {
+    if (*hptr != *(hptr + count) ) errors++;
+    hptr++;
+  }
+  if (errors) {
+    std::cout << "ERROR: found " << errors << " errors at offset " << offset << std::endl;
+  }
+  else
+  {
+    std::cout << "SUCCESS: at offset " << offset << std::endl;
+  }
+}
 
 // Cuda-driver version of test 0
+template<typename T>
 void test0DR() {
 
   MemoryResizing foo;
 
-  std::cout << "TOTAL DEVICE MEMORY: " << foo.totalMemSize() << std::endl;
   std::cout << foo << std::endl;
+  std::cout << "ChunkSize: " << foo.chunkSize() << " ReservedSize: " << foo.reservedSize() << std::endl;
 
+  size_t max_bytes = foo.totalMemSize() / (2 * sizeof(T));
+  T *host_buffer = new T[max_bytes];
+
+  int count = 256;
   size_t chunk_bytes = 1024*1024;
-  for (size_t requested = chunk_bytes; requested < foo.totalMemSize(); requested *= 2) {
-    std::cout << "\n--- grow request (bytes) : " << requested << std::endl;
-    foo.cuda_grow(requested);
-    std::cout << foo << "\n" << std::endl;
+  // foo.cuda_grow(max_bytes); // preallocating pass the test
+  for (size_t requested = chunk_bytes; requested < max_bytes; requested *= 2) {
+    std::cout << "--- grow request (bytes) : " << requested << std::endl;
+    foo.cuda_grow(requested * sizeof(T));
+    std::cout << foo << std::endl;
+    T* dptr = (T *) foo.getCUdeviceptrDeb() ;
+    test_h2d<T>(requested - count, host_buffer, dptr, count );
   }
+
+  for (size_t requested = chunk_bytes; requested < max_bytes; requested *= 2) {
+    std::cout << "--- testing retrieved data from GPU" << std::endl;
+    T* dptr = (T *) foo.getCUdeviceptrDeb() ;
+    test_d2h<T>(requested - count, host_buffer, dptr, count);
+  }
+
+  foo.cuda_free();
+  delete[] host_buffer;
+
+  std::cout << foo << std::endl;
 
 
 }
 
 
 // Cuda-runtime version of test 0
+template<typename T>
 void test0RT() {
   // trick to build primary context
   cudaSetDevice(0); cudaFree(0);
 
-  test0DR();
+  test0DR<T>();
 }
 
 
 // This test takes a ScalarStorage, resizes it, increments on GPU its elements
 // and copies it back to CPU to validate the sum of its elements
-void test1A()
+bool test1A()
 {
-
-    std::cout << "------------------------------------------------------------------------" << std::endl;
-    std::cout << " This test takes a ScalarStorage, resizes it, increments on GPU its\n"
-              << " elements and copies it back to CPU to validate the sum of its  elements" << std::endl;
-    std::cout << "------------------------------------------------------------------------" << std::endl;
 
     ScalarStorage<std::size_t> simpleContainer;
     std::size_t initSize = 1024;
@@ -163,24 +218,17 @@ void test1A()
     std::cout << "Resized containers: sum = " << sum
               << " and valSum = " << valSum
               << std::endl;
-    if (sum == valSum) {
-        std::cout << "\nTEST #1A: SUCCESSFULL" << std::endl;
-    } else {
-        std::cout << "\nTEST #1A: UNSUCCESSFULL" << std::endl;
-    }
+    bool check = true;
+    if (!(sum == valSum))  check = false;
 
+    return check;
 }
 
 
 // This test takes two ScalarStorages, resizes one of them, increments on GPU its elements
 // and copies it back to CPU to validate the sum of its elements
-void test1B()
+bool test1B()
 {
-
-    std::cout << "------------------------------------------------------------------------" << std::endl;
-    std::cout << " This test takes two ScalarStorages, resizes one of them, increments on GPU\n"
-              << " its elementsand copies it back to CPU to validate the sum of its elements " << std::endl;
-    std::cout << "------------------------------------------------------------------------" << std::endl;
 
     std::size_t initSize = 1000000000;
     ScalarStorage<std::size_t> simpleContainer1(initSize);
@@ -236,23 +284,17 @@ void test1B()
     std::cout << "Resized containers: sum = " << sum
               << " and valSum = " << valSum
               << std::endl;
-    if (sum == valSum) {
-        std::cout << "\nTEST #1B: SUCCESSFULL" << std::endl;
-    } else {
-        std::cout << "\nTEST #1B: UNSUCCESSFULL" << std::endl;
-    }
 
+    bool check = true;
+    if (!(sum == valSum)) check = false;
+
+    return check;
 }
 
 // This test takes a ScalarStorageCollection, resizes it, increments on GPU its
 // elements and copies it back to CPU to validate the sum of its elements
-void test2()
+bool test2()
 {
-    std::cout << "------------------------------------------------------------------------" << std::endl;
-    std::cout << " This test takes a ScalarStorageCollection, resizes it, increments on GPU its\n"
-              << " elements and copies it back to CPU to validate the sum of its elements      " << std::endl;
-    std::cout << "------------------------------------------------------------------------" << std::endl;
-
     ScalarStorageCollection<std::size_t> collectionContainer(N_FIELDS);
     std::size_t initSize = 1024;
     for (std::size_t iter = 0; iter < initSize*initSize; iter++) {
@@ -328,11 +370,7 @@ void test2()
     for (int iF = 0; iF < N_FIELDS; iF++) {
         check == check && (sum[iF] == valSum * (iF + 1));
     }
-    if (check) {
-        std::cout << "\nTEST #2: SUCCESSFULL" << std::endl;
-    } else {
-        std::cout << "\nTEST #2: UNSUCCESSFULL" << std::endl;
-    }
+    return check;
 }
 
 
@@ -439,13 +477,8 @@ void adaptMeshAndFieldCollection2(ComputationInfo &computationInfo, VolOctree &m
 
 // This test takes a ScalarPiercedStorage, resizes it, increments on GPU its
 // elements and copies it back to CPU to validate the sum of its elements.
-void test3(int argc, char *argv[])
+bool test3(int argc, char *argv[])
 {
-    std::cout << "------------------------------------------------------------------------" << std::endl;
-    std::cout << " This test takes a ScalarPiercedStorage, resizes it, increments on GPU its\n"
-              << " elements and copies it back to CPU to validate the sum of its elements.  " << std::endl;
-    std::cout << "------------------------------------------------------------------------" << std::endl;
-
 
     // Initialize process information
     int nProcessors;
@@ -653,11 +686,8 @@ void test3(int argc, char *argv[])
     std::cout << "validated 2nd sum = " << 2 * cellFoo.cuda_deviceDataSize()
               << " and sum = " << sum << std::endl;
 
-    if (sum == 2 * cellFoo.cuda_deviceDataSize()) {
-        std::cout << "\nTEST #3: SUCCESSFULL" << std::endl;
-    } else {
-        std::cout << "\nTEST #3: UNSUCCESSFULL" << std::endl;
-    }
+    bool check = true;
+    if (!(sum == 2 * cellFoo.cuda_deviceDataSize())) check = false;
 
     log_memory_status();
 
@@ -667,18 +697,14 @@ void test3(int argc, char *argv[])
     computationInfo.cuda_finalize();
 #endif
 
+    return check;
 }
 
-// This test takes a ScalarPiercedStorageCollection, resizes it, increments on GPU its
+// This test takes ONE ScalarPiercedStorageCollection, resizes it, increments on GPU its
 // elements and copies it back to CPU to validate the sum of its elements.
 template<typename T>
-void test4(int argc, char *argv[])
+bool test4(int argc, char *argv[])
 {
-    std::cout << "------------------------------------------------------------------------" << std::endl;
-    std::cout << " This test takes a ScalarPiercedStorageCollection<T>>, resizes it, increments on GPU its\n"
-              << " elements and copies it back to CPU to validate the sum of its elements.            " << std::endl;
-    std::cout << "------------------------------------------------------------------------" << std::endl;
-
     std::cout << "SIZE OF T " << sizeof(T) << std::endl;
     // Initialize process information
     int nProcessors;
@@ -835,38 +861,36 @@ void test4(int argc, char *argv[])
     computationInfo.cuda_initialize();
 #endif
 
- // ScalarPiercedStorageCollection<T> cellFoo(N_FIELDS);
-    ScalarPiercedStorageCollection<T> cellFoo(3);
+    ScalarPiercedStorageCollection<T> cellFoo(N_FIELDS);
     cellFoo[0].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
     cellFoo[1].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
     cellFoo[2].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
-//  cellFoo[3].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
-//  cellFoo[4].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    cellFoo[3].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
+    cellFoo[4].setDynamicKernel(&mesh.getCells(), PiercedVector<Cell>::SYNC_MODE_JOURNALED);
     cellFoo.cuda_allocateDevice();
 
     cellFoo[0].cuda_fillDevice(0);
     cellFoo[1].cuda_fillDevice(1);
     cellFoo[2].cuda_fillDevice(2);
-//  cellFoo[3].cuda_fillDevice(3);
-//  cellFoo[4].cuda_fillDevice(4);
+    cellFoo[3].cuda_fillDevice(3);
+    cellFoo[4].cuda_fillDevice(4);
 
     std::cout << "cellFoo cuda_updateHost" << std::endl;
     cellFoo.cuda_updateHost();
 
-    std::vector<T> sum(3, 0);
-//  std::vector<T> sum(N_FIELDS, 0);
+    std::vector<T> sum(N_FIELDS, 0);
     for (int iter = 0; iter < mesh.getCellCount(); iter++) {
         sum[0] += cellFoo[0][iter];
         sum[1] += cellFoo[1][iter];
         sum[2] += cellFoo[2][iter];
-//      sum[3] += cellFoo[3][iter];
-//      sum[4] += cellFoo[4][iter];
+        sum[3] += cellFoo[3][iter];
+        sum[4] += cellFoo[4][iter];
     }
     std::cout << "validated 1st sum[0] = " << T(mesh.getCellCount() * 0) << " and sum[0] = " << sum[0] << std::endl;
     std::cout << "validated 1st sum[1] = " << T(mesh.getCellCount() * 1) << " and sum[1] = " << sum[1] << std::endl;
     std::cout << "validated 1st sum[2] = " << T(mesh.getCellCount() * 2) << " and sum[2] = " << sum[2] << std::endl;
-//  std::cout << "validated 1st sum[3] = " << T(mesh.getCellCount() * 3) << " and sum[3] = " << sum[3] << std::endl;
-//  std::cout << "validated 1st sum[4] = " << T(mesh.getCellCount() * 4) << " and sum[4] = " << sum[4] << std::endl;
+    std::cout << "validated 1st sum[3] = " << T(mesh.getCellCount() * 3) << " and sum[3] = " << sum[3] << std::endl;
+    std::cout << "validated 1st sum[4] = " << T(mesh.getCellCount() * 4) << " and sum[4] = " << sum[4] << std::endl;
 
     log_memory_status();
 
@@ -886,39 +910,38 @@ void test4(int argc, char *argv[])
     cellFoo[0].cuda_fillDevice(0);
     cellFoo[1].cuda_fillDevice(1);
     cellFoo[2].cuda_fillDevice(2);
-//  cellFoo[3].cuda_fillDevice(3);
-//  cellFoo[4].cuda_fillDevice(4);
+    cellFoo[3].cuda_fillDevice(3);
+    cellFoo[4].cuda_fillDevice(4);
 
     test::plotPiercedStorageCollection(cellFoo, mesh.getCellCount());
 
     std::cout << "cellFoo cuda_updateHost 2" << std::endl;
     cellFoo.cuda_updateHost();
+    std::cout << "cellFoo cuda_updateHost 3" << std::endl;
 
-//. sum = std::vector<T>(N_FIELDS, 0);
-    sum = std::vector<T>(3, 0);
+    sum = std::vector<T>(N_FIELDS, 0);
     for (int iter = 0; iter < mesh.getCellCount(); iter++) {
         sum[0] += cellFoo[0][iter];
         sum[1] += cellFoo[1][iter];
         sum[2] += cellFoo[2][iter];
- //     sum[3] += cellFoo[3][iter];
- //     sum[4] += cellFoo[4][iter];
+        sum[3] += cellFoo[3][iter];
+        sum[4] += cellFoo[4][iter];
     }
     std::cout << "validated 2nd sum[0] = " << mesh.getCellCount() * 1  << " and sum[0] = " << sum[0] << std::endl;
     std::cout << "validated 2nd sum[1] = " << mesh.getCellCount() * 2  << " and sum[1] = " << sum[1] << std::endl;
     std::cout << "validated 2nd sum[2] = " << mesh.getCellCount() * 3  << " and sum[2] = " << sum[2] << std::endl;
-//  std::cout << "validated 2nd sum[3] = " << mesh.getCellCount() * 4  << " and sum[3] = " << sum[3] << std::endl;
-//  std::cout << "validated 2nd sum[4] = " << mesh.getCellCount() * 5  << " and sum[4] = " << sum[4] << std::endl;
+    std::cout << "validated 2nd sum[3] = " << mesh.getCellCount() * 4  << " and sum[3] = " << sum[3] << std::endl;
+    std::cout << "validated 2nd sum[4] = " << mesh.getCellCount() * 5  << " and sum[4] = " << sum[4] << std::endl;
 
-    if (
+    bool check = true;
+    if (!(
            (sum[0] == T(    mesh.getCellCount()))
         && (sum[1] == T(2 * mesh.getCellCount()))
         && (sum[2] == T(3 * mesh.getCellCount()))
-//      && (sum[3] == T(4 * mesh.getCellCount()))
-//      && (sum[4] == T(5 * mesh.getCellCount()))
-    ) {
-        std::cout << "\nTEST #4: SUCCESSFULL" << std::endl;
-    } else {
-        std::cout << "\nTEST #4: UNSUCCESSFULL" << std::endl;
+        && (sum[3] == T(4 * mesh.getCellCount()))
+        && (sum[4] == T(5 * mesh.getCellCount()))
+    )) {
+        check = false;
     }
 
     log_memory_status();
@@ -928,19 +951,15 @@ void test4(int argc, char *argv[])
     cellFoo.cuda_freeDevice();
     computationInfo.cuda_finalize();
 #endif
+    return check;
 }
 
 
-// This test takes two ScalarPiercedStorageCollection containers, resizes the first, increments on GPU its
+// This test takes TWO ScalarPiercedStorageCollection containers, resizes the first, increments on GPU its
 // elements and copies it back to CPU to validate the sum of its elements.
 template<typename T>
-void test5(int argc, char *argv[])
+bool test5(int argc, char *argv[])
 {
-    std::cout << "------------------------------------------------------------------------" << std::endl;
-    std::cout << " This test takes two ScalarPiercedStorageCollection<T> containers, resizes the first, increments\n"
-              << " on GPU itselements and copies it back to CPU to validate the sum of its elements.  " << std::endl;
-    std::cout << "------------------------------------------------------------------------" << std::endl;
-
     // Initialize process information
     int nProcessors;
     int rank;
@@ -1163,16 +1182,16 @@ void test5(int argc, char *argv[])
     std::cout << "validated 2nd sum[3] = " << mesh.getCellCount() * 4  << " and sum[3] = " << sum[3] << std::endl;
     std::cout << "validated 2nd sum[4] = " << mesh.getCellCount() * 5  << " and sum[4] = " << sum[4] << std::endl;
 
-    if (
+    bool check = true;
+
+    if (!(
            (sum[0] ==      mesh.getCellCount())
         && (sum[1] ==  2 * mesh.getCellCount())
         && (sum[2] ==  3 * mesh.getCellCount())
         && (sum[3] ==  4 * mesh.getCellCount())
         && (sum[4] ==  5 * mesh.getCellCount())
-    ) {
-        std::cout << "\nTEST #5: SUCCESSFULL" << std::endl;
-    } else {
-        std::cout << "\nTEST #5: UNSUCCESSFULL" << std::endl;
+    )) {
+        check = false;
     }
 
     log_memory_status();
@@ -1183,6 +1202,7 @@ void test5(int argc, char *argv[])
     cellFoo2.cuda_freeDevice();
     computationInfo.cuda_finalize();
 #endif
+    return check;
 }
 
 int main(int argc, char *argv[])
@@ -1190,7 +1210,7 @@ int main(int argc, char *argv[])
 
     bool basicTest = false;
     if (basicTest) {
-        test0RT();
+        test0RT<char>();
     } else {
 
         // Get the primary context and bind to it
@@ -1221,25 +1241,56 @@ int main(int argc, char *argv[])
         // MPI Initialization
         MPI_Init(&argc, &argv);
 #endif
-        bool runTest0 = false;
-        bool runTest1A = false;
-        bool runTest1B = false;
-        bool runTest2 = false;
-        bool runTest3 = false;
-        bool runTest4 = false;
-        bool runTest5 = false;
-        bool runTestInts = false;
+        bool runTest0 = true;
+        bool runTest1A = true;
+        bool runTest1B = true;
+        bool runTest2 = true;
+        bool runTest3 = true;
+        bool runTestSizeTs = true;
+        bool runTestInts = true;
         bool runTestDoubles = true;
 
         // test0
         if (runTest0) {
+
+            std::cout << "EXECUTING BASIC TEST (TEST #0DR) for ..." << std::endl;
             try{
-                std::cout << "EXECUTING TEST #0DR" << std::endl;
-                test0DR();
-                std::cout << "\n" << std::endl;
+                std::cout << "... type char" << std::endl;
+                test0DR<char>();
+                std::cout << "\n\n" << std::endl;
             }
             catch(std::exception & e){
-                std::cout << "TEST #0DR exited with an error of type : " << e.what() << std::endl;
+                std::cout << "TEST #0DR for type char exited with an error of type : " << e.what() << std::endl;
+                return 1;
+            }
+
+            try{
+                std::cout << "... type int" << std::endl;
+                test0DR<int>();
+                std::cout << "\n\n" << std::endl;
+            }
+            catch(std::exception & e){
+                std::cout << "TEST #0DR for type int exited with an error of type : " << e.what() << std::endl;
+                return 1;
+            }
+
+            try{
+                std::cout << "... type std::size_t" << std::endl;
+                test0DR<std::size_t>();
+                std::cout << "\n\n" << std::endl;
+            }
+            catch(std::exception & e){
+                std::cout << "TEST #0DR for type std::size_t exited with an error of type : " << e.what() << std::endl;
+                return 1;
+            }
+
+            try{
+                std::cout << "... type double" << std::endl;
+                test0DR<double>();
+                std::cout << "\n\n" << std::endl;
+            }
+            catch(std::exception & e){
+                std::cout << "TEST #0DR for type double exited with an error of type : " << e.what() << std::endl;
                 return 1;
             }
         }
@@ -1248,8 +1299,13 @@ int main(int argc, char *argv[])
         if (runTest1A) {
             try{
                 std::cout << "EXECUTING TEST #1A" << std::endl;
-                test1A();
-                std::cout << "\n" << std::endl;
+                std::cout << "------------------------------------------------------------------------" << std::endl;
+                std::cout << " This test takes ONE ScalarStorage, resizes it, increments on GPU its\n"
+                          << " elements and copies it back to CPU to validate the sum of its  elements" << std::endl;
+                std::cout << "------------------------------------------------------------------------" << std::endl;
+
+                bool check = test1A();
+                printCheck(check, 1);
             }
             catch(std::exception & e){
                 std::cout << "TEST #1A exited with an error of type : " << e.what() << std::endl;
@@ -1261,8 +1317,13 @@ int main(int argc, char *argv[])
         if (runTest1B) {
             try{
                 std::cout << "EXECUTING TEST #1B" << std::endl;
-                test1B();
-                std::cout << "\n" << std::endl;
+                std::cout << "------------------------------------------------------------------------" << std::endl;
+                std::cout << " This test takes TWO ScalarStorages, resizes one of them, increments on GPU\n"
+                          << " its elementsand copies it back to CPU to validate the sum of its elements " << std::endl;
+                std::cout << "------------------------------------------------------------------------" << std::endl;
+
+                bool check = test1B();
+                printCheck(check, 1);
             }
             catch(std::exception & e){
                 std::cout << "TEST #1B exited with an error of type : " << e.what() << std::endl;
@@ -1274,8 +1335,12 @@ int main(int argc, char *argv[])
         if (runTest2) {
             try{
                 std::cout << "EXECUTING TEST #2" << std::endl;
-                test2();
-                std::cout << "\n" << std::endl;
+                std::cout << "------------------------------------------------------------------------" << std::endl;
+                std::cout << " This test takes ONE ScalarStorageCollection, resizes it, increments on GPU its\n"
+                          << " elements and copies it back to CPU to validate the sum of its elements      " << std::endl;
+                std::cout << "------------------------------------------------------------------------" << std::endl;
+                bool check = test2();
+                printCheck(check, 2);
             }
             catch(std::exception & e){
                 std::cout << "TEST #2 exited with an error of type : " << e.what() << std::endl;
@@ -1288,8 +1353,13 @@ int main(int argc, char *argv[])
         if (runTest3) {
             try{
                 std::cout << "EXECUTING TEST #3" << std::endl;
-                test3(argc, argv);
-                std::cout << "\n" << std::endl;
+                std::cout << "------------------------------------------------------------------------" << std::endl;
+                std::cout << " This test takes ONE ScalarPiercedStorage, resizes it, increments on GPU its\n"
+                          << " elements and copies it back to CPU to validate the sum of its elements.  " << std::endl;
+                std::cout << "------------------------------------------------------------------------" << std::endl;
+
+                bool check = test3(argc, argv);
+                printCheck(check, 3);
             }
             catch(std::exception & e){
                 std::cout << "TEST #3 exited with an error of type : " << e.what() << std::endl;
@@ -1298,25 +1368,31 @@ int main(int argc, char *argv[])
         }
 
         // test4
-        if (runTest4) {
+        if (runTestSizeTs) {
             try{
                 std::cout << "EXECUTING TEST #4" << std::endl;
-                test4<std::size_t>(argc, argv);
-                std::cout << "\n" << std::endl;
+                std::cout << "------------------------------------------------------------------------" << std::endl;
+                std::cout << " This test takes ONE ScalarPiercedStorageCollection<std::size_t>>, resizes it, increments on GPU its\n"
+                          << " elements and copies it back to CPU to validate the sum of its elements.            " << std::endl;
+                std::cout << "------------------------------------------------------------------------" << std::endl;
+
+                bool check = test4<std::size_t>(argc, argv);
+                printCheck(check, 4);
             }
             catch(std::exception & e){
                 std::cout << "TEST #4 exited with an error of type : " << e.what() << std::endl;
                 return 1;
             }
-        }
 
+            std::cout << "------------------------------------------------------------------------" << std::endl;
+            std::cout << " This test takes TWO ScalarPiercedStorageCollection<std::size_t> containers, resizes the first, increments\n"
+                      << " on GPU its elements and copies it back to CPU to validate the sum of its elements.  " << std::endl;
+            std::cout << "------------------------------------------------------------------------" << std::endl;
 
-        // test5
-        if (runTest5) {
             try{
                 std::cout << "EXECUTING TEST #5" << std::endl;
-                test5<std::size_t>(argc, argv);
-                std::cout << "\n" << std::endl;
+                bool check = test5<std::size_t>(argc, argv);
+                printCheck(check, 5);
             }
             catch(std::exception & e){
                 std::cout << "TEST #5 exited with an error of type : " << e.what() << std::endl;
@@ -1326,10 +1402,14 @@ int main(int argc, char *argv[])
 
         // testInts (tests 6 and 7)
         if (runTestInts) {
+            std::cout << "------------------------------------------------------------------------" << std::endl;
+            std::cout << " This test takes ONE ScalarPiercedStorageCollection<std::int> containers, resizes the first, increments\n"
+                      << " on GPU its elements and copies it back to CPU to validate the sum of its elements.  " << std::endl;
+            std::cout << "------------------------------------------------------------------------" << std::endl;
             try{
                 std::cout << "EXECUTING TEST #6" << std::endl;
-                test4<int>(argc, argv);
-                std::cout << "\n" << std::endl;
+                bool check = test4<int>(argc, argv);
+                printCheck(check, 6);
             }
             catch(std::exception & e){
                 std::cout << "TEST #6 exited with an error of type : " << e.what() << std::endl;
@@ -1338,7 +1418,12 @@ int main(int argc, char *argv[])
 
             try{
                 std::cout << "EXECUTING TEST #7" << std::endl;
-                test5<int>(argc, argv);
+                std::cout << "------------------------------------------------------------------------" << std::endl;
+                std::cout << " This test takes TWO ScalarPiercedStorageCollection<int> containers, resizes the first, increments\n"
+                          << " on GPU its elements and copies it back to CPU to validate the sum of its elements.  " << std::endl;
+                std::cout << "------------------------------------------------------------------------" << std::endl;
+                bool check = test5<int>(argc, argv);
+                printCheck(check, 7);
                 std::cout << "\n" << std::endl;
             }
             catch(std::exception & e){
@@ -1351,23 +1436,32 @@ int main(int argc, char *argv[])
         if (runTestDoubles) {
             try{
                 std::cout << "EXECUTING TEST #8" << std::endl;
-                test4<double>(argc, argv);
+                std::cout << "------------------------------------------------------------------------" << std::endl;
+                std::cout << " This test takes ONE ScalarPiercedStorageCollection<std::double> containers, resizes the first, increments\n"
+                          << " on GPU its elements and copies it back to CPU to validate the sum of its elements.  " << std::endl;
+                std::cout << "------------------------------------------------------------------------" << std::endl;
+                bool check = test4<double>(argc, argv);
+                printCheck(check, 8);
                 std::cout << "\n" << std::endl;
             }
             catch(std::exception & e){
-                std::cout << "TEST #6 exited with an error of type : " << e.what() << std::endl;
+                std::cout << "TEST #8 exited with an error of type : " << e.what() << std::endl;
                 return 1;
             }
 
-         // try{
-         //     std::cout << "EXECUTING TEST #9" << std::endl;
-         //     test5<double>(argc, argv);
-         //     std::cout << "\n" << std::endl;
-         // }
-         // catch(std::exception & e){
-         //     std::cout << "TEST #7 exited with an error of type : " << e.what() << std::endl;
-         //     return 1;
-         // }
+            try{
+                std::cout << "EXECUTING TEST #9" << std::endl;
+                std::cout << "------------------------------------------------------------------------" << std::endl;
+                std::cout << " This test takes TWO ScalarPiercedStorageCollection<std::double> containers, resizes the first, increments\n"
+                          << " on GPU its elements and copies it back to CPU to validate the sum of its elements.  " << std::endl;
+                std::cout << "------------------------------------------------------------------------" << std::endl;
+                bool check =  test5<double>(argc, argv);
+                printCheck(check, 9);
+            }
+            catch(std::exception & e){
+                std::cout << "TEST #9 exited with an error of type : " << e.what() << std::endl;
+                return 1;
+            }
         }
 
         //

@@ -96,6 +96,10 @@ void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_resize(size_t new
 template<typename container_t, typename value_t, typename dev_value_t>
 void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_updateHost()
 {
+    std::cout << "this->data() "                << this->data()                << std::endl;
+    std::cout << "this->getCUdeviceptr() "      << this->getCUdeviceptr()      << std::endl;
+    std::cout << "this->cuda_deviceDataSize() " << this->cuda_deviceDataSize() << std::endl;
+    std::cout << "sizeof(dev_value_t) "         << sizeof(dev_value_t)         << std::endl;
     CUDA_ERROR_CHECK(cudaMemcpy(this->data(), (dev_value_t*)(this->getCUdeviceptr()), this->cuda_deviceDataSize() * sizeof(dev_value_t), cudaMemcpyDeviceToHost));
 }
 
