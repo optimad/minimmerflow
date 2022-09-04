@@ -118,15 +118,13 @@ void evalFluxes(const double *conservative, const double *primitive, const std::
  * \param problemType is the problem type
  * \param meshInfo are the geometrical information
  * \param cellSolvedFlag is the storage for the cell solved flag
- * \param order is the order
- * \param cellConservatives are the cell conservative values
+ * \param reconstructionCalculator is the reconstruction calculator
  * \param interfaceBCs is the boundary conditions storage
  * \param[out] cellsRHS on output will containt the RHS
  * \param[out] maxEig on putput will containt the maximum eigenvalue
  */
-void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo,
-                const CellStorageBool &cellSolvedFlag, const int order,
-                const CellStorageDouble &cellConservatives, const InterfaceStorageInt &interfaceBCs,
+void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo, const CellStorageBool &cellSolvedFlag,
+                const ReconstructionCalculator &reconstructionCalculator, const InterfaceStorageInt &interfaceBCs,
                 CellStorageDouble *cellsRHS, double *maxEig)
 {
     // Get mesh information
@@ -158,21 +156,18 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
         long ownerId = interface.getOwner();
         VolumeKernel::CellConstIterator ownerItr = mesh.getCellConstIterator(ownerId);
         std::size_t ownerRawId = ownerItr.getRawIndex();
-        const double *ownerMean = cellConservatives.rawData(ownerRawId);
         double *ownerRHS = cellsRHS->rawData(ownerRawId);
         bool ownerSolved = cellSolvedFlag.rawAt(ownerRawId);
 
         // Info about the interface neighbour
         long neighId = interface.getNeigh();
         std::size_t neighRawId = std::numeric_limits<std::size_t>::max();
-        const double *neighMean = nullptr;
         double *neighRHS = nullptr;
         bool neighSolved = false;
         if (neighId >= 0) {
             VolumeKernel::CellConstIterator neighItr = mesh.getCellConstIterator(neighId);
 
             neighRawId  = neighItr.getRawIndex();
-            neighMean   = cellConservatives.rawData(neighRawId);
             neighRHS    = cellsRHS->rawData(neighRawId);
             neighSolved = cellSolvedFlag.rawAt(neighRawId);
         }
@@ -192,24 +187,21 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
         std::array<double, N_FIELDS> ownerReconstruction;
         std::array<double, N_FIELDS> neighReconstruction;
         if (interfaceBCType == BC_NONE)  {
-            reconstruction::eval(ownerRawId, meshInfo, order, interfaceCentroid, ownerMean, ownerReconstruction.data());
-            reconstruction::eval(neighRawId, meshInfo, order, interfaceCentroid, neighMean, neighReconstruction.data());
+            reconstructionCalculator.evalCellValues(ownerRawId, interfaceCentroid, ownerReconstruction.data());
+            reconstructionCalculator.evalCellValues(neighRawId, interfaceCentroid, neighReconstruction.data());
         } else {
             long fluidRawId;
             bool flipNormal;
-            const double *fluidMean;
             double *fluidReconstruction;
             double *virtualReconstruction;
             if (ownerSolved) {
                 flipNormal            = false;
                 fluidRawId            = ownerRawId;
-                fluidMean             = ownerMean;
                 fluidReconstruction   = ownerReconstruction.data();
                 virtualReconstruction = neighReconstruction.data();
             } else {
                 flipNormal            = true;
                 fluidRawId            = neighRawId;
-                fluidMean             = neighMean;
                 fluidReconstruction   = neighReconstruction.data();
                 virtualReconstruction = ownerReconstruction.data();
             }
@@ -221,7 +213,7 @@ void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &mes
                 interfaceNormal = -1. * interfaceNormal;
             }
 
-            reconstruction::eval(fluidRawId, meshInfo, order, interfaceCentroid, fluidMean, fluidReconstruction);
+            reconstructionCalculator.evalCellValues(fluidRawId, interfaceCentroid, fluidReconstruction);
             evalInterfaceBCValues(problemType, interfaceBC, interfaceCentroid, interfaceNormal, fluidReconstruction, virtualReconstruction);
         }
 

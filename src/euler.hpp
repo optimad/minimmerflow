@@ -28,6 +28,7 @@
 #include "constants.hpp"
 #include "mesh_info.hpp"
 #include "problem.hpp"
+#include "reconstruction.hpp"
 #include "storage.hpp"
 
 #include <bitpit_voloctree.hpp>
@@ -39,7 +40,7 @@ void evalSplitting(const double *conservativeL, const double *conservativeR, con
 void evalFluxes(const double *conservative, const double *primitive, const std::array<double, 3> &n, FluxData *fluxes);
 
 void computeRHS(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo, const CellStorageBool &cellSolvedFlag,
-                const int order, const CellStorageDouble &cellConservatives, const InterfaceStorageInt &interfaceBCs,
+                const ReconstructionCalculator &reconstructionCalculator, const InterfaceStorageInt &interfaceBCs,
                 CellStorageDouble *cellsRHS, double *maxEig);
 
 void evalInterfaceBCValues(problem::ProblemType problemType, int BCType,

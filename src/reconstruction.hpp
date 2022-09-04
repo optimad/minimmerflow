@@ -30,21 +30,40 @@
 #include "problem.hpp"
 #include "storage.hpp"
 
-#include <bitpit_voloctree.hpp>
+#include <bitpit_discretization.hpp>
 
 #include <array>
+#include <vector>
 
-namespace reconstruction {
+class ReconstructionCalculator {
 
-void initialize();
+public:
+    ReconstructionCalculator(const MeshGeometricalInfo &meshInfo, int degree);
 
-void computePolynomials(problem::ProblemType problemType, const MeshGeometricalInfo &meshInfo, const CellStorageBool &cellSolved,
-                        const CellStorageDouble &conservativeFields, const InterfaceStorageInt &interfaceBCs);
+    void update(const CellStorageDouble &cellConservatives);
 
-void eval(std::size_t cellRawId, const MeshGeometricalInfo &meshInfo, int order, const std::array<double, 3> &point, const double *means, double *values);
+    void evalCellValues(std::size_t cellRawId, const std::array<double, 3> &point, double *values) const;
 
-void eval_1(std::size_t cellRawId, const MeshGeometricalInfo &meshInfo, const std::array<double, 3> &point, const double *means, double *values);
+private:
+    const MeshGeometricalInfo &m_meshInfo;
+    int m_order;
 
-}
+    bitpit::PiercedStorage<std::vector<long>, long> m_cellSupports;
+    bitpit::PiercedStorage<bitpit::ReconstructionKernel, long> m_cellKernels;
+    bitpit::PiercedStorage<bitpit::ReconstructionPolynomial, long> m_cellPolynomials;
+
+    void evalCellSupport(std::size_t cellRawId, std::vector<long> *support) const;
+
+    void evalCellKernel(std::size_t cellRawId, std::size_t supportSize, const long *support,
+                        bitpit::ReconstructionKernel *kernel) const;
+
+    void initializeCellPolynomial(std::size_t cellRawId, bitpit::ReconstructionPolynomial *polynomial) const;
+    void updateCellPolynomial(std::size_t cellRawId, const CellStorageDouble &conservativeFields,
+                              bitpit::ReconstructionPolynomial *polynomial) const;
+
+    void evalPolynomial(const bitpit::ReconstructionPolynomial &polynomial,
+                        const std::array<double, 3> &point, double *values) const;
+
+};
 
 #endif
