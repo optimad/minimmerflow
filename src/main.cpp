@@ -59,7 +59,7 @@ void computation(int argc, char *argv[])
     // Initialize logger
     log::manager().initialize(log::COMBINED, "minimmerflow", true, ".", nProcessors, rank);
 #if ENABLE_DEBUG==1
-    log::cout().setVisibility(log::GLOBAL);
+    log::cout().setDefaultVisibility(log::GLOBAL);
 #endif
 
     // Log file header
