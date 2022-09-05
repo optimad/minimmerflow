@@ -54,13 +54,23 @@ print(" -------------- TEST RESULT --------------")
 
 status = 0
 for key in results.keys():
-    value          = results[key]
-    expected_value = expected_results[key]
+    value = float(results[key])
+
+    expected_result = expected_results[key]
+    if "@" in expected_result:
+        expected_value = float(expected_result.split("@")[0])
+        tolerance      = float(expected_result.split("@")[1])
+
+        test_passed = (abs(value - expected_value) < tolerance)
+    else:
+        expected_value = float(expected_result)
+
+        test_passed = (value == expected_value)
 
     print(" Checking '%s' variable:" % (key))
     print("    Value          : ", value)
     print("    Expected value : ", expected_value)
-    if value == expected_value:
+    if test_passed:
         print("    Check status   : PASSED")
     else:
         print("    Check status   : FAILED")
