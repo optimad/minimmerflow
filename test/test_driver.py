@@ -83,7 +83,7 @@ if status == 0:
 else:
     print("            TEST FAILED")
     print(" -----------------------------------------")
-    print(" Updated expected results: {0};{1};{2};{3}".format(results['iteration'], results['time'], results['residual_L2'], results['residual_Linf']))
+    print(" Updated expected results: {0};{1}".format(expected_iteration, expected_results['final_error']))
 
 print(" -----------------------------------------")
 
