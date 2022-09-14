@@ -23,3 +23,23 @@
 \*---------------------------------------------------------------------------*/
 
 #include "utils.hcu"
+
+namespace utils {
+
+/*!
+ * Compute the factorial of the specified number.
+ *
+ * \param[in] n is the argument for which the factorial has to be evaluated
+ * \result The factorial of the specified number.
+ */
+CUDA_HOST_DEVICE unsigned long factorial(unsigned long n)
+{
+    unsigned long factorial = 1;
+    for (unsigned long i = 1; i <= n; ++i) {
+        factorial *= i;
+    }
+
+    return factorial;
+}
+
+}
