@@ -25,9 +25,13 @@
 #ifndef __MINIMMERFLOW_UTILS_HPP__
 #define __MINIMMERFLOW_UTILS_HPP__
 
+#include "compiler.hpp"
+
 #include <array>
 
 namespace utils {
+
+CUDA_HOST_DEVICE unsigned long factorial(unsigned long n);
 
 double normalVelocity(const double *fields, const double *n);
 
