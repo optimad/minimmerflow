@@ -83,3 +83,7 @@ void primitive2conservative(const double *p, double *c)
 }
 
 }
+
+#if ENABLE_CUDA==0
+#include <utils.cu>
+#endif
