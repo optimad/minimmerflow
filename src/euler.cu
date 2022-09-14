@@ -130,7 +130,7 @@ void cuda_resetRHS(ScalarPiercedStorageCollection<double> *cellsRHS)
  * \param[out] cellsRHS on output will containt the RHS
  * \param[out] maxEig on putput will containt the maximum eigenvalue
  */
-void cuda_updateRHS(problem::ProblemType problemType, ComputationInfo &computationInfo,
+void cuda_updateRHS(problem::ProblemType problemType, const ComputationInfo &computationInfo,
                     const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
                     const ScalarPiercedStorageCollection<double> &cellConservatives, ScalarPiercedStorageCollection<double> *cellsRHS, double *maxEig)
 {
