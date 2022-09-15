@@ -48,25 +48,24 @@
 
 using namespace bitpit;
 
+
 // This function makes the AMR on CPU and then copies to resized GPU containers the mesh, computation and fields data
 void adaptMeshAndFields(double &minCellSize, ComputationInfo &computationInfo, VolOctree &mesh, ScalarPiercedStorageCollection<double> &cellRHS,
                         ScalarPiercedStorageCollection<double> &cellConservatives, ScalarPiercedStorageCollection<double> &cellPrimitives,
                         ScalarPiercedStorageCollection<double> &cellConservativesWork, ScalarStorage<std::size_t> &solvedCellRawIds,
                         ScalarStorage<std::size_t> &solvedBoundaryInterfaceRawIds, ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-                        const problem::ProblemType problemType)
+                        const problem::ProblemType problemType, const double time, const std::array<double,2> initialOrigin,
+                        int &initialRefinementLevel, int &maxRefinementLevel)
 {
     // First perform adaption on CPU
 
     /* Auxiliary containers to hold parent-field data */
     std::vector<std::vector<double>> parentCellRHS(N_FIELDS);
     std::vector<std::vector<double>> parentCellConservatives(N_FIELDS);
-    for (int iField = 0; iField < N_FIELDS; iField++) {
-         parentCellRHS[iField].resize(mesh.getCellCount());
-         parentCellConservatives[iField].resize(mesh.getCellCount());
-    }
 
     /* AMR and field mapping on CPU */
-    adaptation::meshAdaptation(mesh, parentCellRHS, parentCellConservatives, cellRHS, cellConservatives);
+    adaptation::meshAdaptation(mesh, parentCellRHS, parentCellConservatives, cellRHS, cellConservatives, time, initialOrigin,
+                               initialRefinementLevel, maxRefinementLevel);
     computationInfo.postMeshAdaptation();
 
     /* Resize BCs related containers and give them again content */
@@ -171,6 +170,10 @@ void computation(int argc, char *argv[])
     const int order = config::root["discretization"]["space"].get<int>("order");
 
     const double cfl = config::root["discretization"]["time"].get<double>("CFL");
+
+    const std::array<double,2> initialOrigin({0., 0.});
+    int maxRefinementLevel = 4;
+    int initialRefinementLevel = -1;
 
     long nCellsPerDirection;
     if (argc > 1) {
@@ -478,8 +481,19 @@ void computation(int argc, char *argv[])
     int step = 0;
     double t = tMin;
     double nextSave = tMin;
+
+    bool refineMesh;
+    const double dtRefinement = 0.05;
+    int iRefinement = 0;
+    double tNextRefinement = 0;
+
+    bool writeMesh;
+    const double dtWrite = 1.0;
+    int iWrite = 0;
+    double tNextWrite = 0;
     while (t < tMax) {
-//  while (t < tMax && step < 6) {
+        refineMesh = false;
+        writeMesh = false;
         log::cout() << std::endl;
         log::cout() << "Step n. " << step << std::endl;
 
@@ -619,10 +633,33 @@ void computation(int argc, char *argv[])
 
         // Update timestep information
         t +=dt;
-      step++;
+        step++;
+
+        // Check if it's time to refine and/or write the mesh, but don't refine and/or write the mesh yet
+        if ((std::abs((t-dt) - tNextRefinement) <= dt * 1.2) || (step < 5)) {
+//      if ((std::abs((t-dt) - tNextRefinement) <= dt * 1.2) || (step < 3)) {
+            refineMesh = true;
+            if (step == 1 || step >= 5)
+//          if (step == 1 || step >= 3)
+            {
+                iRefinement++;
+                tNextRefinement = double(iRefinement) * dtRefinement;
+                std::cout << "Next refinement at time " << double(iRefinement) * dtRefinement << std::endl;
+            }
+//          // Write mesh before refining
+            writeMesh = true;
+        }
+
+//      if ((std::abs((t-dt) - tNextWrite) <= dt * 1.2))  {
+        if ((std::abs((t-dt) - tNextWrite)/dtWrite <= 1e-2))  {
+            writeMesh = true;
+            iWrite++;
+            tNextWrite = double(iWrite) * dtWrite;
+        }
 
         // Write the solution
-        if (t > nextSave){
+//      if (t > nextSave){
+        if (writeMesh){
             clock_t diskStart = clock();
 
             std::array<double, N_FIELDS> conservatives;
@@ -641,14 +678,19 @@ void computation(int argc, char *argv[])
                     cellPrimitives[k].rawAt(cellRawId) = primitives[k];
                 }
             }
+            std::cout << "Writing mesh for time " << t-dt << " and step " << step << std::endl;
             mesh.write();
-
+            writeMesh = false;
             diskTime += clock() - diskStart;
-            nextSave += (tMax - tMin) / nSaves;
+//          nextSave += (tMax - tMin) / nSaves;
         }
-        if (step % 10 == 0) adaptMeshAndFields(minCellSize, computationInfo, mesh, cellRHS, cellConservatives,
-                                               cellPrimitives, cellConservativesWork, solvedCellRawIds,
-                                               solvedBoundaryInterfaceRawIds, solvedBoundaryInterfaceBCs, problemType);
+        if (refineMesh) {
+            adaptMeshAndFields(minCellSize, computationInfo, mesh, cellRHS, cellConservatives, cellPrimitives, cellConservativesWork,
+                               solvedCellRawIds, solvedBoundaryInterfaceRawIds, solvedBoundaryInterfaceBCs, problemType, t, initialOrigin,
+                               initialRefinementLevel, maxRefinementLevel);
+            refineMesh = false;
+        }
+
     }
     clock_t computeEnd = clock();
 

@@ -26,24 +26,86 @@
 #include "constants.hpp"
 #include "test.hpp"
 
+
 using namespace bitpit;
 
 namespace adaptation {
 /*
  * Marks in VolOCtree object the cells to be refined
- * Right noe Hardcoded cell-selection for mesh refinement.
- * TODO: See if this can be done in a better way.
  * \param reference to the mesh object
- * \param[out] number of cells to be refined
+ * \param time step
+ * \param initial refinement level of cells
+ * \param maximum allowed refinement level of cells
+ * \param[out] reference to the number of cells to be refined
+ * \param[out] reference to the mass-center of selection-cube
 */
-int markCellsForRefinement(VolOctree &mesh)
+void markCellsForRefinement(VolOctree &mesh, const double time, int &nCellsToBeRefined, const std::array<double,2> initialOrigin,
+                            int &initialRefinementLevel, int &maxRefinementLevel)
 {
-    int nCellsToBeRefined = 0;
-    for (int iter = 0; iter < mesh.getCellCount()/2; iter++) {
-        mesh.markCellForRefinement(iter);
-        nCellsToBeRefined++;
+    // GLOBAL
+ // int nCellsToBeRefined = 0;
+ // for (int iter = 0; iter < mesh.getCellCount(); iter++) {
+ //     mesh.markCellForRefinement(iter);
+ //     nCellsToBeRefined++;
+ // }
+    // Create refinement cube which tracks vortex_xy
+//  const double cubeLength = 6;
+
+    std::array<double,2> newOrigin;
+    std::array<double,2> cubeVelocity({1, 1});
+    newOrigin[0] = initialOrigin[0] + time * cubeVelocity[0];
+    newOrigin[1] = initialOrigin[1] + time * cubeVelocity[1];
+
+//  std::vector<double> lowerLimits(2,0);
+//  std::vector<double> upperLimits(2,0);
+//  lowerLimits[0] = newOrigin[0] - 0.5 * cubeLength;
+//  lowerLimits[1] = newOrigin[1] - 0.5 * cubeLength;
+//  upperLimits[0] = newOrigin[0] + 0.5 * cubeLength;
+//  upperLimits[1] = newOrigin[1] + 0.5 * cubeLength;
+
+    nCellsToBeRefined = 0;
+    if (initialRefinementLevel == -1) {
+        initialRefinementLevel = mesh.getCellLevel(0);
+        maxRefinementLevel += initialRefinementLevel - 1;
     }
-    return nCellsToBeRefined;
+    double waveEdge = 1.54 * time;
+    std::cout << "waveEdge  " << waveEdge  << std::endl;
+
+    for (auto cell : mesh.getCells()) {
+        long cellId = cell.getId();
+        if (mesh.getCellLevel(cellId) <= maxRefinementLevel) {
+            // Create inner cycle
+            double x = mesh.evalCellCentroid(cellId)[0];
+            double y = mesh.evalCellCentroid(cellId)[1];
+            double sqrtDistance = (x-newOrigin[0]) * (x-newOrigin[0]) + (y-newOrigin[1]) * (y-newOrigin[1]);
+//          if (lowerLimits[0] <= x && x <= upperLimits[0] && lowerLimits[1] <=y && y <= upperLimits[1] ) {
+            if (sqrtDistance <= 9) { // sqrt(9) is the radius... sorry, for the time being it's hard-coded to death
+                mesh.markCellForRefinement(cellId);
+                nCellsToBeRefined++;
+//          } else if ( (sqrtDistance > 2.25 && sqrtDistance <= 9) && (mesh.getCellLevel(cellId) <= maxRefinementLevel - 1)) {
+//              mesh.markCellForRefinement(cellId);
+//              nCellsToBeRefined++;
+            } else if ( (sqrtDistance > 9 && sqrtDistance <= 16) && (mesh.getCellLevel(cellId) <= maxRefinementLevel - 2)) {
+                mesh.markCellForRefinement(cellId);
+                nCellsToBeRefined++;
+            } else if
+            (
+//              (sqrtDistance >= 48 && sqrtDistance <= 50)
+//           && (mesh.getCellLevel(cellId) <= maxRefinementLevel - 2)
+//              (sqrtDistance >= 47)
+//           && (sqrtDistance <= 51)
+//           && (time >= 2.325)
+//           && (mesh.getCellLevel(cellId) >= maxRefinementLevel - 3))
+//              (waveEdge > 4 && sqrtDistance <= 51)
+                (waveEdge > 4)
+             && (sqrtDistance <= waveEdge * waveEdge)
+             && (mesh.getCellLevel(cellId) <= maxRefinementLevel - 2))
+            {
+                mesh.markCellForRefinement(cellId);
+                nCellsToBeRefined++;
+            }
+        }
+    }
 }
 
 /*
@@ -58,27 +120,38 @@ int markCellsForRefinement(VolOctree &mesh)
  * \param parent field of conservatives at cells
  * \param parent field of primitives at cells
  * \param parent field of conservativesWork at cells
+ * \param time step
+ * \param initial refinement level of cells
+ * \param maximum allowed refinement level of cells
  * \param[out] field of RHS-of-equations at cells
  * \param[out] field of conservatives at cells
  * \param[out] field of primitives at cells
  * \param[out] field of conservativesWork at cells
  */
 void meshAdaptation(VolOctree &mesh, std::vector<std::vector<double>> &parentCellRHS, std::vector<std::vector<double>> &parentCellConservatives,
-                    ScalarPiercedStorageCollection<double> &cellRHS, ScalarPiercedStorageCollection<double> &cellConservatives)
+                    ScalarPiercedStorageCollection<double> &cellRHS, ScalarPiercedStorageCollection<double> &cellConservatives, const double time,
+                    const std::array<double,2> initialOrigin, int &initialRefinementLevel, int &maxRefinementLevel)
 {
     std::vector<adaption::Info> adaptionData;
-    int nCellsToBeRefined = markCellsForRefinement(mesh);
-    std::vector<long> oldLocalIDs(nCellsToBeRefined * 4);
-    for (int iField = 0; iField < N_FIELDS; iField++) {
-         parentCellRHS[iField].resize(nCellsToBeRefined);
-         parentCellConservatives[iField].resize(nCellsToBeRefined);
-    }
+    int nCellsToBeRefined = 0;
+    markCellsForRefinement(mesh, time, nCellsToBeRefined, initialOrigin, initialRefinementLevel, maxRefinementLevel);
+    std::vector<long> oldLocalIDs;
+
+//  int localID(0);
+//  for (int iter = 0; iter < nCellsToBeRefined; iter++) {
+//      for (int iter = 0; iter < 4; iter++) {
+//          oldLocalIDs[4 * localID + iter] = localID;
+//          std::cout << "oldLocalIDs[" << 4 * localID + iter << "] = " << localID << std::endl;
+//      }
+//      localID++;
+//  }
     bool trackAdaptation = true;
     adaptionData = mesh.adaptionPrepare(trackAdaptation);
 
     const std::size_t cellSize = mesh.getCellCount();
 
-    int localID(0);
+    long localID(0);
+
     for (const adaption::Info &adaptionInfo : adaptionData) {
         // Consider only cell refinements
         if (adaptionInfo.entity != adaption::Entity::ENTITY_CELL) {
@@ -89,12 +162,13 @@ void meshAdaptation(VolOctree &mesh, std::vector<std::vector<double>> &parentCel
 
         // Save parent data
         for (long parentId : adaptionInfo.previous) {
-            for (int iter = 0; iter < 4; iter++) {
-                oldLocalIDs[4 * localID + iter] = localID;
-            }
+            oldLocalIDs.push_back(localID);
+         // for (int iter = 0; iter < 4; iter++) {
+         //     oldLocalIDs.push_back(localID);
+         // }
             for (int iField = 0; iField < N_FIELDS; iField++) {
-                parentCellRHS[iField][localID] = cellRHS[iField].at(parentId);
-                parentCellConservatives[iField][localID] = cellConservatives[iField].at(parentId);
+                parentCellRHS[iField].push_back(cellRHS[iField].at(parentId));
+                parentCellConservatives[iField].push_back(cellConservatives[iField].at(parentId));
             }
             localID++;
         }
@@ -114,15 +188,14 @@ void meshAdaptation(VolOctree &mesh, std::vector<std::vector<double>> &parentCel
 
         // Assign data to children
         long parentId = adaptionInfo.previous.front();
+        int localID = oldLocalIDs[count];
         for (long currentId : adaptionInfo.current) {
-            long currentRawId = mesh.getVertex(currentId).getId();
             for (int iField = 0; iField < N_FIELDS; iField++) {
-                int localID = oldLocalIDs[count];
                 cellRHS[iField].set(currentId, parentCellRHS[iField][localID]);
                 cellConservatives[iField].set(currentId, parentCellConservatives[iField][localID]);
             }
-            count++;
         }
+        count++;
     }
 
     mesh.adaptionCleanup();
