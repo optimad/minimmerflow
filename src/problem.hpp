@@ -31,14 +31,15 @@
 namespace problem {
 
 enum ProblemType {
-    PROBLEM_VORTEX_XY = 0,
-    PROBLEM_VORTEX_ZX = 1,
-    PROBLEM_VORTEX_YZ = 2,
-    PROBLEM_RADSOD    = 3,
-    PROBLEM_SOD_X     = 4,
-    PROBLEM_SOD_Y     = 5,
-    PROBLEM_SOD_Z     = 6,
-    PROBLEM_FFSTEP    = 7
+    PROBLEM_VORTEX_XY        = 0,
+    PROBLEM_VORTEX_ZX        = 1,
+    PROBLEM_VORTEX_YZ        = 2,
+    PROBLEM_RADSOD           = 3,
+    PROBLEM_SOD_X            = 4,
+    PROBLEM_SOD_Y            = 5,
+    PROBLEM_SOD_Z            = 6,
+    PROBLEM_FFSTEP           = 7,
+    PROBLEM_VORTEX_XY_CUSTOM = 8
 };
 
 ProblemType getProblemType();

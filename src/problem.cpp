@@ -53,6 +53,8 @@ ProblemType getProblemType()
         return PROBLEM_SOD_Z;
     } else if (problemKey == "ffstep") {
         return PROBLEM_FFSTEP;
+    } else if (problemKey == "vortex_xy_custom") {
+        return PROBLEM_VORTEX_XY_CUSTOM;
     } else {
         throw std::runtime_error("Problem " + problemKey + " is not supported.");
     }
@@ -101,6 +103,9 @@ void getDomainData(ProblemType problemType, int &dimensions, std::array<double, 
         case PROBLEM_VORTEX_YZ:
             (*origin) = {{-5, -5, -5.}};
             break;
+        case PROBLEM_VORTEX_XY_CUSTOM:
+            (*origin) = {{-4., -4., -4.}};
+            break;
 
         case PROBLEM_SOD_X:
         case PROBLEM_SOD_Y:
@@ -129,6 +134,10 @@ void getDomainData(ProblemType problemType, int &dimensions, std::array<double, 
         case PROBLEM_VORTEX_ZX:
         case PROBLEM_VORTEX_YZ:
             (*length) = 10.;
+            break;
+
+        case PROBLEM_VORTEX_XY_CUSTOM:
+            (*length) = 15.;
             break;
 
         case PROBLEM_SOD_X:
@@ -187,11 +196,13 @@ double getEndTime(ProblemType problemType, int dimensions)
         case PROBLEM_VORTEX_XY:
         case PROBLEM_VORTEX_ZX:
         case PROBLEM_VORTEX_YZ:
+        case PROBLEM_VORTEX_XY_CUSTOM:
             if (dimensions == 2) {
                 return 2.;
             } else {
                 return 1.;
             }
+
 
         case PROBLEM_SOD_X:
         case PROBLEM_SOD_Y:
@@ -257,6 +268,7 @@ void evalExactConservatives(ProblemType problemType, int dimensions, std::array<
         case PROBLEM_VORTEX_XY:
         case PROBLEM_VORTEX_ZX:
         case PROBLEM_VORTEX_YZ:
+        case PROBLEM_VORTEX_XY_CUSTOM:
         {
             // Vortex data
             const double VORTEX_BETA  = 5.0;
@@ -266,7 +278,7 @@ void evalExactConservatives(ProblemType problemType, int dimensions, std::array<
             double VORTEX_V_INF = 1.0;
             double VORTEX_W_INF = 1.0;
 
-            if (problemType == PROBLEM_VORTEX_XY) {
+            if (problemType == PROBLEM_VORTEX_XY || problemType == PROBLEM_VORTEX_XY_CUSTOM) {
                 VORTEX_W_INF = 0.;
             } else if (problemType == PROBLEM_VORTEX_ZX) {
                 VORTEX_V_INF = 0.;
@@ -275,14 +287,20 @@ void evalExactConservatives(ProblemType problemType, int dimensions, std::array<
             }
 
             // Position of point at time t
-            point[0] -= t * VORTEX_U_INF;
-            point[1] -= t * VORTEX_V_INF;
-            point[2] -= t * VORTEX_W_INF;
+            if (problemType == PROBLEM_VORTEX_XY_CUSTOM) {
+                point[0] -= t * VORTEX_U_INF;
+                point[1] -= t * VORTEX_V_INF;
+                point[2] -= t * VORTEX_W_INF;
+            } else {
+                point[0] -= t * VORTEX_U_INF;
+                point[1] -= t * VORTEX_V_INF;
+                point[2] -= t * VORTEX_W_INF;
+            }
 
             // Coordinates used to evaluate vortex data
             double csi = 0.;
             double eta = 0.;
-            if (problemType == PROBLEM_VORTEX_XY) {
+            if (problemType == PROBLEM_VORTEX_XY || problemType == PROBLEM_VORTEX_XY_CUSTOM) {
                 csi = point[0];
                 eta = point[1];
             } else if (problemType == PROBLEM_VORTEX_ZX) {
@@ -295,12 +313,18 @@ void evalExactConservatives(ProblemType problemType, int dimensions, std::array<
 
             // Vortex data
             double r     = std::sqrt(csi * csi + eta * eta);
+            if (problemType == PROBLEM_VORTEX_XY_CUSTOM) r *= 1.8;
+
             double shape = VORTEX_BETA / (2 * M_PI) * std::exp(0.5 * (1 - r * r));
 
             double du = 0.;
             double dv = 0.;
             double dw = 0.;
             if (problemType == PROBLEM_VORTEX_XY) {
+                du = - eta * shape;
+                dv =   csi * shape;
+                dw = 0.;
+            } else if (problemType == PROBLEM_VORTEX_XY_CUSTOM) {
                 du = - eta * shape;
                 dv =   csi * shape;
                 dw = 0.;
@@ -419,6 +443,7 @@ int getBorderBCType(ProblemType problemType, long id, const MeshGeometricalInfo 
     case (PROBLEM_SOD_X):
     case (PROBLEM_SOD_Y):
     case (PROBLEM_SOD_Z):
+    case (PROBLEM_VORTEX_XY_CUSTOM):
         return BC_FREE_FLOW;
 
     case (PROBLEM_RADSOD):
