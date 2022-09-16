@@ -28,6 +28,8 @@ cmake_minimum_required(VERSION 3.13)
 # Name your project here
 set(MINIMMERFLOW_EXECUTABLE_NAME minimmerflow CACHE INTERNAL "Executable name of the solver" FORCE)
 
+include_directories("${BITPIT_INCLUDE_DIRS}")
+
 set(SOURCE_PATTERN "*.cpp")
 if (MINIMMERFLOW_ENABLE_CUDA)
     LIST(APPEND SOURCE_PATTERN "*.cu")
