@@ -106,10 +106,11 @@ const typename BaseStorageCollection<storage_t>::value_type * const * BaseStorag
  * Constructor
  *
  * \param nStorages is the number of storages
+ * \param nFields is the number of fields associated with each storage
  */
 template<typename value_t, typename dev_value_t, typename id_t>
-PiercedStorageCollection<value_t, dev_value_t, id_t>::PiercedStorageCollection(std::size_t nStorages)
-    : BaseStorageCollection<ValuePiercedStorage<value_t, dev_value_t>>(nStorages, 1)
+PiercedStorageCollection<value_t, dev_value_t, id_t>::PiercedStorageCollection(std::size_t nStorages, int nFields)
+    : BaseStorageCollection<ValuePiercedStorage<value_t, dev_value_t>>(nStorages, nFields)
 {
 }
 
@@ -118,11 +119,27 @@ PiercedStorageCollection<value_t, dev_value_t, id_t>::PiercedStorageCollection(s
  *
  * \param nStorages is the number of storages
  * \param kernel is the kernel
+ * \param nFields is the number of fields associated with each storage
  */
 template<typename value_t, typename dev_value_t, typename id_t>
-PiercedStorageCollection<value_t, dev_value_t, id_t>::PiercedStorageCollection(std::size_t nStorages, bitpit::PiercedKernel<id_t> *kernel)
-    : BaseStorageCollection<ValuePiercedStorage<value_t, dev_value_t>>(nStorages, 1, kernel)
+PiercedStorageCollection<value_t, dev_value_t, id_t>::PiercedStorageCollection(std::size_t nStorages, int nFields, bitpit::PiercedKernel<id_t> *kernel)
+    : BaseStorageCollection<ValuePiercedStorage<value_t, dev_value_t>>(nStorages, nFields, kernel)
 {
+}
+
+/*!
+ * Get the number of fields stored in each storage of the collection.
+ *
+ * \result The number of fields stored in each storage of the collection.
+ */
+template<typename value_t, typename dev_value_t, typename id_t>
+int PiercedStorageCollection<value_t, dev_value_t, id_t>::getFieldCount() const
+{
+    if (this->getStorageCount() == 0) {
+        return 0;
+    }
+
+    return (*this)[0].getFieldCount();
 }
 
 /*!

@@ -48,8 +48,8 @@ MeshGeometricalInfo::MeshGeometricalInfo(VolumeKernel *patch)
  */
 MeshGeometricalInfo::MeshGeometricalInfo(VolumeKernel *patch, bool extractInfo)
     : PatchInfo(patch),
-      m_cellCentroids(3),
-      m_interfaceCentroids(3), m_interfaceNormals(3), m_interfaceTangents(3)
+      m_cellCentroids(3, 1),
+      m_interfaceCentroids(3, 1), m_interfaceNormals(3, 1), m_interfaceTangents(3, 1)
 {
     m_volumePatch = dynamic_cast<const VolumeKernel *>(patch);
     if (!m_volumePatch) {
