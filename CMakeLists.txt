@@ -219,7 +219,7 @@ else ()
 endif ()
 
 IF(NOT CMAKE_BUILD_TYPE_LOWER MATCHES "debug")
-    list (APPEND BITPIT_DEFINITIONS_PRIVATE "NDEBUG")
+    list (APPEND MINIMMERFLOW_DEFINITIONS "NDEBUG")
 endif ()
 
 # Add the definitions
