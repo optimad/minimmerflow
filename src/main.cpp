@@ -214,10 +214,10 @@ void computation(int argc, char *argv[])
     log::cout() << std::endl;
     log::cout() << "Storage initialization..."  << std::endl;
 
-    ScalarPiercedStorageCollection<double> cellPrimitives(N_FIELDS, &(mesh.getCells()));
-    ScalarPiercedStorageCollection<double> cellConservatives(N_FIELDS, &(mesh.getCells()));
-    ScalarPiercedStorageCollection<double> cellConservativesWork(N_FIELDS, &(mesh.getCells()));
-    ScalarPiercedStorageCollection<double> cellRHS(N_FIELDS, &(mesh.getCells()));
+    ScalarPiercedStorageCollection<double> cellPrimitives(N_FIELDS, 1, &(mesh.getCells()));
+    ScalarPiercedStorageCollection<double> cellConservatives(N_FIELDS, 1, &(mesh.getCells()));
+    ScalarPiercedStorageCollection<double> cellConservativesWork(N_FIELDS, 1, &(mesh.getCells()));
+    ScalarPiercedStorageCollection<double> cellRHS(N_FIELDS, 1, &(mesh.getCells()));
 
 #if ENABLE_CUDA
     cellRHS.cuda_allocateDevice();

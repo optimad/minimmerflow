@@ -203,8 +203,10 @@ class PiercedStorageCollection : public BaseStorageCollection<ValuePiercedStorag
 {
 
 public:
-    PiercedStorageCollection(std::size_t nStorages);
-    PiercedStorageCollection(std::size_t nStorages, bitpit::PiercedKernel<id_t> *kernel);
+    PiercedStorageCollection(std::size_t nStorages, int nFields);
+    PiercedStorageCollection(std::size_t nStorages, int nFields, bitpit::PiercedKernel<id_t> *kernel);
+
+    int getFieldCount() const;
 
 };
 
