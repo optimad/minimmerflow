@@ -82,10 +82,13 @@ endif()
 #------------------------------------------------------------------------------------#
 # External dependencies
 #------------------------------------------------------------------------------------#
+
+# MPI
 if (MINIMMERFLOW_ENABLE_MPI)
     find_package(MPI)
 endif()
 
+# OpenACC
 if (MINIMMERFLOW_ENABLE_OPENACC)
     find_package(OpenACC REQUIRED)
 
@@ -100,6 +103,7 @@ if (MINIMMERFLOW_ENABLE_OPENACC)
     endforeach()
 endif()
 
+# bitpit
 find_package(BITPIT REQUIRED)
 include(${BITPIT_USE_FILE})
 
