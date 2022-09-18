@@ -46,6 +46,17 @@ BaseStorageCollection<storage_t>::BaseStorageCollection(std::size_t nStorages, A
 }
 
 /*!
+ * Get the number of storages in the collection.
+ *
+ * \result The number of storages in the collection.
+ */
+template<typename storage_t>
+std::size_t BaseStorageCollection<storage_t>::getStorageCount() const
+{
+    return m_storages.size();
+}
+
+/*!
     Returns a constant reference to the storage of the specified storage.
 
     \param index is the index of the storage
