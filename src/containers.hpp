@@ -154,6 +154,8 @@ public:
     typedef typename storage_t::value_type value_type;
     typedef typename storage_t::dev_value_type dev_value_type;
 
+    std::size_t getStorageCount() const;
+
     const storage_t & operator[](std::size_t index) const;
     storage_t & operator[](std::size_t index);
 
