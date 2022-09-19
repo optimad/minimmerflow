@@ -140,14 +140,16 @@ void computation(int argc, char *argv[])
         }
     }
 
+    std::size_t haloSize = order;
+
     log::cout() << "*** Calling VolOctree constructor with " << nCellsPerDirection
                 << " cells per direction, which will be uniformly refined " <<  initialRefs
                 << " times." << std::endl;
 
 #if ENABLE_MPI
-    VolOctree mesh(dimensions, origin, length, length / nCellsPerDirection, MPI_COMM_WORLD);
+    VolOctree mesh(dimensions, origin, length, length / nCellsPerDirection, MPI_COMM_WORLD, haloSize);
 #else
-    VolOctree mesh(dimensions, origin, length, length / nCellsPerDirection);
+    VolOctree mesh(dimensions, origin, length, length / nCellsPerDirection, haloSize);
 #endif
 
     mesh.initializeAdjacencies();
@@ -231,7 +233,11 @@ void computation(int argc, char *argv[])
     log::cout() << std::endl;
     log::cout() << "Reconstruction initialization..."  << std::endl;
 
-    reconstruction::initialize();
+    ReconstructionCalculator reconstructionCalculator(computationInfo, order);
+#if ENABLE_CUDA
+    reconstructionCalculator.cuda_initialize();
+#endif
+
     log_memory_status();
 
 #if ENABLE_CUDA
@@ -404,14 +410,15 @@ void computation(int argc, char *argv[])
         // FIRST RK STAGE
         //
 
-        // Compute the residuals
+        // Update reconstruction calculator
 #if ENABLE_CUDA
         cellConservatives.cuda_updateDevice();
 #endif
 
-        reconstruction::computePolynomials(problemType, computationInfo, cellConservatives, solvedBoundaryInterfaceBCs);
-        euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservatives, &cellRHS, &maxEig);
+        reconstructionCalculator.update(cellConservatives);
 
+        // Compute the residuals
+        euler::computeRHS(problemType, computationInfo, solvedBoundaryInterfaceBCs, reconstructionCalculator, &cellRHS, &maxEig);
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
             MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_DOUBLE, MPI_MAX, mesh.getCommunicator());
@@ -452,12 +459,15 @@ void computation(int argc, char *argv[])
         }
 #endif
 
+        // Update reconstruction calculator
 #if ENABLE_CUDA
         cellConservativesWork.cuda_updateDevice();
 #endif
 
-        reconstruction::computePolynomials(problemType, computationInfo, cellConservativesWork, solvedBoundaryInterfaceBCs);
-        euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservativesWork, &cellRHS, &maxEig);
+        reconstructionCalculator.update(cellConservativesWork);
+
+        // Compute residuals
+        euler::computeRHS(problemType, computationInfo, solvedBoundaryInterfaceBCs, reconstructionCalculator, &cellRHS, &maxEig);
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
             MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_DOUBLE, MPI_MAX, mesh.getCommunicator());
@@ -491,12 +501,15 @@ void computation(int argc, char *argv[])
         }
 #endif
 
+        // Update reconstruction calculator
 #if ENABLE_CUDA
         cellConservativesWork.cuda_updateDevice();
 #endif
 
-        reconstruction::computePolynomials(problemType, computationInfo, cellConservativesWork, solvedBoundaryInterfaceBCs);
-        euler::computeRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservativesWork, &cellRHS, &maxEig);
+        reconstructionCalculator.update(cellConservativesWork);
+
+        // Compute residuals
+        euler::computeRHS(problemType, computationInfo, solvedBoundaryInterfaceBCs, reconstructionCalculator, &cellRHS, &maxEig);
 #if ENABLE_MPI
         if (mesh.isPartitioned()) {
             MPI_Allreduce(MPI_IN_PLACE, &maxEig, 1, MPI_DOUBLE, MPI_MAX, mesh.getCommunicator());
@@ -625,6 +638,7 @@ void computation(int argc, char *argv[])
 #if ENABLE_CUDA
     cellRHS.cuda_freeDevice();
     computationInfo.cuda_finalize();
+    reconstructionCalculator.cuda_finalize();
     euler::cuda_finalize();
 #endif
 }

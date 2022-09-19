@@ -1,0 +1,87 @@
+/*---------------------------------------------------------------------------*\
+ *
+ *  minimmerflow
+ *
+ *  Copyright (C) 2015-2021 OPTIMAD engineering Srl
+ *
+ *  -------------------------------------------------------------------------
+ *  License
+ *  This file is part of minimmerflow.
+ *
+ *  minimmerflow is free software: you can redistribute it and/or modify it
+ *  under the terms of the GNU Lesser General Public License v3 (LGPL)
+ *  as published by the Free Software Foundation.
+ *
+ *  minimmerflow is distributed in the hope that it will be useful, but WITHOUT
+ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ *  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+ *  License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public License
+ *  along with minimmerflow. If not, see <http://www.gnu.org/licenses/>.
+ *
+\*---------------------------------------------------------------------------*/
+
+#ifndef __MINIMMERFLOW_POLYNOMIALS_HCU__
+#define __MINIMMERFLOW_POLYNOMIALS_HCU__
+
+#if ENABLE_CUDA
+#include "compiler.hpp"
+#include "constants.hpp"
+#include "containers.hcu"
+#include "polynomials.hpp"
+#else
+#include "constants.hpp"
+#endif
+
+#if ENABLE_CUDA
+class DevicePolynomialCoefficientsCursor
+{
+
+public:
+    __device__ DevicePolynomialCoefficientsCursor(double **storage, std::size_t blockSize);
+
+    __device__ void rawSet(std::size_t rawId);
+
+    __device__ double * data(int field);
+    __device__ const double * data(int field) const;
+
+private:
+    double **m_storage;
+    std::size_t m_blockSize;
+    std::size_t m_offset;
+
+};
+
+class DevicePolynomialCoefficientsConstCursor
+{
+
+public:
+    __device__ DevicePolynomialCoefficientsConstCursor(const double * const *storage, std::size_t blockSize);
+
+    __device__ void rawSet(std::size_t rawId);
+
+    __device__ const double * data(int field) const;
+
+private:
+    const double * const *m_storage;
+    std::size_t m_blockSize;
+    std::size_t m_offset;
+
+};
+
+class DevicePolynomialSupportFields
+{
+
+public:
+    __device__ DevicePolynomialSupportFields(const double * const *storage);
+
+    __device__ double rawAt(std::size_t rawId, int field) const;
+
+private:
+    const double * const *m_storage;
+
+};
+#endif
+
+#endif

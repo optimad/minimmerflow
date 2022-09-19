@@ -116,25 +116,6 @@ __device__ void dev_solveRiemann(const DeviceSharedArray<double, BLOCK_SIZE> &co
 }
 
 /*!
- * Evaluate cell values on interface centroids.
- *
- * \param nInterfaces is the number of solved interfaces
- * \param interfaceRawIds are the raw ids of the solved interfaces
- * \param interfaceCentroids are the centroid of the interfaces
- * \param cellRawIds are the raw ids of the cells
- * \param cellValues are the cell values
- * \param order is the reconstruction order
- * \param[out] interfaceValues are the interface values
- */
-template<int BLOCK_SIZE>
-__device__ void dev_evalInterfaceValues(int order, const double3 &point,
-                                        const DeviceCollectionDataConstCursor<double> &means,
-                                        DeviceSharedArray<double, BLOCK_SIZE> *values)
-{
-    reconstruction::dev_eval<BLOCK_SIZE>(order, point, means, values);
-}
-
-/*!
  * Computes the boundary values for the specified interface.
  *
  * \param problemType is the type of problem being solved
@@ -273,25 +254,28 @@ __device__ void dev_evalDirichletBCValues(const double3 &point, const double3 &n
 /*!
  * Update residual of cells associated with uniform interfaces.
  *
+ * \param dimension is the dimension of the space
+ * \param order is the reconstruction order
  * \param nInterfaces is the number of solved interfaces
- * \param reconstructionOrder is the order at wich values will be reconstructed
- * on the interfaces
  * \param interfaceRawIds are the raw ids of the solved interfaces
  * \param interfaceNormals are the normals of the interfaces
  * \param interfaceAreas are the areas of the interfaces
  * \param interfaceCentroids are the centroids of the interfaces
  * \param leftCellRawIds are the raw ids of the left cells
  * \param rightCellRawIds are the raw ids of the right cells
- * \param cellConvervatives are the conservative fileds on the cells
+ * \param cellCentroids are the cell reconstruction centroids
+ * \param cellPolynomials are the conservative fileds on the cells
+ * \param cellPolynomialsBlockSize, is the block size of the cell polynomials storage
  * \param[out] cellRHS are the RHS of the cells
  * \param[out] maxEig on output will containt the maximum eigenvalue
  */
 template<int BLOCK_SIZE>
-__global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, int reconstructionOrder,
+__global__ void dev_uniformUpdateRHS(int dimension, int order, std::size_t nInterfaces,
                                      const std::size_t *interfaceRawIds, const double *interfaceAreas,
                                      const double * const *interfaceNormals, const double * const *interfaceCentroids,
                                      const std::size_t *leftCellRawIds, const std::size_t *rightCellRawIds,
-                                     const double * const *cellConvervatives, double **cellRHS, double *maxEig)
+                                     const double * const *cellCentroids, const double * const *cellPolynomials,
+                                     int cellPolynomialsBlockSize, double **cellRHS, double *maxEig)
 {
     // Initialize shared storage
     //
@@ -319,17 +303,20 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, int reconstruction
         //    Slot #3: right side reconstructed variables
         double3 interfaceCentroid = make_double3(interfaceCentroids[0][interfaceRawId], interfaceCentroids[1][interfaceRawId], interfaceCentroids[2][interfaceRawId]);
 
-        DeviceCollectionDataConstCursor<double> cellConservativesCursor(cellConvervatives, 0);
+        PolynomialCalculator polynomialCalculator = PolynomialCalculator(dimension, order - 1);
+        DevicePolynomialCoefficientsConstCursor cellPolynomialsCursor(cellPolynomials, cellPolynomialsBlockSize);
 
-        cellConservativesCursor.set(leftCellRawId);
+        cellPolynomialsCursor.rawSet(leftCellRawId);
+        double3 leftCellCentroid = make_double3(cellCentroids[0][leftCellRawId], cellCentroids[1][leftCellRawId], cellCentroids[2][leftCellRawId]);
         double *leftReconstructionsStorage = &(sharedStorage[sharedSlotSize]);
         DeviceSharedArray<double, BLOCK_SIZE> leftInterfaceConservatives(leftReconstructionsStorage);
-        dev_evalInterfaceValues(reconstructionOrder, interfaceCentroid, cellConservativesCursor, &leftInterfaceConservatives);
+        polynomialCalculator.eval(&(leftCellCentroid.x), cellPolynomialsCursor, &(interfaceCentroid.x), &leftInterfaceConservatives);
 
-        cellConservativesCursor.set(rightCellRawId);
+        cellPolynomialsCursor.rawSet(rightCellRawId);
+        double3 rightCellCentroid = make_double3(cellCentroids[0][rightCellRawId], cellCentroids[1][rightCellRawId], cellCentroids[2][rightCellRawId]);
         double *rightReconstructionsStorage = &(sharedStorage[2 * sharedSlotSize]);
         DeviceSharedArray<double, BLOCK_SIZE> rightInterfaceConservatives(rightReconstructionsStorage);
-        dev_evalInterfaceValues(reconstructionOrder, interfaceCentroid, cellConservativesCursor, &rightInterfaceConservatives);
+        polynomialCalculator.eval(&(rightCellCentroid.x), cellPolynomialsCursor, &(interfaceCentroid.x), &rightInterfaceConservatives);
 
         //
         // Evaluate interface fluxes
@@ -395,23 +382,30 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, int reconstruction
 /*!
  * Update residual of cells associated with boundary interfaces.
  *
+ * \param problemType is the type of problem being solved
+ * \param dimension is the dimension of the space
+ * \param order is the reconstruction order
  * \param nInterfaces is the number of solved interfaces
  * \param interfaceRawIds are the raw ids of the solved interfaces
  * \param interfaceAreas are the areas of the interfaces
  * \param interfaceNormals are the normals of the interfaces
  * \param interfaceCentroids are the centroids of the interfaces
  * \param fluidCellRawIds are the raw ids of the fluid cells
- * \param cellConvervatives are the conservative fileds on the cells
+ * \param cellCentroids are the cell reconstruction centroids
+ * \param cellPolynomials are the cell reconstruction polynomials
+ * \param cellPolynomialsBlockSize, is the block size of the cell polynomials storage
  * \param boundarySigns are the signs of the boundaries
  * \param[out] cellRHS are the RHS of the cells
  * \param[out] maxEig on output will containt the maximum eigenvalue
  */
 template<int BLOCK_SIZE>
-__global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, int problemType, int reconstructionOrder,
+__global__ void dev_boundaryUpdateRHS(int problemType, int dimension, int order, std::size_t nInterfaces,
                                       const std::size_t *interfaceRawIds, const double *interfaceAreas,
                                       const double * const *interfaceNormals, const double * const *interfaceCentroids,
-                                      const std::size_t *fluidCellRawIds, const double * const *cellConvervatives,
-                                      const int *boundarySigns, const int *boundaryBCs, double **cellRHS, double *maxEig)
+                                      const std::size_t *fluidCellRawIds, const double * const *cellCentroids, 
+                                      const double * const *cellPolynomials, int cellPolynomialsBlockSize,
+                                      const int *boundarySigns, const int *boundaryBCs,
+                                      double **cellRHS, double *maxEig)
 {
     // Initialize shared storage
     //
@@ -443,10 +437,14 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, int problemType, 
                                                boundarySign * interfaceNormals[1][interfaceRawId], 
                                                boundarySign * interfaceNormals[2][interfaceRawId]);
 
-        DeviceCollectionDataConstCursor<double> fluidCellConservativesCursor(cellConvervatives, fluidCellRawId);
+        PolynomialCalculator polynomialCalculator = PolynomialCalculator(dimension, order - 1);
+        DevicePolynomialCoefficientsConstCursor cellPolynomialsCursor(cellPolynomials, cellPolynomialsBlockSize);
+
+        cellPolynomialsCursor.rawSet(fluidCellRawId);
+        double3 fluidCellCentroid = make_double3(cellCentroids[0][fluidCellRawId], cellCentroids[1][fluidCellRawId], cellCentroids[2][fluidCellRawId]);
         double *fluidReconstructionStorage = &(sharedStorage[sharedSlotSize]);
         DeviceSharedArray<double, BLOCK_SIZE> fluidInterfaceConservatives(fluidReconstructionStorage);
-        dev_evalInterfaceValues(reconstructionOrder, interfaceCentroid, fluidCellConservativesCursor, &fluidInterfaceConservatives);
+        polynomialCalculator.eval(&(fluidCellCentroid.x), cellPolynomialsCursor, &(interfaceCentroid.x), &fluidInterfaceConservatives);
 
         const int interfaceBC = boundaryBCs[i];
         double *virtualReconstructionStorage = &(sharedStorage[2 * sharedSlotSize]);

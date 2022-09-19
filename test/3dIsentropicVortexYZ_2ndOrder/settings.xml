@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<minimmerflow version="1">
+    <problem>
+        <type>vortex_yz</type>
+        <dimensions>3</dimensions>
+    </problem>
+    <discretization>
+        <space>
+            <order>2</order>
+            <nCells>32</nCells>
+        </space>
+        <time>
+            <CFL>0.45</CFL>
+        </time>
+    </discretization>
+</minimmerflow>
