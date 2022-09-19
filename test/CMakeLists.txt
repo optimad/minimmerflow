@@ -137,9 +137,12 @@ endfunction()
 
 set(TEST_DIRECTORIES "")
 list(APPEND TEST_DIRECTORIES "2dIsentropicVortex")
+list(APPEND TEST_DIRECTORIES "2dIsentropicVortex_2ndOrder")
 list(APPEND TEST_DIRECTORIES "2dRadSod")
 list(APPEND TEST_DIRECTORIES "3dIsentropicVortexXY")
+list(APPEND TEST_DIRECTORIES "3dIsentropicVortexXY_2ndOrder")
 list(APPEND TEST_DIRECTORIES "3dIsentropicVortexYZ")
+list(APPEND TEST_DIRECTORIES "3dIsentropicVortexYZ_2ndOrder")
 list(APPEND TEST_DIRECTORIES "3dRadSod")
 
 add_custom_target("test_setup")

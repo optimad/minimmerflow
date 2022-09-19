@@ -27,8 +27,8 @@
 
 #include "constants.hpp"
 #include "containers.hcu"
+#include "polynomials.hcu"
 #include "problem.hcu"
-#include "reconstruction.hcu"
 #include "utils.hcu"
 
 #include "euler.hpp"
@@ -46,10 +46,6 @@ __device__ void dev_sumFluxes(const DeviceSharedArray<double, BLOCK_SIZE> &conse
 template<int BLOCK_SIZE>
 __device__ void dev_solveRiemann(const DeviceSharedArray<double, BLOCK_SIZE> &conservativeL, const DeviceSharedArray<double, BLOCK_SIZE> &conservativeR,
                                  const double3 &normal, DeviceSharedArray<double, BLOCK_SIZE> *fluxes, double *lambda);
-
-template<int BLOCK_SIZE>
-__device__ void dev_evalInterfaceValues(int order, const double3 &point, const DeviceCollectionDataConstCursor<double> &means,
-                                        DeviceSharedArray<double, BLOCK_SIZE> *values);
 
 template<int BLOCK_SIZE>
 __device__ void dev_evalInterfaceBCValues(int problemType, int BCType, const double3 &point, const double3 &normal,
@@ -77,18 +73,21 @@ __device__ void dev_evalDirichletBCValues(const double3 &point, const double3 &n
                                           DeviceSharedArray<double, BLOCK_SIZE> *boundaryValues);
 
 template<int BLOCK_SIZE>
-__global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, int reconstructionOrder,
+__global__ void dev_uniformUpdateRHS(int dimension, int order, std::size_t nInterfaces,
                                      const std::size_t *interfaceRawIds, const double *interfaceAreas,
                                      const double * const *interfaceNormals, const double * const *interfaceCentroids,
                                      const std::size_t *leftCellRawIds, const std::size_t *rightCellRawIds,
-                                     const double * const *cellConvervatives, double **cellRHS, double *maxEig);
+                                     const double * const *cellCentroids, const double * const *cellPolynomials, 
+                                     int cellPolynomialsBlockSize, double **cellRHS, double *maxEig);
 
 template<int BLOCK_SIZE>
-__global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, int problemType, int reconstructionOrder,
+__global__ void dev_boundaryUpdateRHS(int problemType, int dimension, int order, std::size_t nInterfaces,
                                       const std::size_t *interfaceRawIds, const double *interfaceAreas,
                                       const double * const *interfaceNormals, const double * const *interfaceCentroids,
-                                      const std::size_t *fluidCellRawIds, const double * const *cellConvervatives,
-                                      const int *boundarySigns, const int *boundaryBCs, double **cellRHS, double *maxEig);
+                                      const std::size_t *fluidCellRawIds, const double * const *cellCentroids,
+                                      const double * const *cellPolynomials, int cellPolynomialsBlockSize,
+                                      const int *boundarySigns, const int *boundaryBCs,
+                                      double **cellRHS, double *maxEig);
 
 }
 

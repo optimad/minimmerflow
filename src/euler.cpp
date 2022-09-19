@@ -23,6 +23,7 @@
 \*---------------------------------------------------------------------------*/
 
 #include "euler.hpp"
+#include "polynomials.hpp"
 #include "reconstruction.hpp"
 #include "utils.hpp"
 
@@ -117,16 +118,16 @@ void evalFluxes(const double *conservative, const double *primitive, const doubl
  *
  * \param problemType is the problem type
  * \param computationInfo are the computation information
- * \param order is the order
  * \param solvedBoundaryInterfaceBCs is the storage for the interface boundary
  * conditions of the solved boundary cells
- * \param cellConservatives are the cell conservative values
+ * \param reconstructionCalculator is the reconstruction calculator
  * \param[out] cellsRHS on output will containt the RHS
  * \param[out] maxEig on putput will containt the maximum eigenvalue
  */
 void computeRHS(problem::ProblemType problemType, const ComputationInfo &computationInfo,
-                const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-                const ScalarPiercedStorageCollection<double> &cellConservatives, ScalarPiercedStorageCollection<double> *cellsRHS, double *maxEig)
+                const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
+                const ReconstructionCalculator &reconstructionCalculator,
+                ScalarPiercedStorageCollection<double> *cellsRHS, double *maxEig)
 {
     // Reset residuals
 #if ENABLE_CUDA
@@ -137,10 +138,10 @@ void computeRHS(problem::ProblemType problemType, const ComputationInfo &computa
 
     // Update residuals
 #if ENABLE_CUDA
-    cuda_updateRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservatives,
+    cuda_updateRHS(problemType, computationInfo, solvedBoundaryInterfaceBCs, reconstructionCalculator,
                    cellsRHS, maxEig);
 #else
-    updateRHS(problemType, computationInfo, order, solvedBoundaryInterfaceBCs, cellConservatives,
+    updateRHS(problemType, computationInfo, solvedBoundaryInterfaceBCs, reconstructionCalculator,
               cellsRHS, maxEig);
 #endif
 }
@@ -162,15 +163,15 @@ void resetRHS(ScalarPiercedStorageCollection<double> *cellsRHS)
  *
  * \param problemType is the problem type
  * \param computationInfo are the computation information
- * \param order is the order
  * \param interfaceBCs is the boundary conditions storage
- * \param cellConservatives are the cell conservative values
+ * \param reconstructionCalculator is the reconstruction calculator
  * \param[out] cellsRHS on output will containt the RHS
  * \param[out] maxEig on putput will containt the maximum eigenvalue
  */
 void updateRHS(problem::ProblemType problemType, const ComputationInfo &computationInfo,
-               const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-               const ScalarPiercedStorageCollection<double> &cellConservatives, ScalarPiercedStorageCollection<double> *cellsRHS, double *maxEig)
+               const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
+               const ReconstructionCalculator &reconstructionCalculator,
+               ScalarPiercedStorageCollection<double> *cellsRHS, double *maxEig)
 {
     // Get mesh information
     const ScalarStorage<std::size_t> &solvedUniformInterfaceRawIds = computationInfo.getSolvedUniformInterfaceRawIds();
@@ -182,6 +183,14 @@ void updateRHS(problem::ProblemType problemType, const ComputationInfo &computat
     const ScalarStorage<std::size_t> &solvedBoundaryInterfaceFluidRawIds = computationInfo.getSolvedBoundaryInterfaceFluidRawIds();
     const ScalarStorage<int> &solvedBoundaryInterfaceSigns = computationInfo.getSolvedBoundaryInterfaceSigns();
     const std::size_t nSolvedBoundaryInterfaces = solvedBoundaryInterfaceRawIds.size();
+
+    // Get reconstruction information
+    int polynomialOrder     = reconstructionCalculator.getOrder();
+    int polynomialDimension = reconstructionCalculator.getDimension();
+
+    PolynomialCalculator polynomialCalculator = PolynomialCalculator(polynomialDimension, polynomialOrder - 1);
+    const ScalarPiercedStorageCollection<double> &cellPolynomials = reconstructionCalculator.getCellPolynomials();
+    PolynomialCoefficientsConstCursor cellPolynomialCursor(&cellPolynomials);
 
     // Update the residuals
     *maxEig = 0.0;
@@ -196,26 +205,20 @@ void updateRHS(problem::ProblemType problemType, const ComputationInfo &computat
 
         // Info about the interface owner
         std::size_t ownerRawId = solvedUniformInterfaceOwnerRawIds[i];
-
-        std::array<double, N_FIELDS> ownerMean;
-        for (int k = 0; k < N_FIELDS; ++k) {
-            ownerMean[k] = cellConservatives[k].rawAt(ownerRawId);
-        }
+        const std::array<double, 3> &ownerCentroid = computationInfo.rawGetCellCentroid(ownerRawId);
 
         // Info about the interface neighbour
         std::size_t neighRawId = solvedUniformInterfaceNeighRawIds[i];
-
-        std::array<double, N_FIELDS> neighMean;
-        for (int k = 0; k < N_FIELDS; ++k) {
-            neighMean[k] = cellConservatives[k].rawAt(neighRawId);
-        }
+        const std::array<double, 3> &neighCentroid = computationInfo.rawGetCellCentroid(neighRawId);
 
         // Evaluate interface reconstructions
         std::array<double, N_FIELDS> ownerReconstruction;
-        std::array<double, N_FIELDS> neighReconstruction;
+        cellPolynomialCursor.rawSet(ownerRawId);
+        polynomialCalculator.eval(ownerCentroid.data(), cellPolynomialCursor, interfaceCentroid.data(), &ownerReconstruction);
 
-        reconstruction::eval(order, interfaceCentroid, ownerMean.data(), ownerReconstruction.data());
-        reconstruction::eval(order, interfaceCentroid, neighMean.data(), neighReconstruction.data());
+        std::array<double, N_FIELDS> neighReconstruction;
+        cellPolynomialCursor.rawSet(neighRawId);
+        polynomialCalculator.eval(neighCentroid.data(), cellPolynomialCursor, interfaceCentroid.data(), &neighReconstruction);
 
         // Evaluate the conservative fluxes
         FluxData fluxes;
@@ -245,17 +248,19 @@ void updateRHS(problem::ProblemType problemType, const ComputationInfo &computat
 
         // Info about the interface fluid cell
         std::size_t fluidRawId = solvedBoundaryInterfaceFluidRawIds[i];
+        const std::array<double, 3> &fluidCentroid = computationInfo.rawGetCellCentroid(fluidRawId);
 
-        std::array<double, N_FIELDS> fluidMean;
+        std::array<const double *, N_FIELDS> fluidPolynomials;
         for (int k = 0; k < N_FIELDS; ++k) {
-            fluidMean[k] = cellConservatives[k].rawAt(fluidRawId);
+            fluidPolynomials[k] = cellPolynomials[k].rawData(fluidRawId);
         }
 
         // Evaluate interface reconstructions
         std::array<double, N_FIELDS> fluidReconstruction;
-        std::array<double, N_FIELDS> virtualReconstruction;
+        cellPolynomialCursor.rawSet(fluidRawId);
+        polynomialCalculator.eval(fluidCentroid.data(), cellPolynomialCursor, interfaceCentroid.data(), &fluidReconstruction);
 
-        reconstruction::eval(order, interfaceCentroid, fluidMean.data(), fluidReconstruction.data());
+        std::array<double, N_FIELDS> virtualReconstruction;
         evalInterfaceBCValues(interfaceCentroid, interfaceNormal, problemType, interfaceBC, fluidReconstruction.data(), virtualReconstruction.data());
 
         // Evaluate the conservative fluxes

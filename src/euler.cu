@@ -23,6 +23,7 @@
 \*---------------------------------------------------------------------------*/
 
 #include "euler.hcu"
+#include "polynomials.hcu"
 #include "utils_cuda.hpp"
 
 #include <float.h>
@@ -132,13 +133,14 @@ void cuda_resetRHS(ScalarPiercedStorageCollection<double> *cellsRHS)
  * \param computationInfo are the computation information
  * \param order is the order
  * \param interfaceBCs is the boundary conditions storage
- * \param cellConservatives are the cell conservative values
+ * \param cellPolynomials are the cell reconstruction polynomials
  * \param[out] cellsRHS on output will containt the RHS
  * \param[out] maxEig on putput will containt the maximum eigenvalue
  */
 void cuda_updateRHS(problem::ProblemType problemType, const ComputationInfo &computationInfo,
-                    const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-                    const ScalarPiercedStorageCollection<double> &cellConservatives, ScalarPiercedStorageCollection<double> *cellsRHS, double *maxEig)
+                    const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
+                    const ReconstructionCalculator &reconstructionCalculator,
+                    ScalarPiercedStorageCollection<double> *cellsRHS, double *maxEig)
 {
     //
     // Initialization
@@ -151,9 +153,15 @@ void cuda_updateRHS(problem::ProblemType problemType, const ComputationInfo &com
 
     double **devCellsRHS = cellsRHS->cuda_deviceCollectionData();
 
-    const double * const *devCellConservatives = cellConservatives.cuda_deviceCollectionData();
+    const double * const *devCellCentroids = computationInfo.cuda_getCellCentroidDevData();
+
+    const double * const *devCellPolynomials = reconstructionCalculator.cuda_getCellPolynomialDevData();
+    int devCellPolynomialsBlockSize = reconstructionCalculator.getCellPolynomials().getFieldCount();
 
     int devProblemType = static_cast<int>(problemType);
+
+    int devOrder     = reconstructionCalculator.getOrder();
+    int devDimension = reconstructionCalculator.getDimension();
 
     //
     // Device properties
@@ -184,9 +192,9 @@ void cuda_updateRHS(problem::ProblemType problemType, const ComputationInfo &com
     // Evaluate fluxes
     dev_uniformUpdateRHS<UNIFORM_BLOCK_SIZE><<<nUniformBlocks, UNIFORM_BLOCK_SIZE, UNIFORM_SHARED_SIZE>>>
     (
-        nSolvedUniformInterfaces, order,
+        devDimension, devOrder, nSolvedUniformInterfaces,
         devUniformInterfaceRawIds, devInterfaceAreas,devInterfaceNormals, devInterfaceCentroids,
-        devUniformOwnerRawIds, devUniformNeighRawIds, devCellConservatives,
+        devUniformOwnerRawIds, devUniformNeighRawIds, devCellCentroids, devCellPolynomials, devCellPolynomialsBlockSize,
         devCellsRHS, devMaxEig
     );
 
@@ -211,9 +219,9 @@ void cuda_updateRHS(problem::ProblemType problemType, const ComputationInfo &com
     // Evaluate fluxes
     dev_boundaryUpdateRHS<BOUNDARY_BLOCK_SIZE><<<nBoundaryBlocks, BOUNDARY_BLOCK_SIZE, BOUNDARY_SHARED_SIZE>>>
     (
-        nBoundaryInterfaces, devProblemType, order,
+        devProblemType, devDimension, devOrder, nBoundaryInterfaces,
         devBoundaryInterfaceRawIds, devInterfaceAreas, devInterfaceNormals, devInterfaceCentroids,
-        devBoundaryFluidRawIds, devCellConservatives,
+        devBoundaryFluidRawIds, devCellCentroids, devCellPolynomials, devCellPolynomialsBlockSize,
         devBoundaryInterfaceSigns, devBoundaryInterfaceBCs,
         devCellsRHS, devMaxEig
     );

@@ -22,24 +22,18 @@
  *
 \*---------------------------------------------------------------------------*/
 
-#ifndef __MINIMMERFLOW_RECONSTRUCTION_HCU__
-#define __MINIMMERFLOW_RECONSTRUCTION_HCU__
+#ifndef __MINIMMERFLOW_COMPILER_HPP__
+#define __MINIMMERFLOW_COMPILER_HPP__
 
-#include "polynomials.hcu"
-#include "reconstruction.hpp"
-
-namespace reconstruction {
-
-template<int BLOCK_SIZE>
-__global__ void dev_updateCellPolynomials(int dimension, int order, std::size_t nCells,
-                                          const std::size_t *cellRawIds, const std::size_t *cellSupportSizes,
-                                          const std::size_t *cellSupportOffsets, const long *cellSupportIds,
-                                          const double * const *cellConservatives, const double *cellKernelWeights,
-                                          double **cellPolynomials, int cellPolynomialsBlockSize);
-
-}
-
-// Include template definitions
-#include "reconstruction.tcu"
+#ifdef __CUDACC__
+#define CUDA_HOST_DEVICE __host__ __device__
+#define CUDA_HOST        __host__
+#define CUDA_DEVICE      __device__
+#else
+#define CUDA_HOST_DEVICE
+#define CUDA_HOST
+#define CUDA_DEVICE
+#endif
 
 #endif
+

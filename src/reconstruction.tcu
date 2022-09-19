@@ -1,0 +1,77 @@
+/*---------------------------------------------------------------------------*\
+ *
+ *  minimmerflow
+ *
+ *  Copyright (C) 2015-2021 OPTIMAD engineering Srl
+ *
+ *  -------------------------------------------------------------------------
+ *  License
+ *  This file is part of minimmerflow.
+ *
+ *  minimmerflow is free software: you can redistribute it and/or modify it
+ *  under the terms of the GNU Lesser General Public License v3 (LGPL)
+ *  as published by the Free Software Foundation.
+ *
+ *  minimmerflow is distributed in the hope that it will be useful, but WITHOUT
+ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ *  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+ *  License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public License
+ *  along with minimmerflow. If not, see <http://www.gnu.org/licenses/>.
+ *
+\*---------------------------------------------------------------------------*/
+
+#ifndef __MINIMMERFLOW_RECONSTRUCTION_TCU__
+#define __MINIMMERFLOW_RECONSTRUCTION_TCU__
+
+namespace reconstruction {
+
+/*!
+ * Update cell reconstruction polynomials.
+ *
+ * \param dimension is the dimension of the space
+ * \param order is the reconstruction order
+ * \param nCells is the number of solved cells
+ * \param cellRawIds are the raw ids of the solved cells
+ * \param cellSupportSizes are the support size of the cells
+ * \param cellSupportOffsets are the support offsets of the cells
+ * \param cellSupportIds are the support ids of the cells
+ * \param cellConservatives are the cell conservative values
+ * \param cellKernelWeights are the kernel weights of the cells
+ * \param cellPolynomials are the conservative fileds on the cells
+ * \param cellPolynomialsBlockSize, is the block size of the cell polynomials storage
+ */
+template<int BLOCK_SIZE>
+__global__ void dev_updateCellPolynomials(int dimension, int order, std::size_t nCells,
+                                          const std::size_t *cellRawIds, const std::size_t *cellSupportSizes,
+                                          const std::size_t *cellSupportOffsets, const long *cellSupportIds,
+                                          const double * const *cellConservatives, const double *cellKernelWeights,
+                                          double **cellPolynomials, int cellPolynomialsBlockSize)
+{
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < nCells; i += blockDim.x * gridDim.x) {
+        // Cell information
+        const std::size_t cellRawId = cellRawIds[i];
+
+        // Get support
+        const std::size_t cellSupportSize   = cellSupportSizes[cellRawId];
+        const std::size_t cellSupportOffset = cellSupportOffsets[cellRawId];
+        const long *cellSupportRawIds       = cellSupportIds + cellSupportOffset;
+
+        // Get reconstruction kernel information
+        const std::size_t cellWeightsOffset = cellPolynomialsBlockSize * cellSupportOffset;
+        const double *cellWeights = cellKernelWeights + cellWeightsOffset;
+
+        // Assemble reconstruction polynomial
+        DevicePolynomialSupportFields supportFields(cellConservatives);
+        PolynomialAssembler polynomialAssembler = PolynomialAssembler(dimension, order - 1);
+        DevicePolynomialCoefficientsCursor cellPolynomialCursor(cellPolynomials, cellPolynomialsBlockSize);
+
+        cellPolynomialCursor.rawSet(cellRawId);
+        polynomialAssembler.assemble(cellWeights, cellSupportSize, cellSupportRawIds, supportFields, &cellPolynomialCursor);
+    }
+}
+
+}
+
+#endif
