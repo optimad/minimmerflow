@@ -29,6 +29,7 @@
 #include "constants.hpp"
 #include "mesh_info.hpp"
 #include "problem.hpp"
+#include "reconstruction.hpp"
 #include "storage.hpp"
 
 #include <bitpit_voloctree.hpp>
@@ -40,8 +41,9 @@ void evalSplitting(const double *conservativeL, const double *conservativeR, con
 void evalFluxes(const double *conservative, const double *primitive, const double *n, double *fluxes);
 
 void computeRHS(problem::ProblemType problemType, const ComputationInfo &computationInfo,
-                const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-                const ScalarPiercedStorageCollection<double> &cellConservatives, ScalarPiercedStorageCollection<double> *cellsRHS, double *maxEig);
+                const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
+                const ReconstructionCalculator &reconstructionCalculator,
+                ScalarPiercedStorageCollection<double> *cellsRHS, double *maxEig);
 
 #if ENABLE_CUDA
 void cuda_initialize();
@@ -54,12 +56,14 @@ void cuda_resetRHS(ScalarPiercedStorageCollection<double> *cellsRHS);
 #endif
 
 void updateRHS(problem::ProblemType problemType,const ComputationInfo &computationInfo,
-               const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-               const ScalarPiercedStorageCollection<double> &cellConservatives, ScalarPiercedStorageCollection<double> *cellsRHS, double *maxEig);
+               const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
+               const ReconstructionCalculator &reconstructionCalculator,
+               ScalarPiercedStorageCollection<double> *cellsRHS, double *maxEig);
 #if ENABLE_CUDA
 void cuda_updateRHS(problem::ProblemType problemType, const ComputationInfo &computationInfo,
-                    const int order, const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
-                    const ScalarPiercedStorageCollection<double> &cellConservatives, ScalarPiercedStorageCollection<double> *cellsRHS, double *maxEig);
+                    const ScalarStorage<int> &solvedBoundaryInterfaceBCs,
+                    const ReconstructionCalculator &reconstructionCalculator,
+                    ScalarPiercedStorageCollection<double> *cellsRHS, double *maxEig);
 #endif
 
 void evalInterfaceBCValues(const std::array<double, 3> &point, const std::array<double, 3> &normal,

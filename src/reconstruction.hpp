@@ -26,26 +26,64 @@
 #define __MINIMMERFLOW_RECONSTRUCTION_HPP__
 
 #include "constants.hpp"
+#include "compiler.hpp"
 #include "computation_info.hpp"
-#include "mesh_info.hpp"
 #include "problem.hpp"
 #include "storage.hpp"
 
-#include <bitpit_voloctree.hpp>
+#include <bitpit_discretization.hpp>
 
-#include <array>
+#include <vector>
 
-namespace reconstruction {
+class ReconstructionCalculator
+{
 
-void initialize();
+public:
+    ReconstructionCalculator(const ComputationInfo &computationInfo, int degree);
 
-void computePolynomials(problem::ProblemType problemType, const ComputationInfo &computationInfo,
-                        const ScalarPiercedStorageCollection<double> &conservativeFields, const ScalarStorage<int> &solvedBoundaryInterfaceBCs);
+    int getOrder() const;
+    int getDimension() const;
 
-void eval(int order, const std::array<double, 3> &point, const double *means, double *values);
+    const ScalarPiercedStorageCollection<double> & getCellPolynomials() const;
+    ScalarPiercedStorageCollection<double> & getCellPolynomials();
+#if ENABLE_CUDA
+    double ** cuda_getCellPolynomialDevData();
+    const double * const * cuda_getCellPolynomialDevData() const;
+#endif
 
-void eval_1(const std::array<double, 3> &point, const double *means, double *values);
+    void update(const ScalarPiercedStorageCollection<double> &cellConservatives);
 
-}
+#if ENABLE_CUDA
+    void cuda_initialize();
+    void cuda_finalize();
+#endif
+
+private:
+    const ComputationInfo &m_computationInfo;
+
+    int m_order;
+    int m_dimension;
+    int m_nBasis;
+
+    ScalarPiercedStorage<std::size_t> m_cellSupportSizes;
+    ScalarPiercedStorage<std::size_t> m_cellSupportOffsets;
+    ScalarStorage<long> m_cellSupportRawIds;
+
+    ScalarStorage<double> m_cellKernelWeights;
+
+    ScalarPiercedStorageCollection<double> m_cellPolynomials;
+
+#if ENABLE_CUDA
+    void cuda_updateCellPolynomials(const ScalarPiercedStorageCollection<double> &cellConservatives);
+#else
+    void updateCellPolynomials(const ScalarPiercedStorageCollection<double> &cellConservatives);
+#endif
+
+    void evalCellSupport(std::size_t cellRawId, std::size_t *supportSize, long *supportIds = nullptr) const;
+
+    void evalCellKernel(std::size_t cellRawId, std::size_t supportSize, const long *support,
+                        bitpit::ReconstructionKernel *kernel) const;
+
+};
 
 #endif

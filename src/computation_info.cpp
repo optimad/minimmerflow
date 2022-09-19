@@ -75,25 +75,38 @@ void ComputationInfo::_extract()
     MeshGeometricalInfo::_extract();
 
     // Count solved cells and initialize solve method
-    std::size_t nSolvedCells = 0;
+    std::size_t nSolvedCells        = 0;
+    std::size_t nReconstructedCells = 0;
     for (VolumeKernel::CellConstIterator cellItr = m_patch->cellConstBegin(); cellItr != m_patch->cellConstEnd(); ++cellItr) {
         std::size_t cellRawId = cellItr.getRawIndex();
         const Cell &cell = *cellItr;
         const std::array<double, 3> cellCentroid = rawGetCellCentroid(cellRawId);
 
-        // Identify solve method
-        bool isSolved = body::isPointFluid(cellCentroid);
+        // Count cells
+        bool isFluid = body::isPointFluid(cellCentroid);
+
+        bool isSolved = isFluid;
 #if ENABLE_MPI
         if (isSolved) {
             isSolved = cell.isInterior();
         }
 #endif
-        m_cellSolveMethods.rawSet(cellRawId, (isSolved ? 1 : 0));
-
-        // Count solved cells
         if (isSolved) {
             ++nSolvedCells;
         }
+
+        bool isReconstructed = isFluid;
+#if ENABLE_MPI
+        if (isReconstructed) {
+            isReconstructed = (m_patch->getCellHaloLayer(cellItr.getId()) <= 1);
+        }
+#endif
+        if (isReconstructed) {
+            ++nReconstructedCells;
+        }
+
+        // Identify solve method
+        m_cellSolveMethods.rawSet(cellRawId, (isSolved ? 1 : 0));
     }
 
     // Identify solved cells
@@ -105,6 +118,20 @@ void ComputationInfo::_extract()
         }
 
         m_solvedCellRawIds.push_back(cellRawId);
+    }
+
+    // Identify reconstructed cells
+    m_reconstructedCellRawIds.reserve(nReconstructedCells);
+    for (VolumeKernel::CellConstIterator cellItr = m_patch->cellConstBegin(); cellItr != m_patch->cellConstEnd(); ++cellItr) {
+        std::size_t cellRawId = cellItr.getRawIndex();
+        const std::array<double, 3> cellCentroid = rawGetCellCentroid(cellRawId);
+        if (!body::isPointFluid(cellCentroid)) {
+            continue;
+        } else if (m_patch->getCellHaloLayer(cellItr.getId()) > 1) {
+            continue;
+        }
+
+        m_reconstructedCellRawIds.push_back(cellRawId);
     }
 
     // Count solved interfaces and initialize solve method
@@ -222,6 +249,16 @@ const ScalarPiercedStorage<int> & ComputationInfo::getCellSolveMethods() const
 const ScalarStorage<std::size_t> & ComputationInfo::getSolvedCellRawIds() const
 {
     return m_solvedCellRawIds;
+}
+
+/*!
+ * Gets the list of reconstructed cells raw ids.
+ *
+ * \result The list of reconstructed cells raw ids.
+ */
+const ScalarStorage<std::size_t> & ComputationInfo::getReconstructedCellRawIds() const
+{
+    return m_reconstructedCellRawIds;
 }
 
 /*!
