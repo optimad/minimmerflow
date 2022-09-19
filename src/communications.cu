@@ -66,14 +66,24 @@ void ListCommunicator::startAllExchanges()
 
         // Write the buffer
         for (ExchangeBufferStreamer *streamer : m_writers) {
-            streamer->write(rank, buffer, getStreamableSendList(rank, streamer));
-        }
+            CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>> * cudaStreamer =
+                    static_cast<CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>> *>(streamer);
 
-        cudaDeviceSynchronize();
+            if(cudaStreamer) {
+                streamer->prepareWrite(rank, buffer, getStreamableSendList(rank, streamer));
+                streamer->write(rank, buffer, getStreamableSendList(rank, streamer));
+                cudaStreamSynchronize(cudaStreamer->m_cudaStreams[rank]);
+            } else {
+                streamer->write(rank, buffer, getStreamableSendList(rank, streamer));
+            }
+        }
 
         // Start the send
         startSend(rank);
     }
+    //exit(1);
+
+
 }
 
 void ListCommunicator::initializeCudaObjects()
