@@ -204,6 +204,8 @@ void CudaStorageCollectionBufferStreamer<container_t>::initializeCUDAObjects()
         if (m_cudaStreams.find(rank) == m_cudaStreams.end()) {
             m_cudaStreams[rank] = cudaStream_t();
             cudaStreamCreate(&m_cudaStreams[rank]);
+            m_asyncQueues[rank] = rank;
+            acc_set_cuda_stream(m_asyncQueues[rank], m_cudaStreams[rank]);
         }
 
     }

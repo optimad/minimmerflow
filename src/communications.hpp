@@ -150,6 +150,7 @@ public:
     void initializePointers(ScalarPiercedStorageCollection<double> * storage, std::unordered_map<int, ScalarStorage<std::size_t>> * targets,
             std::unordered_map<int, ScalarStorage<std::size_t>> * sources);
     std::unordered_map<int, cudaStream_t> m_cudaStreams; //like this rank cannot share GPU
+    std::unordered_map<int, int> m_asyncQueues; //like this rank cannot share GPU
 
 protected:
     size_t m_readOffset;
