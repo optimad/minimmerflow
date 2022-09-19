@@ -65,7 +65,7 @@ public:
     virtual void read(const int &rank, bitpit::RecvBuffer &buffer, const std::vector<long> &list = std::vector<long>()) = 0;
     virtual void finalizeRead(const int &rank, bitpit::RecvBuffer &buffer, const std::vector<long> &list = std::vector<long>());
     virtual void write(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>()) = 0;
-    virtual void finalizeWrite(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>());
+    virtual void prepareWrite(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>());
 
 private:
     size_t m_itemSize;
@@ -115,7 +115,7 @@ public:
 
     void read(const int &rank, bitpit::RecvBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
     void write(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
-    void finalizeWrite(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
+    void prepareWrite(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
 
     void initializeCUDAObjects();
     std::unordered_map<int, cudaStream_t> m_cudaStreams; //like this rank cannot share GPU
@@ -144,7 +144,7 @@ public:
     void read(const int &rank, bitpit::RecvBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
     void finalizeRead(const int &rank, bitpit::RecvBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
     void write(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
-    void finalizeWrite(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
+    void prepareWrite(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
 
     void initializeCUDAObjects();
     void initializePointers(ScalarPiercedStorageCollection<double> * storage, std::unordered_map<int, ScalarStorage<std::size_t>> * targets,

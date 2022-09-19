@@ -63,7 +63,7 @@ void ExchangeBufferStreamer::setItemSize(const size_t &itemSize)
     m_itemSize = itemSize;
 }
 
-void ExchangeBufferStreamer::finalizeWrite(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list)
+void ExchangeBufferStreamer::prepareWrite(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list)
 {
     //Do nothing
 }

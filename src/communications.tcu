@@ -55,7 +55,7 @@ void CudaStorageBufferStreamer<container_t>::write(const int &rank, bitpit::Send
 }
 
 template<typename container_t>
-void CudaStorageBufferStreamer<container_t>::finalizeWrite(const int &rank, bitpit::SendBuffer &CPUbuffer, const std::vector<long> &list)
+void CudaStorageBufferStreamer<container_t>::prepareWrite(const int &rank, bitpit::SendBuffer &CPUbuffer, const std::vector<long> &list)
 {
     //Do nothing
     BITPIT_UNUSED(rank);
@@ -139,14 +139,14 @@ void CudaStorageCollectionBufferStreamer<container_t>::write(const int &rank, bi
     nvtxRangePop();
 }
 
-template<typename container_t>
-void CudaStorageCollectionBufferStreamer<container_t>::finalizeWrite(const int &rank, bitpit::SendBuffer &CPUbuffer, const std::vector<long> &list)
-{
-    //Do nothing
-    BITPIT_UNUSED(rank);
-    BITPIT_UNUSED(CPUbuffer);
-    BITPIT_UNUSED(list);
-}
+//template<typename container_t>
+//void CudaStorageCollectionBufferStreamer<container_t>::prepareWrite(const int &rank, bitpit::SendBuffer &CPUbuffer, const std::vector<long> &list)
+//{
+//    //Do nothing
+//    BITPIT_UNUSED(rank);
+//    BITPIT_UNUSED(CPUbuffer);
+//    BITPIT_UNUSED(list);
+//}
 
 /*!
     Read the dataset from the buffer.

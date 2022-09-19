@@ -301,6 +301,24 @@ void CudaStorageCollectionBufferStreamer<container_t>::finalizeRead(int const &r
 
 }
 
+template<typename container_t>
+void CudaStorageCollectionBufferStreamer<container_t>::prepareWrite(const int &rank, bitpit::SendBuffer &CPUbuffer, const std::vector<long> &list)
+{
+    BITPIT_UNUSED(CPUbuffer);
+    BITPIT_UNUSED(list);
+
+    container_t &container = this->getContainer();
+    auto & rankContainer = container[rank];
+    double ** dataDeviceStoragePtr = m_deviceStorage->collectionData();
+    std::size_t listSize = (*m_sourceLists)[rank].size();
+    std::size_t *rankList = (*m_sourceLists)[rank].data();
+    double * rankContainerData = rankContainer.data();
+
+    std::cout << "gather..." << std::endl;
+    cuda_streamer::gather(rankContainerData, dataDeviceStoragePtr, listSize, rankList);
+
+}
+
 #endif
 
 #endif
