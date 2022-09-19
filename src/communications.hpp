@@ -155,6 +155,7 @@ protected:
 
     ScalarPiercedStorageCollection<double> * m_deviceStorage;
     std::unordered_map<int, ScalarStorage<std::size_t>> * m_targetLists;
+    std::unordered_map<int, ScalarStorage<std::size_t>> * m_sourceLists;
 };
 
 
