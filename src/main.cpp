@@ -536,9 +536,12 @@ void computation(int argc, char *argv[])
         conservativeGhostWriteStreamer.get()->initializeCUDAObjects();
         conservativeWorkGhostWriteStreamer.get()->initializeCUDAObjects();
 
-        primitiveGhostReadStreamer.get()->initializePointers(&cellPrimitives, &targetsListsMap);
-        conservativeGhostReadStreamer.get()->initializePointers(&cellConservatives, &targetsListsMap);
-        conservativeWorkGhostReadStreamer.get()->initializePointers(&cellConservativesWork, &targetsListsMap);
+        primitiveGhostReadStreamer.get()->initializePointers(&cellPrimitives, &targetsListsMap, &sourcesListsMap);
+        conservativeGhostReadStreamer.get()->initializePointers(&cellConservatives, &targetsListsMap, &sourcesListsMap);
+        conservativeWorkGhostReadStreamer.get()->initializePointers(&cellConservativesWork, &targetsListsMap, &sourcesListsMap);
+        primitiveGhostWriteStreamer.get()->initializePointers(&cellPrimitives, &targetsListsMap, &sourcesListsMap);
+        conservativeGhostWriteStreamer.get()->initializePointers(&cellConservatives, &targetsListsMap, &sourcesListsMap);
+        conservativeWorkGhostWriteStreamer.get()->initializePointers(&cellConservativesWork, &targetsListsMap, &sourcesListsMap);
 
         log::cout() << "Conservative cuda objects initialization" << std::endl;
         conservativeCommunicator->initializeCudaObjects();

@@ -213,9 +213,11 @@ void CudaStorageCollectionBufferStreamer<container_t>::initializeCUDAObjects()
 
 template<typename container_t>
 void CudaStorageCollectionBufferStreamer<container_t>::initializePointers(ScalarPiercedStorageCollection<double> * storage,
-        std::unordered_map<int, ScalarStorage<std::size_t>> * targets)
+        std::unordered_map<int, ScalarStorage<std::size_t>> * targets,
+        std::unordered_map<int, ScalarStorage<std::size_t>> * sources)
 {
     m_deviceStorage = storage;
     m_targetLists = targets;
+    m_sourceLists = sources;
 }
 #endif

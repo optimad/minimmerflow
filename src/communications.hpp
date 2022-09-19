@@ -146,7 +146,8 @@ public:
     void finalizeWrite(const int &rank, bitpit::SendBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
 
     void initializeCUDAObjects();
-    void initializePointers(ScalarPiercedStorageCollection<double> * storage, std::unordered_map<int, ScalarStorage<std::size_t>> * targets);
+    void initializePointers(ScalarPiercedStorageCollection<double> * storage, std::unordered_map<int, ScalarStorage<std::size_t>> * targets,
+            std::unordered_map<int, ScalarStorage<std::size_t>> * sources);
     std::unordered_map<int, cudaStream_t> m_cudaStreams; //like this rank cannot share GPU
 
 protected:
