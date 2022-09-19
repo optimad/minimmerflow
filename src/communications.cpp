@@ -818,6 +818,19 @@ void scatter(double * buffer, double ** storage, std::size_t listSize, std::size
 
 }
 
+void gather(double * buffer, double ** storage, std::size_t listSize, std::size_t * list)
+{
+#pragma acc parallel loop collapse(2) present(storage[0:N_FIELDS], list, buffer)
+    for (int k = 0; k < N_FIELDS; ++k) {
+        for (std::size_t i = 0; i < listSize; ++i) {
+            const std::size_t cellRawId = list[i];
+            double *rankValue = &(buffer[i + k * listSize]);
+            double *storageValue = &(storage[k][cellRawId]);
+            *rankValue = *storageValue;
+        }
+    }
+
+}
 }
 
 #endif
