@@ -368,12 +368,27 @@ __global__ void dev_uniformUpdateRHS(std::size_t nInterfaces, int reconstruction
 
         // Update maximum eigenvalue
         //
+        // Evaluation of maximum eigenvalue through reduction can only be
+        // used if all threads are active. The reason being that the reduction
+        // operation synchronizes the threads and this is possible only if
+        // all the threads are involved in the reduction.
+        //
+        // Threads will be all active in the current iteration if all the
+        // threads have an interface to process (i..e, the last thread of
+        // the block is associated with a global id that is lower than the
+        // number of interfaces being processed).
+        //
         // During this stage usage of shared memory is the following:
         //    Slot #1: workspace for eigenvalue reduction
         //    Slot #2: not used
         //    Slot #3: not used
-        double *reductionWorkspace = &(sharedStorage[0]);
-        dev_reduceMax(interfaceMaxEig, nInterfaces, reductionWorkspace, maxEig);
+        bool allThreadsActive = ((i - threadIdx.x + blockDim.x) < nInterfaces);
+        if (allThreadsActive) {
+            double *reductionWorkspace = &(sharedStorage[0]);
+            dev_reduceMax(interfaceMaxEig, nInterfaces, reductionWorkspace, maxEig);
+        } else {
+            dev_atomicMax(interfaceMaxEig, maxEig);
+        }
     }
 }
 
@@ -473,12 +488,27 @@ __global__ void dev_boundaryUpdateRHS(std::size_t nInterfaces, int problemType, 
 
         // Update maximum eigenvalue
         //
-        // During this stage usage of shared memory is the following:
+        // Evaluation of maximum eigenvalue through reduction can only be
+        // used if all threads are active. The reason being that the reduction
+        // operation synchronizes the threads and this is possible only if
+        // all the threads are involved in the reduction.
+        //
+        // Threads will be all active in the current iteration if all the
+        // threads have an interface to process (i..e, the last thread of
+        // the block is associated with a global id that is lower than the
+        // number of interfaces being processed).
+        //
+        // If reduction is used, stage usage of shared memory is the following:
         //    Slot #1: workspace for eigenvalue reduction
         //    Slot #2: not used
         //    Slot #3: not used
-        double *reductionWorkspace = &(sharedStorage[0]);
-        dev_reduceMax(interfaceMaxEig, nInterfaces, reductionWorkspace, maxEig);
+        bool allThreadsActive = ((i - threadIdx.x + blockDim.x) < nInterfaces);
+        if (allThreadsActive) {
+            double *reductionWorkspace = &(sharedStorage[0]);
+            dev_reduceMax(interfaceMaxEig, nInterfaces, reductionWorkspace, maxEig);
+        } else {
+            dev_atomicMax(interfaceMaxEig, maxEig);
+        }
     }
 }
 
