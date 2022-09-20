@@ -25,6 +25,8 @@
 #include "euler.hcu"
 #include "utils_cuda.hpp"
 
+#include <float.h>
+
 #define uint64  unsigned long long
 
 namespace euler {
@@ -76,7 +78,11 @@ __device__ void dev_reduceMax(const double value, const size_t nElements,
     int gid = (blockDim.x * blockIdx.x) + tid;
 
     // Put thread value in the array that stores block values
-    workspace[tid] = value;
+    if (gid < nElements) {
+        workspace[tid] = value;
+    } else {
+        workspace[tid] = - DBL_MAX;
+    }
     __syncthreads();
 
     // Evaluate the maximum of each block
