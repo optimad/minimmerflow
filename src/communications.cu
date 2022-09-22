@@ -60,29 +60,19 @@ void ListCommunicator::startAllExchanges()
     waitAllSends();
 
     // Fill the buffer with the given field and start sending the data
+    //WARNING: the follow part works if only one writer has been added to the communicator
+    CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>> * cudaStreamer =
+            static_cast<CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>> *>(m_writers[0]);
     for (int rank : getSendRanks()) {
-        // Get send buffer
         bitpit::SendBuffer &buffer = getSendBuffer(rank);
 
-        // Write the buffer
-        for (ExchangeBufferStreamer *streamer : m_writers) {
-            CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>> * cudaStreamer =
-                    static_cast<CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>> *>(streamer);
-
-            if(cudaStreamer) {
-                streamer->prepareWrite(rank, buffer, getStreamableSendList(rank, streamer));
-                streamer->write(rank, buffer, getStreamableSendList(rank, streamer));
-                cudaStreamSynchronize(cudaStreamer->m_cudaStreams[rank]);
-            } else {
-                streamer->write(rank, buffer, getStreamableSendList(rank, streamer));
-            }
-        }
-
-        // Start the send
+        cudaStreamer->prepareWrite(rank, buffer, getStreamableSendList(rank, cudaStreamer));
+        cudaStreamer->write(rank, buffer, getStreamableSendList(rank, cudaStreamer));
+    }
+    for (int rank : getSendRanks()) {
+        cudaStreamSynchronize(cudaStreamer->m_cudaStreams[rank]);
         startSend(rank);
     }
-    //exit(1);
-
 
 }
 
