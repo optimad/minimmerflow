@@ -818,9 +818,9 @@ void scatter(double * buffer, double ** storage, std::size_t listSize, std::size
 
 }
 
-void gather(double * buffer, double ** storage, std::size_t listSize, std::size_t * list)
+void gather(double * buffer, double ** storage, std::size_t listSize, std::size_t * list, int asyncQueue)
 {
-#pragma acc parallel loop collapse(2) present(storage[0:N_FIELDS], list, buffer)
+#pragma acc parallel loop collapse(2) present(storage[0:N_FIELDS], list, buffer) async(asyncQueue)
     for (int k = 0; k < N_FIELDS; ++k) {
         for (std::size_t i = 0; i < listSize; ++i) {
             const std::size_t cellRawId = list[i];

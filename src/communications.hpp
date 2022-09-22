@@ -128,7 +128,7 @@ protected:
 
 namespace cuda_streamer {
 void scatter(double * buffer, double ** container, std::size_t listSize, std::size_t * list);
-void gather(double * buffer, double ** container, std::size_t listSize, std::size_t * list);
+void gather(double * buffer, double ** container, std::size_t listSize, std::size_t * list, int asyncQueue);
 }
 
 template<typename container_t>

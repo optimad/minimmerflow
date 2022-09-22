@@ -315,7 +315,7 @@ void CudaStorageCollectionBufferStreamer<container_t>::prepareWrite(const int &r
     double * rankContainerData = rankContainer.data();
 
     std::cout << "gather..." << std::endl;
-    cuda_streamer::gather(rankContainerData, dataDeviceStoragePtr, listSize, rankList);
+    cuda_streamer::gather(rankContainerData, dataDeviceStoragePtr, listSize, rankList, m_asyncQueues[rank]);
 
 }
 
