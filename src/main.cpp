@@ -596,8 +596,8 @@ void computation(int argc, char *argv[])
     double t = tMin;
     double nextSave = tMin;
     while (t < tMax) { // && step < 3
-        log::cout() << std::endl;
-        log::cout() << "Step n. " << step << std::endl;
+//        log::cout() << std::endl;
+//        log::cout() << "Step n. " << step << std::endl;
 
         double maxEig;
 
@@ -626,12 +626,12 @@ void computation(int argc, char *argv[])
 
         // Choose dt
         double dt = 0.9 * cfl * minCellSize / maxEig;
-        log::cout() << "Ideal dt = " << dt << " (maxEig = " << maxEig << ")" <<std::endl;
+//        log::cout() << "Ideal dt = " << dt << " (maxEig = " << maxEig << ")" <<std::endl;
         if (t + dt > tMax) {
             dt = tMax - t;
         }
-        log::cout() << "Using dt= " << dt <<std::endl;
-        log::cout() << "Current time= " << (t + dt) << std::endl;
+//        log::cout() << "Using dt= " << dt <<std::endl;
+//        log::cout() << "Current time= " << (t + dt) << std::endl;
 
         nvtxRangePop(); // pop RK1 range
 
@@ -721,7 +721,7 @@ void computation(int argc, char *argv[])
         }
 #endif
 
-        log::cout() << "(maxEig after second stage = " << maxEig << ")" << std::endl;
+//        log::cout() << "(maxEig after second stage = " << maxEig << ")" << std::endl;
         nvtxRangePop(); // pop RK2 range
 
         //
@@ -786,7 +786,7 @@ void computation(int argc, char *argv[])
         }
 #endif
 
-        log::cout() << "(maxEig after third stage = " << maxEig << ")" << std::endl;
+//        log::cout() << "(maxEig after third stage = " << maxEig << ")" << std::endl;
         nvtxRangePop(); // pop RK3 range
 
         //
