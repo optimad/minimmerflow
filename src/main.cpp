@@ -216,6 +216,10 @@ void computation(int argc, char *argv[])
 
     const ScalarStorage<std::size_t> &solvedCellRawIds = computationInfo.getSolvedCellRawIds();
     const std::size_t nSolvedCells = solvedCellRawIds.size();
+    const ScalarStorage<std::size_t> &innerSolvedCellRawIds = computationInfo.getInnerSolvedCellRawIds();
+    const std::size_t nInnerSolvedCells = innerSolvedCellRawIds.size();
+    const ScalarStorage<std::size_t> &sourceSolvedCellRawIds = computationInfo.getSourceSolvedCellRawIds();
+    const std::size_t nSourceSolvedCells = sourceSolvedCellRawIds.size();
 
     const ScalarStorage<std::size_t> &solvedBoundaryInterfaceRawIds = computationInfo.getSolvedBoundaryInterfaceRawIds();
     const std::size_t nSolvedBoundaryInterfaces = solvedBoundaryInterfaceRawIds.size();
@@ -245,6 +249,8 @@ void computation(int argc, char *argv[])
     double** cellRHSHostStorageCollection = cellRHS.collectionData();
     double *cellVolumeHostStorage = computationInfo.getCellVolumes().data();
     const std::size_t *solvedCellRawIdsHostStorage = solvedCellRawIds.data();
+    const std::size_t *innerSolvedCellRawIdsHostStorage = innerSolvedCellRawIds.data();
+    const std::size_t *sourceSolvedCellRawIdsHostStorage = sourceSolvedCellRawIds.data();
 
     log_memory_status();
 
@@ -634,11 +640,11 @@ void computation(int argc, char *argv[])
         //
         nvtxRangePushA("RK2");
 
-        nvtxRangePushA("OpenACC_RK2_updateSolution");
-#pragma acc parallel loop collapse(2) present(cellVolumeHostStorage, solvedCellRawIdsHostStorage, cellConservativesHostStorageCollection[0:N_FIELDS], cellConservativesWorkHostStorageCollection[0:N_FIELDS], cellRHSHostStorageCollection[0:N_FIELDS])
-        for (std::size_t i = 0; i < nSolvedCells; ++i) {
+        nvtxRangePushA("OpenACC_RK2_updateSourcesSolution");
+#pragma acc parallel loop collapse(2) present(cellVolumeHostStorage, sourceSolvedCellRawIdsHostStorage, cellConservativesHostStorageCollection[0:N_FIELDS], cellConservativesWorkHostStorageCollection[0:N_FIELDS], cellRHSHostStorageCollection[0:N_FIELDS])
+        for (std::size_t i = 0; i < nSourceSolvedCells; ++i) {
             for (int k = 0; k < N_FIELDS; ++k) {
-                const std::size_t cellRawId = solvedCellRawIdsHostStorage[i];
+                const std::size_t cellRawId = sourceSolvedCellRawIdsHostStorage[i];
                 const double cellVolume = cellVolumeHostStorage[cellRawId];
                 const double RHS = cellRHSHostStorageCollection[k][cellRawId];
                 const double conservative = cellConservativesHostStorageCollection[k][cellRawId];
@@ -676,8 +682,27 @@ void computation(int argc, char *argv[])
 #if ENABLE_MPI
         nvtxRangePushA("RK2_COMM");
         if (mesh.isPartitioned()) {
+            nvtxRangePushA("OpenACC_RK2_updateInnerSolution");
+            int queue = nProcessors;
+
             conservativeWorkCommunicator->startAllExchanges();
+#pragma acc parallel loop collapse(2) present(cellVolumeHostStorage, innerSolvedCellRawIdsHostStorage, cellConservativesHostStorageCollection[0:N_FIELDS], cellConservativesWorkHostStorageCollection[0:N_FIELDS], cellRHSHostStorageCollection[0:N_FIELDS]) async(queue)
+            for (std::size_t i = 0; i < nInnerSolvedCells; ++i) {
+                for (int k = 0; k < N_FIELDS; ++k) {
+                    const std::size_t cellRawId = innerSolvedCellRawIdsHostStorage[i];
+                    const double cellVolume = cellVolumeHostStorage[cellRawId];
+                    const double RHS = cellRHSHostStorageCollection[k][cellRawId];
+                    const double conservative = cellConservativesHostStorageCollection[k][cellRawId];
+                    double *conservativeTmp = &cellConservativesWorkHostStorageCollection[k][cellRawId];
+                    *conservativeTmp = conservative + dt * RHS / cellVolume;
+                }
+            }
+            nvtxRangePop();
+
             conservativeWorkCommunicator->completeAllExchanges();
+
+#pragma acc wait
+
         }
         nvtxRangePop();
 #endif
