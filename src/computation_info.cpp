@@ -74,6 +74,8 @@ void ComputationInfo::_extract()
     // Extract mesh information
     MeshGeometricalInfo::_extract();
 
+    const std::unordered_map<int, std::vector<long>> & ghostCellExchangeSources = m_patch->getGhostCellExchangeSources();
+
     // Count solved cells and initialize solve method
     std::size_t nSolvedCells = 0;
     for (VolumeKernel::CellConstIterator cellItr = m_patch->cellConstBegin(); cellItr != m_patch->cellConstEnd(); ++cellItr) {
@@ -98,6 +100,8 @@ void ComputationInfo::_extract()
 
     // Identify solved cells
     m_solvedCellRawIds.reserve(nSolvedCells);
+    m_innerSolvedCellRawIds.reserve(nSolvedCells);
+    std::set<std::size_t> sourceSolvedCellRawIds;
     for (VolumeKernel::CellConstIterator cellItr = m_patch->cellConstBegin(); cellItr != m_patch->cellConstEnd(); ++cellItr) {
         std::size_t cellRawId = cellItr.getRawIndex();
         if (!m_cellSolveMethods.rawAt(cellRawId)) {
@@ -105,7 +109,21 @@ void ComputationInfo::_extract()
         }
 
         m_solvedCellRawIds.push_back(cellRawId);
+
+        // Identify interior cells
+        bool isInner = true;
+        for (auto & rankGhostCellExchangeSources : ghostCellExchangeSources) {
+            if (std::find(rankGhostCellExchangeSources.second.begin(), rankGhostCellExchangeSources.second.end(), cellItr->getId()) != rankGhostCellExchangeSources.second.end()) {
+                isInner = false;
+                sourceSolvedCellRawIds.insert(cellRawId);
+            }
+        }
+        if (isInner) {
+            m_innerSolvedCellRawIds.push_back(cellRawId);
+        }
     }
+    m_sourceSolvedCellRawIds.assign(sourceSolvedCellRawIds.begin(), sourceSolvedCellRawIds.end());
+    m_innerSolvedCellRawIds.shrink_to_fit();
 
     // Count solved interfaces and initialize solve method
     std::size_t nSolvedUniformInterfaces   = 0;
@@ -222,6 +240,26 @@ const ScalarPiercedStorage<int> & ComputationInfo::getCellSolveMethods() const
 const ScalarStorage<std::size_t> & ComputationInfo::getSolvedCellRawIds() const
 {
     return m_solvedCellRawIds;
+}
+
+/*!
+ * Gets the list of inner solved cells raw ids.
+ *
+ * \result The list of inner solved cells raw ids.
+ */
+const ScalarStorage<std::size_t> & ComputationInfo::getInnerSolvedCellRawIds() const
+{
+    return m_innerSolvedCellRawIds;
+}
+
+/*!
+ * Gets the list of source solved cells raw ids.
+ *
+ * \result The list of source solved cells raw ids.
+ */
+const ScalarStorage<std::size_t> & ComputationInfo::getSourceSolvedCellRawIds() const
+{
+    return m_sourceSolvedCellRawIds;
 }
 
 /*!

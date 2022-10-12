@@ -36,6 +36,8 @@ void ComputationInfo::cuda_initialize()
     m_cellSolveMethods.cuda_allocateDevice();
 
     m_solvedCellRawIds.cuda_allocateDevice();
+    m_innerSolvedCellRawIds.cuda_allocateDevice();
+    m_sourceSolvedCellRawIds.cuda_allocateDevice();
 
     m_solvedUniformInterfaceRawIds.cuda_allocateDevice();
     m_solvedUniformInterfaceOwnerRawIds.cuda_allocateDevice();
@@ -49,6 +51,8 @@ void ComputationInfo::cuda_initialize()
     m_cellSolveMethods.cuda_updateDevice();
 
     m_solvedCellRawIds.cuda_updateDevice();
+    m_innerSolvedCellRawIds.cuda_updateDevice();
+    m_sourceSolvedCellRawIds.cuda_updateDevice();
 
     m_solvedUniformInterfaceRawIds.cuda_updateDevice();
     m_solvedUniformInterfaceOwnerRawIds.cuda_updateDevice();
@@ -71,6 +75,8 @@ void ComputationInfo::cuda_finalize()
     m_cellSolveMethods.cuda_freeDevice();
 
     m_solvedCellRawIds.cuda_freeDevice();
+    m_innerSolvedCellRawIds.cuda_freeDevice();
+    m_sourceSolvedCellRawIds.cuda_freeDevice();
 
     m_solvedUniformInterfaceRawIds.cuda_freeDevice();
     m_solvedUniformInterfaceOwnerRawIds.cuda_freeDevice();

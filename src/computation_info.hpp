@@ -38,6 +38,8 @@ public:
     const ScalarPiercedStorage<int> & getCellSolveMethods() const;
 
     const ScalarStorage<std::size_t> & getSolvedCellRawIds() const;
+    const ScalarStorage<std::size_t> & getInnerSolvedCellRawIds() const;
+    const ScalarStorage<std::size_t> & getSourceSolvedCellRawIds() const;
 
     const ScalarPiercedStorage<int> & getInterfaceSolveMethods() const;
 
@@ -58,6 +60,8 @@ protected:
     ScalarPiercedStorage<int> m_cellSolveMethods;
 
     ScalarStorage<std::size_t> m_solvedCellRawIds;
+    ScalarStorage<std::size_t> m_innerSolvedCellRawIds;
+    ScalarStorage<std::size_t> m_sourceSolvedCellRawIds;
 
     ScalarPiercedStorage<int> m_interfaceSolveMethods;
 
