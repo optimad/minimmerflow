@@ -70,7 +70,7 @@ void ListCommunicator::startAllExchanges()
         cudaStreamer->write(rank, buffer, getStreamableSendList(rank, cudaStreamer));
     }
     for (int rank : getSendRanks()) {
-        cudaStreamSynchronize(cudaStreamer->m_cudaStreams[rank]);
+//        cudaStreamSynchronize(cudaStreamer->m_cudaStreams[rank]);
         startSend(rank);
     }
 
