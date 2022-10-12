@@ -297,7 +297,7 @@ void CudaStorageCollectionBufferStreamer<container_t>::finalizeRead(int const &r
     std::size_t *rankList = (*m_targetLists)[rank].data();
     double * rankContainerData = rankContainer.data();
 
-    cuda_streamer::scatter(rankContainerData, dataDeviceStoragePtr, listSize, rankList);
+    cuda_streamer::scatter(rankContainerData, dataDeviceStoragePtr, listSize, rankList, m_asyncQueues[rank]);
 
 }
 
