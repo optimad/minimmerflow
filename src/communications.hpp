@@ -126,6 +126,22 @@ protected:
     std::unordered_map<int, size_t> m_rankOffsets;
 };
 
+class QueuesStreams
+{
+public:
+    QueuesStreams(const std::unordered_map<int, std::vector<long>> & sourceLists,
+    const std::unordered_map<int, std::vector<long>> & targetLists, MPI_Comm communicator);
+    ~QueuesStreams();
+
+    cudaStream_t & getCudaStreamByRank(int rank);
+    int & getOpenACCQueueByRank(int rank);
+
+private:
+    std::unordered_map<int, cudaStream_t> m_cudaStreams;
+    std::unordered_map<int, int> m_queueIds;
+};
+
+
 namespace cuda_streamer {
 void scatter(double * buffer, double ** container, std::size_t listSize, std::size_t * list, int asyncQueue);
 void gather(double * buffer, double ** container, std::size_t listSize, std::size_t * list, int asyncQueue);
@@ -138,7 +154,8 @@ class CudaStorageCollectionBufferStreamer : public BaseListBufferStreamer<contai
 public:
     //using BaseListBufferStreamer<container_t>::BaseListBufferStreamer;
     //CudaStorageBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset);
-    CudaStorageCollectionBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset, const size_t & itemSize);
+    CudaStorageCollectionBufferStreamer(container_t *container, const size_t & readOffset,
+            const size_t & writeOffset, const size_t & itemSize, QueuesStreams & queuesStreams);
     ~CudaStorageCollectionBufferStreamer();
 
     void read(const int &rank, bitpit::RecvBuffer &buffer, const std::vector<long> &list = std::vector<long>()) override;
@@ -151,6 +168,7 @@ public:
             std::unordered_map<int, ScalarStorage<std::size_t>> * sources);
     std::unordered_map<int, cudaStream_t> m_cudaStreams; //like this rank cannot share GPU
     std::unordered_map<int, int> m_asyncQueues; //like this rank cannot share GPU
+    QueuesStreams & m_queuesStreams;
 
 protected:
     size_t m_readOffset;
@@ -230,6 +248,9 @@ public:
     void addData(ExchangeBufferStreamer *writer, ExchangeBufferStreamer *reader);
 
     void startAllExchanges();
+    void prepare1StartAllExchanges();
+    void prepare2StartAllExchanges();
+    void completeStartAllExchanges();
     void completeAllExchanges();
 
     void completeAllRecvs();
@@ -315,18 +336,6 @@ private:
     CommunicationsManager();
     CommunicationsManager(const CommunicationsManager &other) = delete;
     CommunicationsManager(CommunicationsManager &&other) = delete;
-
-};
-
-class OpenACCStreams
-{
-public:
-    OpenACCStreams(int nFields);
-    ~OpenACCStreams();
-    std::vector<int> m_streamIds;
-
-private:
-    std::vector<cudaStream_t> m_cudaStreams;
 
 };
 

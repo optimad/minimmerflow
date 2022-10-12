@@ -135,7 +135,7 @@ void CudaStorageCollectionBufferStreamer<container_t>::write(const int &rank, bi
 
     nvtxRangePushA("STREAMER_WRITE_CUDAMCPY");
     cudaMemcpyAsync(CPUbuffer.getFront().data(), rankContainer.cuda_deviceData(), rankContainer.cuda_deviceDataSize() * sizeof(typename container_t::mapped_type::dev_value_type),
-            cudaMemcpyDeviceToHost, m_cudaStreams[rank]);
+            cudaMemcpyDeviceToHost, m_queuesStreams.getCudaStreamByRank(rank));
     nvtxRangePop();
 }
 
@@ -169,8 +169,9 @@ void CudaStorageCollectionBufferStreamer<container_t>::read(int const &rank, bit
     std::size_t rankContainerSize = rankContainer.size();
 
     nvtxRangePushA("STREAMER_READ_CUDAMCPY");
+    cudaStreamSynchronize(m_queuesStreams.getCudaStreamByRank(rank));
     cudaMemcpyAsync(rankContainer.cuda_deviceData(), CPUbuffer.getFront().data(), rankContainer.cuda_deviceDataSize() * sizeof(typename container_t::mapped_type::dev_value_type),
-            cudaMemcpyHostToDevice, m_cudaStreams[rank]);
+            cudaMemcpyHostToDevice, m_queuesStreams.getCudaStreamByRank(rank));
     nvtxRangePop();
 
 
@@ -178,9 +179,11 @@ void CudaStorageCollectionBufferStreamer<container_t>::read(int const &rank, bit
 
 
 template<typename container_t>
-CudaStorageCollectionBufferStreamer<container_t>::CudaStorageCollectionBufferStreamer(container_t *container, const size_t & readOffset, const size_t & writeOffset, const size_t &itemSize)
+CudaStorageCollectionBufferStreamer<container_t>::CudaStorageCollectionBufferStreamer(container_t *container, const size_t & readOffset,
+        const size_t & writeOffset, const size_t &itemSize, QueuesStreams & queuesStreams)
     : BaseListBufferStreamer<container_t>(container, itemSize),
-      m_readOffset(readOffset), m_writeOffset(writeOffset), m_cudaStreams(0), m_deviceStorage(nullptr), m_targetLists(nullptr), m_sourceLists(nullptr)
+      m_readOffset(readOffset), m_writeOffset(writeOffset), m_cudaStreams(0), m_deviceStorage(nullptr), m_targetLists(nullptr), m_sourceLists(nullptr),
+      m_queuesStreams(queuesStreams)
 {
 }
 
@@ -207,10 +210,9 @@ void CudaStorageCollectionBufferStreamer<container_t>::initializeCUDAObjects()
             m_asyncQueues[rank] = rank;
             acc_set_cuda_stream(m_asyncQueues[rank], m_cudaStreams[rank]);
         }
-
     }
 
-    m_cudaStreams.reserve((*(this->m_container)).size());
+    //m_cudaStreams.reserve((*(this->m_container)).size());
 }
 
 template<typename container_t>

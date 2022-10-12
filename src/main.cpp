@@ -221,6 +221,10 @@ void computation(int argc, char *argv[])
     const ScalarStorage<std::size_t> &sourceSolvedCellRawIds = computationInfo.getSourceSolvedCellRawIds();
     const std::size_t nSourceSolvedCells = sourceSolvedCellRawIds.size();
 
+    std::cout << "solved = " << solvedCellRawIds.size() << std::endl;
+    std::cout << "inner solved = " << innerSolvedCellRawIds.size() << std::endl;
+    std::cout << "source solved = " << sourceSolvedCellRawIds.size() << std::endl;
+
     const ScalarStorage<std::size_t> &solvedBoundaryInterfaceRawIds = computationInfo.getSolvedBoundaryInterfaceRawIds();
     const std::size_t nSolvedBoundaryInterfaces = solvedBoundaryInterfaceRawIds.size();
 
@@ -357,6 +361,9 @@ void computation(int argc, char *argv[])
 #else
     std::vector<std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>> conservativeWorkGhostStreamers(N_FIELDS);
 #endif
+
+    QueuesStreams queuesStreams(mesh.getGhostCellExchangeSources(), mesh.getGhostCellExchangeTargets(), mesh.getCommunicator());
+
     if (mesh.isPartitioned()) {
         // Primitive fields
         primitiveCommunicator = std::unique_ptr<GhostCommunicator>(new GhostCommunicator(&mesh, "primitive"));
@@ -376,9 +383,9 @@ void computation(int argc, char *argv[])
 
 #if ENABLE_CUDA==1
         primitiveGhostReadStreamer = std::unique_ptr<CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>(
-            new CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&primitiveTargetValuesMap_unique, 0, 0, N_FIELDS * sizeof(ScalarStorage<double>::value_type)));
+            new CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&primitiveTargetValuesMap_unique, 0, 0, N_FIELDS * sizeof(ScalarStorage<double>::value_type), queuesStreams));
         primitiveGhostWriteStreamer = std::unique_ptr<CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>(
-            new CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&primitiveSourceValuesMap_unique, 0, 0, N_FIELDS * sizeof(ScalarStorage<double>::value_type)));
+            new CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&primitiveSourceValuesMap_unique, 0, 0, N_FIELDS * sizeof(ScalarStorage<double>::value_type), queuesStreams));
         primitiveCommunicator->addData(primitiveGhostWriteStreamer.get(), primitiveGhostReadStreamer.get());
 #else
         primitiveGhostStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellPrimitives[k])));
@@ -392,9 +399,9 @@ void computation(int argc, char *argv[])
 
 #if ENABLE_CUDA==1
         conservativeGhostReadStreamer = std::unique_ptr<CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>(
-            new CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&conservativeTargetValuesMap_unique, 0, 0, N_FIELDS * sizeof(ScalarStorage<double>::value_type)));
+            new CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&conservativeTargetValuesMap_unique, 0, 0, N_FIELDS * sizeof(ScalarStorage<double>::value_type), queuesStreams));
         conservativeGhostWriteStreamer = std::unique_ptr<CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>(
-            new CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&conservativeSourceValuesMap_unique, 0, 0, N_FIELDS * sizeof(ScalarStorage<double>::value_type)));
+            new CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&conservativeSourceValuesMap_unique, 0, 0, N_FIELDS * sizeof(ScalarStorage<double>::value_type), queuesStreams));
         conservativeCommunicator->addData(conservativeGhostWriteStreamer.get(), conservativeGhostReadStreamer.get());
 #else
         conservativeGhostStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellConservatives[k])));
@@ -408,9 +415,9 @@ void computation(int argc, char *argv[])
 
 #if ENABLE_CUDA==1
         conservativeWorkGhostReadStreamer = std::unique_ptr<CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>(
-                new CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&conservativeWorkTargetValuesMap_unique, 0, 0, N_FIELDS * sizeof(ScalarStorage<double>::value_type)));
+                new CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&conservativeWorkTargetValuesMap_unique, 0, 0, N_FIELDS * sizeof(ScalarStorage<double>::value_type), queuesStreams));
         conservativeWorkGhostWriteStreamer = std::unique_ptr<CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>>(
-                new CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&conservativeWorkSourceValuesMap_unique, 0, 0, N_FIELDS * sizeof(ScalarStorage<double>::value_type)));
+                new CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>>(&conservativeWorkSourceValuesMap_unique, 0, 0, N_FIELDS * sizeof(ScalarStorage<double>::value_type), queuesStreams));
         conservativeWorkCommunicator->addData(conservativeWorkGhostWriteStreamer.get(), conservativeWorkGhostReadStreamer.get());
 #else
         conservativeWorkGhostStreamers[k] = std::unique_ptr<ValuePiercedStorageBufferStreamer<double>>(new ValuePiercedStorageBufferStreamer<double>(&(cellConservativesWork[k])));
@@ -435,6 +442,10 @@ void computation(int argc, char *argv[])
         }
         sourceList.cuda_allocateDevice();
         sourceList.cuda_updateDevice();
+
+        // Set interior solved cells
+
+
         // Store targets raw ids list on device
         targetsListsMap[r] = ScalarStorage<std::size_t>(rankTargetList.size());
         ScalarStorage<std::size_t> & targetList = targetsListsMap[r];
@@ -541,6 +552,9 @@ void computation(int argc, char *argv[])
         primitiveGhostWriteStreamer.get()->initializeCUDAObjects();
         conservativeGhostWriteStreamer.get()->initializeCUDAObjects();
         conservativeWorkGhostWriteStreamer.get()->initializeCUDAObjects();
+        primitiveGhostReadStreamer.get()->initializeCUDAObjects();
+        conservativeGhostReadStreamer.get()->initializeCUDAObjects();
+        conservativeWorkGhostReadStreamer.get()->initializeCUDAObjects();
 
         primitiveGhostReadStreamer.get()->initializePointers(&cellPrimitives, &targetsListsMap, &sourcesListsMap);
         conservativeGhostReadStreamer.get()->initializePointers(&cellConservatives, &targetsListsMap, &sourcesListsMap);
@@ -595,7 +609,7 @@ void computation(int argc, char *argv[])
     int step = 0;
     double t = tMin;
     double nextSave = tMin;
-    while (t < tMax) { // && step < 3
+    while (t < tMax && step < 10) { // && step < 3
 //        log::cout() << std::endl;
 //        log::cout() << "Step n. " << step << std::endl;
 
@@ -685,7 +699,7 @@ void computation(int argc, char *argv[])
             nvtxRangePushA("OpenACC_RK2_updateInnerSolution");
             int queue = nProcessors;
 
-            conservativeWorkCommunicator->startAllExchanges();
+            conservativeWorkCommunicator->prepare1StartAllExchanges();
 #pragma acc parallel loop collapse(2) present(cellVolumeHostStorage, innerSolvedCellRawIdsHostStorage, cellConservativesHostStorageCollection[0:N_FIELDS], cellConservativesWorkHostStorageCollection[0:N_FIELDS], cellRHSHostStorageCollection[0:N_FIELDS]) async(queue)
             for (std::size_t i = 0; i < nInnerSolvedCells; ++i) {
                 for (int k = 0; k < N_FIELDS; ++k) {
@@ -699,6 +713,8 @@ void computation(int argc, char *argv[])
             }
             nvtxRangePop();
 
+            conservativeWorkCommunicator->prepare2StartAllExchanges();
+            conservativeWorkCommunicator->completeStartAllExchanges();
             conservativeWorkCommunicator->completeAllExchanges();
 
 #pragma acc wait

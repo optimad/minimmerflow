@@ -297,7 +297,9 @@ void CudaStorageCollectionBufferStreamer<container_t>::finalizeRead(int const &r
     std::size_t *rankList = (*m_targetLists)[rank].data();
     double * rankContainerData = rankContainer.data();
 
-    cuda_streamer::scatter(rankContainerData, dataDeviceStoragePtr, listSize, rankList, m_asyncQueues[rank]);
+    //acc_set_cuda_stream(m_asyncQueues[rank], m_cudaStreams[rank]);
+
+    cuda_streamer::scatter(rankContainerData, dataDeviceStoragePtr, listSize, rankList, m_queuesStreams.getOpenACCQueueByRank(rank));
 
 }
 
@@ -314,7 +316,9 @@ void CudaStorageCollectionBufferStreamer<container_t>::prepareWrite(const int &r
     std::size_t *rankList = (*m_sourceLists)[rank].data();
     double * rankContainerData = rankContainer.data();
 
-    cuda_streamer::gather(rankContainerData, dataDeviceStoragePtr, listSize, rankList, m_asyncQueues[rank]);
+    //acc_set_cuda_stream(m_asyncQueues[rank], m_cudaStreams[rank]);
+
+    cuda_streamer::gather(rankContainerData, dataDeviceStoragePtr, listSize, rankList, m_queuesStreams.getOpenACCQueueByRank(rank));
 
 }
 

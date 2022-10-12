@@ -22,7 +22,6 @@
  *
 \*---------------------------------------------------------------------------*/
 
-
 #include "communications.hcu"
 #include "communications.hpp"
 #include "containers.hcu"
@@ -70,12 +69,59 @@ void ListCommunicator::startAllExchanges()
         cudaStreamer->write(rank, buffer, getStreamableSendList(rank, cudaStreamer));
     }
     for (int rank : getSendRanks()) {
-//        cudaStreamSynchronize(cudaStreamer->m_cudaStreams[rank]);
+        cudaStreamSynchronize(cudaStreamer->m_queuesStreams.getCudaStreamByRank(rank));
         startSend(rank);
     }
 
 }
 
+void ListCommunicator::prepare1StartAllExchanges()
+{
+    if (getCommunicator() == MPI_COMM_NULL || !hasData()) {
+        return;
+    }
+
+    // Start the receives
+    for (int rank : getRecvRanks()) {
+        if (!isRecvActive(rank)) {
+            startRecv(rank);
+        }
+    }
+
+    // Wait previous sends
+    waitAllSends();
+
+    // Fill the buffer with the given field and start sending the data
+    //WARNING: the follow part works if only one writer has been added to the communicator
+    CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>> * cudaStreamer =
+            static_cast<CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>> *>(m_writers[0]);
+    for (int rank : getSendRanks()) {
+        bitpit::SendBuffer &buffer = getSendBuffer(rank);
+
+        cudaStreamer->prepareWrite(rank, buffer, getStreamableSendList(rank, cudaStreamer));
+    }
+}
+
+void ListCommunicator::prepare2StartAllExchanges()
+{
+    CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>> * cudaStreamer =
+            static_cast<CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>> *>(m_writers[0]);
+    for (int rank : getSendRanks()) {
+        bitpit::SendBuffer &buffer = getSendBuffer(rank);
+
+        cudaStreamer->write(rank, buffer, getStreamableSendList(rank, cudaStreamer));
+    }
+}
+
+void ListCommunicator::completeStartAllExchanges()
+{
+    CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>> * cudaStreamer =
+            static_cast<CudaStorageCollectionBufferStreamer<std::unordered_map<int, ScalarStorage<double>>> *>(m_writers[0]);
+    for (int rank : getSendRanks()) {
+        cudaStreamSynchronize(cudaStreamer->m_queuesStreams.getCudaStreamByRank(rank));
+        startSend(rank);
+    }
+}
 void ListCommunicator::initializeCudaObjects()
 {
     if (getCommunicator() == MPI_COMM_NULL || !hasData()) {
@@ -129,19 +175,49 @@ ListCommunicator::~ListCommunicator()
 {
 }
 
-OpenACCStreams::OpenACCStreams(int nFields)
+QueuesStreams::QueuesStreams(const std::unordered_map<int, std::vector<long>> & sourceLists,
+        const std::unordered_map<int, std::vector<long>> & targetLists, MPI_Comm communicator)
 {
-    m_cudaStreams.resize(nFields);
-    m_streamIds.resize(nFields, 0);
-    for (int i = 0; i < nFields; ++i) {
-        m_streamIds[i] = i;
-        cudaStreamCreate(&(m_cudaStreams[i]));
-        acc_set_cuda_stream(m_streamIds[i], m_cudaStreams[i]);
+    std::set<int> sourceRanks, targetRanks;
+    for (const auto & sourceList :sourceLists) {
+        sourceRanks.insert(sourceList.first);
+    }
+    for (const auto & targetList :targetLists) {
+        targetRanks.insert(targetList.first);
+    }
+    bool debug = sourceRanks == targetRanks;
+    MPI_Allreduce(MPI_IN_PLACE, &debug, 1, MPI_CXX_BOOL, MPI_LAND, communicator);
+
+    if (debug) {
+        std::runtime_error("========================================================> Source ranks different from Target ranks! Cannot continue...");
+    }
+
+
+    for (int r : sourceRanks) {
+        m_queueIds[r] = r+101;
+        cudaStreamCreate(&(m_cudaStreams[r]));
+        acc_set_cuda_stream(m_queueIds[r], m_cudaStreams[r]);
+    }
+
+    int rank;
+    MPI_Comm_rank(communicator, &rank);
+    for (const auto & queue : m_queueIds) {
+        std::cout << "Rank " << rank << " " << queue.first << "/" << queue.second << std::endl;
     }
 }
-OpenACCStreams::~OpenACCStreams()
+
+QueuesStreams::~QueuesStreams()
 {
     for (int i = 0; i < m_cudaStreams.size(); ++i) {
         cudaStreamDestroy(m_cudaStreams[i]);
     }
+}
+
+cudaStream_t & QueuesStreams::getCudaStreamByRank(int rank)
+{
+    return m_cudaStreams.at(rank);
+}
+int & QueuesStreams::getOpenACCQueueByRank(int rank)
+{
+    return m_queueIds.at(rank);
 }
