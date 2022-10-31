@@ -104,7 +104,7 @@ void getDomainData(ProblemType problemType, int &dimensions, std::array<double, 
             (*origin) = {{-5, -5, -5.}};
             break;
         case PROBLEM_VORTEX_XY_CUSTOM:
-            (*origin) = {{-4., -4., -4.}};
+            (*origin) = {{-5, -5, -5.}};
             break;
 
         case PROBLEM_SOD_X:
@@ -137,7 +137,7 @@ void getDomainData(ProblemType problemType, int &dimensions, std::array<double, 
             break;
 
         case PROBLEM_VORTEX_XY_CUSTOM:
-            (*length) = 15.;
+            (*length) = 20.;
             break;
 
         case PROBLEM_SOD_X:
@@ -313,7 +313,7 @@ void evalExactConservatives(ProblemType problemType, int dimensions, std::array<
 
             // Vortex data
             double r     = std::sqrt(csi * csi + eta * eta);
-            if (problemType == PROBLEM_VORTEX_XY_CUSTOM) r *= 1.8;
+   //       if (problemType == PROBLEM_VORTEX_XY_CUSTOM) r *= 1.8;
 
             double shape = VORTEX_BETA / (2 * M_PI) * std::exp(0.5 * (1 - r * r));
 
