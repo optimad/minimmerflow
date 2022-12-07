@@ -53,10 +53,8 @@ void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_allocateDevice()
 {
     std::size_t deviceBytes = this->cuda_deviceDataSize() * sizeof(dev_value_t);
 
-    CUDA_ERROR_CHECK(cudaMalloc((void **) &m_deviceData, deviceBytes));
-#if ENABLE_OPENACC
-    acc_map_data(this->data(), m_deviceData, deviceBytes);
-#endif
+    this->cuda_resize(this->cuda_deviceDataSize());
+
 }
 
 /*!
@@ -68,7 +66,28 @@ void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_freeDevice()
 #if ENABLE_OPENACC
     acc_unmap_data(this->data());
 #endif
-    CUDA_ERROR_CHECK(cudaFree(m_deviceData));
+    CUDA_DRIVER_ERROR_CHECK(MemoryResizing::cuda_free());
+}
+
+/*!
+ * Resize memory.
+ */
+template<typename container_t, typename value_t, typename dev_value_t>
+void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_resize(size_t new_sz)
+{
+    std::size_t deviceBytes = new_sz * sizeof(dev_value_t);
+
+#if ENABLE_OPENACC
+    acc_unmap_data(this->data());
+#endif
+
+    (void)cuda_grow(deviceBytes);
+
+#if ENABLE_OPENACC
+//  acc_unmap_data(this->data());
+//  acc_map_data(this->data(), (dev_value_t*)(m_dp), deviceBytes);
+    acc_map_data(this->data(), this->cuda_deviceData(), deviceBytes);
+#endif
 }
 
 /*!
@@ -77,7 +96,7 @@ void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_freeDevice()
 template<typename container_t, typename value_t, typename dev_value_t>
 void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_updateHost()
 {
-    CUDA_ERROR_CHECK(cudaMemcpy(this->data(), m_deviceData, this->cuda_deviceDataSize() * sizeof(dev_value_t), cudaMemcpyDeviceToHost));
+    CUDA_ERROR_CHECK(cudaMemcpy(this->data(), (dev_value_t*)(this->getCUdeviceptr()), this->cuda_deviceDataSize() * sizeof(dev_value_t), cudaMemcpyDeviceToHost));
 }
 
 /*!
@@ -86,7 +105,7 @@ void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_updateHost()
 template<typename container_t, typename value_t, typename dev_value_t>
 void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_updateDevice()
 {
-    CUDA_ERROR_CHECK(cudaMemcpy(m_deviceData, this->data(), this->cuda_deviceDataSize() * sizeof(dev_value_t), cudaMemcpyHostToDevice));
+    CUDA_ERROR_CHECK(cudaMemcpy(this->cuda_deviceData(), this->data(), this->cuda_deviceDataSize() * sizeof(dev_value_t), cudaMemcpyHostToDevice));
 }
 
 /*!
@@ -97,7 +116,7 @@ void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_updateDevice()
 template<typename container_t, typename value_t, typename dev_value_t>
 dev_value_t * ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_deviceData()
 {
-    return m_deviceData;
+    return (dev_value_t*)(this->getCUdeviceptr());
 }
 
 /*!
@@ -108,7 +127,7 @@ dev_value_t * ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_deviceDa
 template<typename container_t, typename value_t, typename dev_value_t>
 const dev_value_t * ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_deviceData() const
 {
-    return m_deviceData;
+    return (dev_value_t*)(this->getCUdeviceptr());
 }
 
 /*!
@@ -120,11 +139,11 @@ template<typename container_t, typename value_t, typename dev_value_t>
 void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_fillDevice(const dev_value_t &value)
 {
     if (value == 0) {
-        CUDA_ERROR_CHECK(cudaMemset(this->m_deviceData, value, this->cuda_deviceDataSize() * sizeof(dev_value_t)));
+        CUDA_ERROR_CHECK(cudaMemset((dev_value_t*)(this->getCUdeviceptr()), value, this->cuda_deviceDataSize() * sizeof(dev_value_t)));
     } else {
         const int BLOCK_SIZE = 512;
         const int N_BLOCKS   = 8;
-        containers::dev_setValue<<<BLOCK_SIZE, N_BLOCKS>>>(this->cuda_deviceDataSize(), value, this->m_deviceData);
+        containers::dev_setValue<<<BLOCK_SIZE, N_BLOCKS>>>(this->cuda_deviceDataSize(), value, (dev_value_t*)(this->getCUdeviceptr()));
     }
 }
 
@@ -138,7 +157,13 @@ void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_fillDevice(const 
 template<typename value_t, typename dev_value_t>
 std::size_t ValuePiercedStorage<value_t, dev_value_t>::cuda_deviceDataSize() const
 {
-    return (this->rawSize() * this->getFieldCount() * static_cast<double>(sizeof(value_t)) / sizeof(dev_value_t));
+    return this->cuda_deviceDataSize(this->rawSize());
+}
+
+template<typename value_t, typename dev_value_t>
+std::size_t ValuePiercedStorage<value_t, dev_value_t>::cuda_deviceDataSize(std::size_t count) const
+{
+    return (count * this->getFieldCount() * (static_cast<double>(sizeof(value_t)) / sizeof(dev_value_t)));
 }
 
 /*!
@@ -167,8 +192,8 @@ void ValueStorage<value_t, dev_value_t>::cuda_updateHost(std::size_t count, std:
  * \param offset is the offset, expressed in host elements, that will be used when
  * updating the data
  */
-template<typename value_t, typename dev_value_t>
-void ValueStorage<value_t, dev_value_t>::cuda_updateDevice(std::size_t count, std::size_t offset)
+template<typename container_t, typename value_t, typename dev_value_t>
+void ValueBaseStorage<container_t, value_t, dev_value_t>::cuda_updateDevice(std::size_t count, std::size_t offset)
 {
     std::size_t hostOffset = offset * sizeof(value_t);
 
@@ -244,6 +269,22 @@ void BaseStorageCollection<storage_t>::cuda_freeDevice()
     acc_unmap_data(m_dataCollection.data());
 #endif
     CUDA_ERROR_CHECK(cudaFree(m_deviceDataCollection));
+}
+
+/*!
+ * Resize memory
+ */
+template<typename storage_t>
+void BaseStorageCollection<storage_t>::cuda_resize(size_t new_sz)
+{
+    std::size_t nStorages = m_storages.size();
+    for (std::size_t k = 0; k < nStorages; ++k) {
+        storage_t &storage = m_storages[k];
+        storage.cuda_resize(new_sz);
+
+        dev_value_type *storageDEviceData = storage.cuda_deviceData();
+        CUDA_ERROR_CHECK(cudaMemcpy(m_deviceDataCollection + k, &storageDEviceData, sizeof(dev_value_type *), cudaMemcpyHostToDevice));
+    }
 }
 
 /*!

@@ -35,9 +35,12 @@
 #endif
 #include <vector>
 #include <array>
+#if ENABLE_CUDA
+#include <memoryResizing.hpp>
+#endif
 
 template<typename container_t, typename value_t, typename dev_value_t>
-class ValueBaseStorage : public container_t
+class ValueBaseStorage : public container_t, public MemoryResizing
 {
 
 public:
@@ -51,19 +54,23 @@ public:
 
     void cuda_updateHost();
     void cuda_updateDevice();
+    void cuda_resize(size_t new_sz);
 
     dev_value_t * cuda_deviceData();
     const dev_value_t * cuda_deviceData() const;
     virtual std::size_t cuda_deviceDataSize() const = 0;
 
     void cuda_fillDevice(const dev_value_t &value);
+
+    void cuda_updateDevice(std::size_t count, std::size_t offset = 0);
 #endif
 
 protected:
     using container_t::container_t;
 
 #if ENABLE_CUDA
-    dev_value_t *m_deviceData;
+
+    virtual std::size_t cuda_deviceDataSize(std::size_t count) const = 0;
 #endif
 
 };
@@ -88,6 +95,12 @@ public:
 
 #if ENABLE_CUDA
     std::size_t cuda_deviceDataSize() const override;
+#endif
+
+protected:
+
+#if ENABLE_CUDA
+    std::size_t cuda_deviceDataSize(std::size_t count) const override;
 #endif
 
 };
@@ -120,7 +133,6 @@ public:
     void cuda_updateHost(std::size_t count, std::size_t offset = 0);
     using ValueBaseStorage<std::vector<value_t>, value_t, dev_value_t>::cuda_updateHost;
 
-    void cuda_updateDevice(std::size_t count, std::size_t offset = 0);
     using ValueBaseStorage<std::vector<value_t>, value_t, dev_value_t>::cuda_updateDevice;
 
     std::size_t cuda_deviceDataSize() const override;
@@ -128,7 +140,7 @@ public:
 
 protected:
 #if ENABLE_CUDA
-    std::size_t cuda_deviceDataSize(std::size_t count) const;
+    std::size_t cuda_deviceDataSize(std::size_t count) const override;
 #endif
 
 };
@@ -163,6 +175,7 @@ public:
 #if ENABLE_CUDA
     void cuda_allocateDevice();
     void cuda_freeDevice();
+    void cuda_resize(size_t new_sz);
 
     void cuda_updateHost();
     void cuda_updateDevice();
