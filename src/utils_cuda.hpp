@@ -22,6 +22,9 @@
  *
 \*---------------------------------------------------------------------------*/
 
+#include <cuda.h>
+#include <iostream>
+
 #ifndef __MINIMMERFLOW_UTILS_CUDA_HPP__
 #define __MINIMMERFLOW_UTILS_CUDA_HPP__
 
@@ -35,6 +38,17 @@
     }                                                                            \
 }
 
+#define CUDA_DRIVER_ERROR_CHECK(call_res)                                                     \
+{                                                                               \
+    if (call_res != CUDA_SUCCESS) {                                             \
+        const char *errStr = NULL;                                              \
+        (void)cuGetErrorString(call_res, &errStr);                              \
+        std::cerr << "Driver API Error: " << __FILE__ << ":" << __LINE__ << std::endl;   \
+        std::cerr << "Driver API Error: "  << #call_res                         \
+            << "failed (" << (unsigned)call_res << "): " << errStr << std::endl;\
+	    exit(-1);                                                               \
+    }                                                                           \
+}
 
 #endif
 
