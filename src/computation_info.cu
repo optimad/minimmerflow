@@ -45,7 +45,15 @@ void ComputationInfo::cuda_initialize()
     m_solvedBoundaryInterfaceFluidRawIds.cuda_allocateDevice();
     m_solvedBoundaryInterfaceSigns.cuda_allocateDevice();
 
-    // Copy data to the device
+    cuda_updateComputationInfo();
+}
+
+
+/*!
+ * Initialize CUDA operations.
+ */
+void ComputationInfo::cuda_updateComputationInfo()
+{
     m_cellSolveMethods.cuda_updateDevice();
 
     m_solvedCellRawIds.cuda_updateDevice();
@@ -57,6 +65,16 @@ void ComputationInfo::cuda_initialize()
     m_solvedBoundaryInterfaceRawIds.cuda_updateDevice();
     m_solvedBoundaryInterfaceFluidRawIds.cuda_updateDevice();
     m_solvedBoundaryInterfaceSigns.cuda_updateDevice();
+}
+
+
+/*!
+ * Initialize CUDA operations.
+ */
+void ComputationInfo::cuda_updateMeshAndComputationInfo()
+{
+    cuda_updateMeshInfo();
+    cuda_updateComputationInfo();
 }
 
 /*!
@@ -80,3 +98,26 @@ void ComputationInfo::cuda_finalize()
     m_solvedBoundaryInterfaceFluidRawIds.cuda_freeDevice();
     m_solvedBoundaryInterfaceSigns.cuda_freeDevice();
 }
+
+/*!
+ * Resize GPU allocated memory
+ */
+void ComputationInfo::cuda_resize()
+{
+    // Initialize mesh operations
+    MeshGeometricalInfo::cuda_resize();
+
+    // Allocate device memory
+    m_cellSolveMethods.cuda_resize(getSolvedCellRawIds().size());
+
+    m_solvedCellRawIds.cuda_resize(getSolvedCellRawIds().size());
+
+    m_solvedUniformInterfaceRawIds.cuda_resize(getSolvedUniformInterfaceRawIds().size());
+    m_solvedUniformInterfaceOwnerRawIds.cuda_resize(getSolvedUniformInterfaceRawIds().size());
+    m_solvedUniformInterfaceNeighRawIds.cuda_resize(getSolvedUniformInterfaceRawIds().size());
+
+    m_solvedBoundaryInterfaceRawIds.cuda_resize(getSolvedBoundaryInterfaceRawIds().size());
+    m_solvedBoundaryInterfaceFluidRawIds.cuda_resize(getSolvedBoundaryInterfaceRawIds().size());
+    m_solvedBoundaryInterfaceSigns.cuda_resize(getSolvedBoundaryInterfaceRawIds().size());
+}
+

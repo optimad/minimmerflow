@@ -24,17 +24,26 @@
 
 #include "adaptation.hpp"
 #include "constants.hpp"
+#include "test.hpp"
 
 using namespace bitpit;
 
 namespace adaptation {
 /*
- * Hardcoded cell-selection for mesh refinement.
+ * Marks in VolOCtree object the cells to be refined
+ * Right noe Hardcoded cell-selection for mesh refinement.
  * TODO: See if this can be done in a better way.
+ * \param reference to the mesh object
+ * \param[out] number of cells to be refined
 */
-void markCellsForRefinement(VolOctree &mesh)
+int markCellsForRefinement(VolOctree &mesh)
 {
-    mesh.markCellForRefinement(0);
+    int nCellsToBeRefined = 0;
+    for (int iter = 0; iter < mesh.getCellCount()/2; iter++) {
+        mesh.markCellForRefinement(iter);
+        nCellsToBeRefined++;
+    }
+    return nCellsToBeRefined;
 }
 
 /*
@@ -54,23 +63,22 @@ void markCellsForRefinement(VolOctree &mesh)
  * \param[out] field of primitives at cells
  * \param[out] field of conservativesWork at cells
  */
-void meshAdaptation(VolOctree &mesh, ScalarStorage<std::size_t> &parentIDs,
-                    ScalarStorage<std::size_t> &currentIDs,
-                    ScalarStorageCollection<double> &parentCellRHS,
-                    ScalarStorageCollection<double> &parentCellConservatives,
-                    ScalarPiercedStorageCollection<double> &cellRHS,
-                    ScalarPiercedStorageCollection<double> &cellConservatives)
+void meshAdaptation(VolOctree &mesh, std::vector<std::vector<double>> &parentCellRHS, std::vector<std::vector<double>> &parentCellConservatives,
+                    ScalarPiercedStorageCollection<double> &cellRHS, ScalarPiercedStorageCollection<double> &cellConservatives)
 {
     std::vector<adaption::Info> adaptionData;
-    markCellsForRefinement(mesh);
+    int nCellsToBeRefined = markCellsForRefinement(mesh);
+    std::vector<long> oldLocalIDs(nCellsToBeRefined * 4);
+    for (int iField = 0; iField < N_FIELDS; iField++) {
+         parentCellRHS[iField].resize(nCellsToBeRefined);
+         parentCellConservatives[iField].resize(nCellsToBeRefined);
+    }
     bool trackAdaptation = true;
     adaptionData = mesh.adaptionPrepare(trackAdaptation);
 
     const std::size_t cellSize = mesh.getCellCount();
 
-#if ENABLE_CUDA
-    ScalarStorage<std::size_t> tempParentIDs;
-#endif
+    int localID(0);
     for (const adaption::Info &adaptionInfo : adaptionData) {
         // Consider only cell refinements
         if (adaptionInfo.entity != adaption::Entity::ENTITY_CELL) {
@@ -81,33 +89,21 @@ void meshAdaptation(VolOctree &mesh, ScalarStorage<std::size_t> &parentIDs,
 
         // Save parent data
         for (long parentId : adaptionInfo.previous) {
-            long parentRawId = mesh.getVertex(parentId).getId();
-#if ENABLE_CUDA
-            tempParentIDs.push_back(parentRawId);
-#else
-            for (int iField = 0; iField < N_FIELDS; iField++) {
-                parentCellRHS[parentRawId * N_FIELDS + iField] = cellRHS.at(parentId, iField);
-                parentCellConservatives[parentRawId * N_FIELDS + iField] = cellConservatives.at(parentId, iField);
+            for (int iter = 0; iter < 4; iter++) {
+                oldLocalIDs[4 * localID + iter] = localID;
             }
-#endif
+            for (int iField = 0; iField < N_FIELDS; iField++) {
+                parentCellRHS[iField][localID] = cellRHS[iField].at(parentId);
+                parentCellConservatives[iField][localID] = cellConservatives[iField].at(parentId);
+            }
+            localID++;
         }
     }
-#if ENABLE_CUDA
-    tempParentIDs.cuda_allocateDevice();
-    tempParentIDs.cuda_updateDevice();
-    for (int k = 0; k < N_FIELDS; k++) {
-        parentCellRHS[k].resize(tempParentIDs.size());
-        parentCellConservatives[k].resize(tempParentIDs.size());
-    }
-    parentCellRHS.cuda_allocateDevice();
-    parentCellConservatives.cuda_allocateDevice();
-    parentCellRHS.cuda_updateDevice();
-    parentCellConservatives.cuda_updateDevice();
-#endif
 
     bool squeeshPatchStorage = false;
     adaptionData = mesh.adaptionAlter(trackAdaptation, squeeshPatchStorage);
 
+    int count(0);
     for (const adaption::Info &adaptionInfo : adaptionData) {
         // Consider only cell refinements
         if (adaptionInfo.entity != adaption::Entity::ENTITY_CELL) {
@@ -119,28 +115,19 @@ void meshAdaptation(VolOctree &mesh, ScalarStorage<std::size_t> &parentIDs,
         // Assign data to children
         long parentId = adaptionInfo.previous.front();
         for (long currentId : adaptionInfo.current) {
-            long parentRawId = mesh.getVertex(parentId).getId();
             long currentRawId = mesh.getVertex(currentId).getId();
-#if ENABLE_CUDA
-            currentIDs.push_back(currentRawId);
-            parentIDs.push_back(parentRawId);
-#else
             for (int iField = 0; iField < N_FIELDS; iField++) {
-                cellRHS.set(currentId, iField, parentCellRHS[N_FIELDS * parentRawId + iField];
-                cellConservatives.set(currentId, iField, parentCellConservatives[N_FIELDS * parentRawId + iField];
+                int localID = oldLocalIDs[count];
+                cellRHS[iField].set(currentId, parentCellRHS[iField][localID]);
+                cellConservatives[iField].set(currentId, parentCellConservatives[iField][localID]);
             }
-#endif
+            count++;
         }
     }
 
-#if ENABLE_CUDA
-    cuda_storeParentField(tempParentIDs, parentCellRHS, cellRHS);
-    cuda_storeParentField(tempParentIDs, parentCellConservatives, cellConservatives);
-
-    tempParentIDs.cuda_freeDevice();
-#endif
     mesh.adaptionCleanup();
-    mesh.write();
+//  mesh.write();
+
 }
 
 /*

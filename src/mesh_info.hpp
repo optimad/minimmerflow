@@ -112,7 +112,9 @@ public:
 
 #if ENABLE_CUDA
     virtual void cuda_initialize();
+    void cuda_updateMeshInfo();
     virtual void cuda_finalize();
+    virtual void cuda_resize();
 #endif
 
 protected:

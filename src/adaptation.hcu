@@ -33,7 +33,7 @@ __global__ void dev_mapField(std::size_t *parentIDs, std::size_t *currentIDs,
                              double **previousField, double **field,
                              const std::size_t idsSize);
 
-__global__ void dev_storeParentField(const size_t *parentIDs, double **parentField,
+__global__ void dev_storeParentField(const size_t *tempParentIDs, double **parentField,
                                      double **field, const size_t parentFieldSize);
 }
 

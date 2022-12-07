@@ -357,7 +357,5 @@ void ComputationInfo::clearScalarStorages()
  */
 void ComputationInfo::postMeshAdaptation()
 {
-    clearScalarStorages();
-
     _extract();
 }

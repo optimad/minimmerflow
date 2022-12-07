@@ -31,13 +31,11 @@
 
 namespace adaptation {
 
-void markCellsForRefinement(bitpit::VolOctree &mesh);
+int markCellsForRefinement(bitpit::VolOctree &mesh);
 
 void meshAdaptation(bitpit::VolOctree &mesh,
-                    ScalarStorage<std::size_t> &parentIDs,
-                    ScalarStorage<std::size_t> &currentIDs,
-                    ScalarStorageCollection<double> &parentCellRHS,
-                    ScalarStorageCollection<double> &parentCellConservatives,
+                    std::vector<std::vector<double>> &parentCellRHS,
+                    std::vector<std::vector<double>> &parentCellConservatives,
                     ScalarPiercedStorageCollection<double> &cellRHS,
                     ScalarPiercedStorageCollection<double> &cellConservatives);
 

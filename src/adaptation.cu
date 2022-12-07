@@ -33,10 +33,15 @@ void cuda_storeParentField(ScalarStorage<std::size_t> &parentIDs,
 {
     const int BLOCK_SIZE = 256;
     int nBlocks = (parentIDs.size() + BLOCK_SIZE - 1) / BLOCK_SIZE;
-    dev_storeParentField<<<nBlocks, BLOCK_SIZE>>>(parentIDs.cuda_deviceData(),
-                                                  parentField.cuda_deviceCollectionData(),
-                                                  field.cuda_deviceCollectionData(),
-                                                  parentIDs.cuda_deviceDataSize());
+    std::cout << "parentIDs.cuda_deviceDataSize() " << parentIDs.cuda_deviceDataSize() << std::endl;
+    std::cout << "parentIDs.size() "                << parentIDs.size()                << std::endl;
+    std::cout << "nBlocks * BLOCK_SIZE "            << nBlocks * BLOCK_SIZE            << std::endl;
+    std::cout << "nBlocks "                         << nBlocks                         << std::endl;
+    std::cout << "BLOCK_SIZE "                      << BLOCK_SIZE                      << std::endl;
+//    dev_storeParentField<<<nBlocks, BLOCK_SIZE>>>(parentIDs.cuda_deviceData(),
+//                                                  parentField.cuda_deviceCollectionData(),
+//                                                  field.cuda_deviceCollectionData(),
+//                                                  parentIDs.cuda_deviceDataSize());
 }
 
 
@@ -90,17 +95,18 @@ __global__ void dev_mapField(std::size_t *parentIDs, std::size_t *currentIDs,
 }
 
 
-__global__ void dev_storeParentField(const size_t *parentIDs, double **parentField,
+__global__ void dev_storeParentField(const size_t *tempParentIDs, double **parentField,
                                      double **field, const size_t parentIDsSize)
 {
-    const size_t i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= parentIDsSize) {
-        return;
-    }
+    const std::size_t i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= parentIDsSize) return;
 
-    std::size_t position = parentIDs[i];
+    std::size_t tempParentID = *(tempParentIDs + i);
     for (int k = 0; k < N_FIELDS; k++) {
-        parentField[k][position] = field[k][position];
+//        parentField[k][tempParentID] = field[k][tempParentID];
+//        double dummy1 = parentField[k][i];
+          double dummy2 = field[k][tempParentID];
+//        parentField[k][i] = field[k][tempParentID];
     }
 }
 

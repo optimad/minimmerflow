@@ -42,64 +42,39 @@
 #endif
 #include <vector>
 #include <time.h>
+#if ENABLE_CUDA
+#include <cuda.h>
+#endif
 
 using namespace bitpit;
 
-void adaptMeshAndFields(double &minCellSize, ComputationInfo &computationInfo,
-                        VolOctree &mesh, ScalarPiercedStorageCollection<double> &cellRHS,
-                        ScalarPiercedStorageCollection<double> &cellConservatives,
-                        ScalarPiercedStorageCollection<double> &cellPrimitives,
-                        ScalarPiercedStorageCollection<double> &cellConservativesWork,
-                        ScalarStorage<std::size_t> &solvedCellRawIds,
-                        ScalarStorage<std::size_t> &solvedBoundaryInterfaceRawIds,
-                        ScalarStorage<int> &solvedBoundaryInterfaceBCs,
+// This function makes the AMR on CPU and then copies to resized GPU containers the mesh, computation and fields data
+void adaptMeshAndFields(double &minCellSize, ComputationInfo &computationInfo, VolOctree &mesh, ScalarPiercedStorageCollection<double> &cellRHS,
+                        ScalarPiercedStorageCollection<double> &cellConservatives, ScalarPiercedStorageCollection<double> &cellPrimitives,
+                        ScalarPiercedStorageCollection<double> &cellConservativesWork, ScalarStorage<std::size_t> &solvedCellRawIds,
+                        ScalarStorage<std::size_t> &solvedBoundaryInterfaceRawIds, ScalarStorage<int> &solvedBoundaryInterfaceBCs,
                         const problem::ProblemType problemType)
 {
-    std::cout <<  "Beginning mesh adaptation." << std::endl;
-    // Adaption (CPU-side)
-    ScalarStorage<std::size_t> parentIDs;
-    ScalarStorage<std::size_t> currentIDs;
+    // First perform adaption on CPU
 
-    ScalarStorageCollection<double> parentCellRHS(N_FIELDS);
-    ScalarStorageCollection<double> parentCellConservatives(N_FIELDS);
-    parentCellRHS.cuda_allocateDevice();
-    parentCellConservatives.cuda_allocateDevice();
+    /* Auxiliary containers to hold parent-field data */
+    std::vector<std::vector<double>> parentCellRHS(N_FIELDS);
+    std::vector<std::vector<double>> parentCellConservatives(N_FIELDS);
+    for (int iField = 0; iField < N_FIELDS; iField++) {
+         parentCellRHS[iField].resize(mesh.getCellCount());
+         parentCellConservatives[iField].resize(mesh.getCellCount());
+    }
 
-    adaptation::meshAdaptation(mesh, parentIDs, currentIDs, parentCellRHS,
-                               parentCellConservatives, cellRHS,
-                               cellConservatives);
-
-
-#if ENABLE_CUDA
-    // Resize CPU containers holding geometrical and computations-related info
+    /* AMR and field mapping on CPU */
+    adaptation::meshAdaptation(mesh, parentCellRHS, parentCellConservatives, cellRHS, cellConservatives);
     computationInfo.postMeshAdaptation();
 
-    // Reset and copy to GPU the relevant data, if needed.
-    computationInfo.cuda_finalize();
-    computationInfo.cuda_initialize();
-
-    // Reset and copy to GPU the variables and RHS-data at cells
-    cellRHS.cuda_freeDevice();
-    cellConservatives.cuda_freeDevice();
-    cellPrimitives.cuda_freeDevice();
-    cellConservativesWork.cuda_freeDevice();
-
-    cellRHS.cuda_allocateDevice();
-    cellConservatives.cuda_allocateDevice();
-    cellPrimitives.cuda_allocateDevice();
-    cellConservativesWork.cuda_allocateDevice();
-
-
-    cellRHS.cuda_updateDevice();
-    cellConservatives.cuda_updateDevice();
-#endif
-
-    // resize BCs related containers and give them again content
+    /* Resize BCs related containers and give them again content */
     int nSolvedCells = solvedCellRawIds.size();
     int nSolvedBoundaryInterfaces = solvedBoundaryInterfaceRawIds.size();
     solvedBoundaryInterfaceBCs.resize(nSolvedBoundaryInterfaces);
 
-    for (std::size_t i = 0; i < nSolvedBoundaryInterfaces; ++i) {
+    for (int i = 0; i < nSolvedBoundaryInterfaces; ++i) {
         const std::size_t interfaceRawId = solvedBoundaryInterfaceRawIds[i];
         const Interface &interface = mesh.getInterfaces().rawAt(interfaceRawId);
 
@@ -111,34 +86,32 @@ void adaptMeshAndFields(double &minCellSize, ComputationInfo &computationInfo,
             solvedBoundaryInterfaceBCs[i] = BC_WALL;
         }
     }
-#if ENABLE_CUDA
-    solvedBoundaryInterfaceBCs.cuda_freeDevice();
-    solvedBoundaryInterfaceBCs.cuda_allocateDevice();
-    solvedBoundaryInterfaceBCs.cuda_updateDevice();
-#endif
-    // Find smallest cell
+
+    /* Find smallest cell */
     minCellSize = std::numeric_limits<double>::max();
-    for (std::size_t i = 0; i < nSolvedCells; ++i) {
+    for (int i = 0; i < nSolvedCells; ++i) {
         const std::size_t cellRawId = solvedCellRawIds[i];
 
         minCellSize = std::min(computationInfo.rawGetCellSize(cellRawId), minCellSize);
     }
 
-    // Map fields
-    parentIDs.cuda_allocateDevice();
-    parentIDs.cuda_updateDevice();
-    currentIDs.cuda_allocateDevice();
-    currentIDs.cuda_updateDevice();
-    adaptation::mapFields(parentIDs, currentIDs, parentCellRHS,
-                          parentCellConservatives, cellRHS, cellConservatives);
 
-    //TODO: When OpenACC is on again, remove the following 4 lines updating
-    //the host
-    cellRHS.cuda_updateHost();
-    cellConservatives.cuda_updateHost();
+    // Having finished with memory resizing and mapping on CPU, it's now time to
+    // take care of the data on GPU:
 
-    parentCellRHS.cuda_freeDevice();
-    parentCellConservatives.cuda_freeDevice();
+    /* First computation and mesh info */
+    computationInfo.cuda_resize(); // Resize containers
+    computationInfo.cuda_updateMeshAndComputationInfo(); // Update data on GPU
+
+    /* Now solution containers */
+    /* Resize */
+    cellRHS.cuda_resize(mesh.getCellCount());
+    cellConservatives.cuda_resize(mesh.getCellCount());
+    cellPrimitives.cuda_resize(mesh.getCellCount());
+    cellConservativesWork.cuda_resize(mesh.getCellCount());
+    /* Update data on GPU */
+    cellRHS.cuda_updateDevice();
+    cellConservatives.cuda_updateDevice();
 
     log_memory_status();
 }
@@ -186,7 +159,6 @@ void computation(int argc, char *argv[])
     const double tMax = problem::getEndTime(problemType, dimensions);
 
     log::cout() << std::endl;
-    log::cout() << "Domain info: "  << std::endl;
     log::cout() << "  Origin .... " << origin << std::endl;
     log::cout() << "  Length .... " << length << std::endl;
 
@@ -506,8 +478,8 @@ void computation(int argc, char *argv[])
     int step = 0;
     double t = tMin;
     double nextSave = tMin;
-//  while (t < tMax) {
-    while (t < tMax && step < 2) {
+    while (t < tMax) {
+//  while (t < tMax && step < 6) {
         log::cout() << std::endl;
         log::cout() << "Step n. " << step << std::endl;
 
@@ -647,7 +619,7 @@ void computation(int argc, char *argv[])
 
         // Update timestep information
         t +=dt;
-        step++;
+      step++;
 
         // Write the solution
         if (t > nextSave){
@@ -674,11 +646,9 @@ void computation(int argc, char *argv[])
             diskTime += clock() - diskStart;
             nextSave += (tMax - tMin) / nSaves;
         }
-        adaptMeshAndFields(minCellSize, computationInfo, mesh, cellRHS,
-                           cellConservatives, cellPrimitives,
-                           cellConservativesWork, solvedCellRawIds,
-                           solvedBoundaryInterfaceRawIds,
-                           solvedBoundaryInterfaceBCs, problemType);
+        if (step % 10 == 0) adaptMeshAndFields(minCellSize, computationInfo, mesh, cellRHS, cellConservatives,
+                                               cellPrimitives, cellConservativesWork, solvedCellRawIds,
+                                               solvedBoundaryInterfaceRawIds, solvedBoundaryInterfaceBCs, problemType);
     }
     clock_t computeEnd = clock();
 
@@ -744,6 +714,10 @@ void computation(int argc, char *argv[])
     // Clean-up
 #if ENABLE_CUDA
     cellRHS.cuda_freeDevice();
+    cellPrimitives.cuda_freeDevice();
+    cellConservatives.cuda_freeDevice();
+    cellConservativesWork.cuda_freeDevice();
+    solvedBoundaryInterfaceBCs.cuda_freeDevice();
     computationInfo.cuda_finalize();
     euler::cuda_finalize();
 #endif
@@ -752,6 +726,15 @@ void computation(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
+    // Get the primary context and bind to it
+    CUcontext ctx;
+    CUdevice dev;
+    CUDA_DRIVER_ERROR_CHECK(cuInit(0)); // Initialize the driver API, before calling any other driver API function
+    CUDA_DRIVER_ERROR_CHECK(cuDevicePrimaryCtxRetain(&ctx, 0));
+    CUDA_DRIVER_ERROR_CHECK(cuCtxSetCurrent(ctx));
+    CUDA_DRIVER_ERROR_CHECK(cuCtxGetDevice(&dev));
+
+
     //
     // Initialization
     //
@@ -774,4 +757,5 @@ int main(int argc, char *argv[])
     // MPI finalization
     MPI_Finalize();
 #endif
+    CUDA_DRIVER_ERROR_CHECK(cuDevicePrimaryCtxRelease(0));
 }

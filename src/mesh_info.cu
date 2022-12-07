@@ -39,9 +39,18 @@ void MeshGeometricalInfo::cuda_initialize()
     m_interfaceNormals.cuda_allocateDevice();
     m_interfaceTangents.cuda_allocateDevice();
 
+    cuda_updateMeshInfo();
+}
+
+
+/*!
+ * Update device memory
+ */
+void MeshGeometricalInfo::cuda_updateMeshInfo()
+{
     // Copy data to the device
-    m_cellVolumes.cuda_updateDevice();
-    m_cellSizes.cuda_updateDevice();
+    m_cellVolumes.cuda_updateDevice(m_cellVolumes.cuda_deviceDataSize(), 0);
+    m_cellSizes.cuda_updateDevice(m_cellVolumes.cuda_deviceDataSize(), 0);
     m_cellCentroids.cuda_updateDevice();
 
     m_interfaceAreas.cuda_updateDevice();
@@ -64,6 +73,22 @@ void MeshGeometricalInfo::cuda_finalize()
     m_interfaceCentroids.cuda_freeDevice();
     m_interfaceNormals.cuda_freeDevice();
     m_interfaceTangents.cuda_freeDevice();
+}
+
+/*!
+ * Resize GPU allocated memory
+ */
+void MeshGeometricalInfo::cuda_resize()
+{
+    // Resize GPU arrays
+    m_cellVolumes.cuda_resize(m_volumePatch->getCellCount());
+    m_cellSizes.cuda_resize(m_volumePatch->getCellCount());
+    m_cellCentroids.cuda_resize(m_volumePatch->getCellCount());
+
+    m_interfaceAreas.cuda_resize(m_volumePatch->getInterfaceCount());
+    m_interfaceCentroids.cuda_resize(m_volumePatch->getInterfaceCount());
+    m_interfaceNormals.cuda_resize(m_volumePatch->getInterfaceCount());
+    m_interfaceTangents.cuda_resize(m_volumePatch->getInterfaceCount());
 }
 
 /*!
